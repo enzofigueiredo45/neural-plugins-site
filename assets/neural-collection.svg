@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" role="img">
+  <defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#020617"/></linearGradient><linearGradient id="gold" x1="0" x2="1"><stop stop-color="#f7d58a"/><stop offset="1" stop-color="#8b6b2b"/></linearGradient></defs>
+  <rect width="760" height="520" rx="34" fill="url(#g)"/><rect x="42" y="38" width="676" height="444" rx="26" fill="#0a0d18" stroke="#d6b66d" stroke-width="4"/>
+  <text x="380" y="105" fill="#f7d58a" font-family="Inter,Arial" font-size="28" text-anchor="middle" letter-spacing="8">NEURAL DSP</text><text x="380" y="180" fill="#f7d58a" font-family="Inter,Arial" font-size="66" font-weight="800" text-anchor="middle">ULTIMATE</text><text x="380" y="224" fill="#f7d58a" font-family="Inter,Arial" font-size="31" text-anchor="middle" letter-spacing="11">COLLECTION</text>
+  <path d="M145 365 L285 155 L380 365 L475 155 L615 365" fill="none" stroke="url(#gold)" stroke-width="18" stroke-linejoin="round"/><text x="380" y="372" fill="#f7d58a" font-family="Inter,Arial" font-size="150" font-weight="900" text-anchor="middle">18</text>
+  <text x="380" y="445" fill="#f7d58a" font-family="Inter,Arial" font-size="26" text-anchor="middle" letter-spacing="5">PLUGINS PARA GUITARRISTAS</text>
+</svg>
