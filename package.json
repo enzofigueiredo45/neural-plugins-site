@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "test": "node --check src/main.js"
+  }
+}
