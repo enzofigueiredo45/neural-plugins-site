@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "test": "node --check src/main.js"
+    "test": "node --check main.js"
   }
 }
