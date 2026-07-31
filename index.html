@@ -2,7 +2,12 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#03050b" />
+    <meta name="color-scheme" content="dark" />
     <meta
       name="description"
       content="Pacote premium de plugins, amp simulator, impulse responses e presets para guitarra com checkout seguro e entrega digital."
@@ -87,14 +92,22 @@
             alt="Pacote visual de plugins, amplificadores virtuais e presets para guitarra"
             loading="eager"
           />
-          <figcaption>Som moderno, visual premium e fluxo simples de compra.</figcaption>
+          <figcaption>
+            Som moderno, visual premium e fluxo simples de compra.
+          </figcaption>
         </figure>
       </section>
 
-      <section class="product-strip" id="produto" aria-labelledby="produto-title">
+      <section
+        class="product-strip"
+        id="produto"
+        aria-labelledby="produto-title"
+      >
         <div>
           <p class="eyebrow">Produto único</p>
-          <h2 id="produto-title">Tudo em um pacote para criar timbres profissionais.</h2>
+          <h2 id="produto-title">
+            Tudo em um pacote para criar timbres profissionais.
+          </h2>
         </div>
         <article class="product-card featured">
           <div>
@@ -114,10 +127,16 @@
         </article>
       </section>
 
-      <section class="section gallery" id="interfaces" aria-labelledby="interfaces-title">
+      <section
+        class="section gallery"
+        id="interfaces"
+        aria-labelledby="interfaces-title"
+      >
         <div class="section-heading centered">
           <p class="eyebrow">Visual do pacote</p>
-          <h2 id="interfaces-title">Interfaces inspiradas em amp simulators modernos.</h2>
+          <h2 id="interfaces-title">
+            Interfaces inspiradas em amp simulators modernos.
+          </h2>
           <p>
             Apresente o produto com imagens fortes, fundo escuro, cartões amplos
             e uma experiência mais parecida com sites premium de plugins.
@@ -142,7 +161,9 @@
               alt="Interface de amplificador virtual para guitarra rock e metal"
               loading="lazy"
             />
-            <figcaption>Amplificador virtual para rock, metal e worship.</figcaption>
+            <figcaption>
+              Amplificador virtual para rock, metal e worship.
+            </figcaption>
           </figure>
           <figure>
             <img
@@ -152,7 +173,9 @@
               alt="Interface de plugin com amplificadores em estúdio para timbres clean e blues"
               loading="lazy"
             />
-            <figcaption>Cleans, ambiências, blues e timbres expressivos.</figcaption>
+            <figcaption>
+              Cleans, ambiências, blues e timbres expressivos.
+            </figcaption>
           </figure>
         </div>
       </section>
@@ -162,14 +185,16 @@
           <p class="eyebrow">Compra segura</p>
           <h2>Pagamento externo, entrega digital e comunicação clara.</h2>
           <p>
-            O site coleta apenas nome e e-mail para liberar o checkout e apoiar
-            a entrega digital. O pagamento acontece em provedor especializado,
-            como Stripe, Mercado Pago, PayPal ou Hotmart.
+            O formulário valida nome e e-mail somente no navegador para liberar
+            o checkout. O pagamento e a entrega acontecem em provedor
+            especializado, como Stripe, Mercado Pago, PayPal ou Hotmart.
           </p>
         </div>
         <ul class="checklist">
           <li>Sem armazenamento de cartão neste site</li>
-          <li>Cadastro simples antes do checkout</li>
+          <li>
+            Cadastro validado no navegador, sem salvar dados pessoais neste site
+          </li>
           <li>Produto digital com suporte e instruções</li>
           <li>Texto transparente para anúncios e SEO</li>
           <li>Política de privacidade e termos acessíveis</li>
@@ -205,16 +230,22 @@
           />
           <label class="consent">
             <input id="buyerConsent" type="checkbox" required />
-            Aceito receber informações sobre minha compra digital e concordo
-            com a Política de Privacidade.
+            Aceito receber informações sobre minha compra digital e concordo com
+            a <a href="./privacy.html">Política de Privacidade</a>.
           </label>
-          <p id="formMessage" class="form-message" role="status" aria-live="polite"></p>
+          <p
+            id="formMessage"
+            class="form-message"
+            role="status"
+            aria-live="polite"
+          ></p>
           <button class="button primary" type="submit">
             Cadastrar e ir para checkout seguro
           </button>
           <small>
-            Este site não coleta nem armazena dados de cartão. O pagamento
-            acontece no provedor de checkout.
+            Este site não armazena nome, e-mail nem dados de cartão no
+            navegador. O pagamento acontece no provedor de checkout
+            criptografado.
           </small>
         </form>
       </section>
@@ -257,6 +288,14 @@
         <a href="./terms.html">Termos</a>
       </div>
     </footer>
+    <script>
+      window.va =
+        window.va ||
+        function () {
+          (window.vaq = window.vaq || []).push(arguments);
+        };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
     <script type="module" src="./main.js"></script>
   </body>
 </html>
