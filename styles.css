@@ -506,3 +506,131 @@ summary {
     scroll-behavior: auto;
   }
 }
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.catalog-grid .product-card {
+  min-height: 100%;
+  grid-template-columns: 1fr;
+  align-content: space-between;
+}
+
+.catalog-grid .featured {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(143, 183, 255, 0.22), transparent 22rem),
+    linear-gradient(160deg, rgba(21, 27, 45, 0.98), rgba(9, 12, 23, 0.98));
+}
+
+.portals {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 1rem;
+}
+
+.portal-card {
+  border: 1px solid var(--line);
+  border-radius: clamp(1.4rem, 2.6vw, 2.4rem);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    #070a13;
+  box-shadow: var(--shadow);
+}
+
+.portal-card.seller {
+  background:
+    radial-gradient(circle at 90% 8%, rgba(143, 183, 255, 0.24), transparent 22rem),
+    linear-gradient(160deg, rgba(21, 27, 45, 0.96), rgba(9, 12, 23, 0.96));
+}
+
+.mini-form,
+.metrics-grid {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+}
+
+.mini-form input,
+input[type="password"] {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1.05rem 1rem;
+  background: #05070d;
+  color: var(--text);
+  font: inherit;
+}
+
+.metrics-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.metrics-grid strong {
+  border: 1px solid var(--line);
+  border-radius: 1.2rem;
+  padding: 1rem;
+  font-size: clamp(1.45rem, 3vw, 2.4rem);
+  letter-spacing: -0.06em;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.metrics-grid span {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.funnel {
+  background: radial-gradient(circle at 50% 0%, rgba(143, 183, 255, 0.12), transparent 32rem);
+}
+
+.funnel-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.7rem;
+}
+
+.funnel-steps span {
+  min-height: 5rem;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--accent);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+}
+
+.seo {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
+}
+
+@media (max-width: 1180px) {
+  .catalog-grid,
+  .portals {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-grid,
+  .funnel-steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .metrics-grid,
+  .funnel-steps {
+    grid-template-columns: 1fr;
+  }
+}
