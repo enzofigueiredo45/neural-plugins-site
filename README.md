@@ -1,6 +1,6 @@
-# Neural Plugins Site
+# Neural X Site
 
-Site estático para vender o pacote digital **Neural Amp Pack**.
+Site estático para vender o pacote digital **Neural X Pack**.
 
 ## Deploy na Vercel
 
@@ -33,3 +33,25 @@ python3 -m http.server 4173
 ```
 
 Depois abra `http://127.0.0.1:4173/`.
+
+## Backend demo
+
+Este repositório agora inclui um backend Node.js simples para demonstração local:
+
+```bash
+npm start
+```
+
+Credenciais de teste:
+
+- Cliente: `demo@neuralx.com` / `neuralx123`
+- Vendedor: `seller@neuralx.com` / `neuralx123`
+
+Endpoints disponíveis:
+
+- `POST /api/login/client`
+- `POST /api/login/seller`
+- `GET /api/orders`
+- `GET /api/seller/metrics`
+
+Para produção, substitua os dados em memória por banco de dados, hash de senha, sessões seguras, antifraude e integração real com checkout/licenças.
