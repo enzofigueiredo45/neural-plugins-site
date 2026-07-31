@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#020305" />
     <meta name="color-scheme" content="dark" />
-    <meta name="description" content="Loja premium de licenças digitais oficiais para plugins de áudio, FL Studio e REAPER por R$ 29,90, com checkout seguro, área do cliente e painel de vendedores." />
-    <meta name="keywords" content="plugins neural, plugins de guitarra, FL Studio, REAPER, licenças digitais, plugin VST, amp simulator, loja de plugins, produção musical" />
+    <meta name="description" content="Neural X: loja premium de licenças digitais oficiais para Pacote Neural X, FL Studio e REAPER por R$ 29,90 com carrinho, checkout seguro e área do cliente." />
+    <meta name="keywords" content="Neural X, pacote neural, plugins de guitarra, FL Studio, REAPER, licenças digitais, plugin VST, amp simulator" />
     <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
-    <link rel="canonical" href="https://neural-plugins-site.vercel.app/" />
-    <meta property="og:title" content="Neural Plugins Store | Plugins, FL Studio e REAPER" />
-    <meta property="og:description" content="Catálogo premium com checkout seguro, login de clientes e cockpit único para vendedores acompanharem pedidos, entregas e funis." />
+    <link rel="canonical" href="https://neural-x.vercel.app/" />
+    <meta property="og:title" content="Neural X | Pacote Neural, FL Studio e REAPER" />
+    <meta property="og:description" content="Compre produtos digitais oficiais por R$ 29,90 com carrinho e checkout seguro." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pt_BR" />
-    <title>Neural Plugins Store | Plugins, FL Studio e REAPER por R$ 29,90</title>
+    <title>Neural X | Pacote Neural, FL Studio e REAPER por R$ 29,90</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
@@ -22,12 +22,11 @@
       {
         "@context": "https://schema.org",
         "@type": "Store",
-        "name": "Neural Plugins Store",
-        "description": "Loja de licenças digitais oficiais para plugins de áudio, FL Studio e REAPER.",
-        "url": "https://neural-plugins-site.vercel.app/",
-        "sameAs": [],
+        "name": "Neural X",
+        "description": "Loja de licenças digitais oficiais para Pacote Neural X, FL Studio e REAPER.",
+        "url": "https://neural-x.vercel.app/",
         "makesOffer": [
-          {"@type":"Offer","priceCurrency":"BRL","price":"29.90","availability":"https://schema.org/InStock","itemOffered":{"@type":"SoftwareApplication","name":"Plugins de áudio selecionados","applicationCategory":"MultimediaApplication","operatingSystem":"Windows, macOS"}},
+          {"@type":"Offer","priceCurrency":"BRL","price":"29.90","availability":"https://schema.org/InStock","itemOffered":{"@type":"SoftwareApplication","name":"Pacote Neural X","applicationCategory":"MultimediaApplication","operatingSystem":"Windows, macOS"}},
           {"@type":"Offer","priceCurrency":"BRL","price":"29.90","availability":"https://schema.org/InStock","itemOffered":{"@type":"SoftwareApplication","name":"FL Studio","applicationCategory":"MultimediaApplication","operatingSystem":"Windows, macOS"}},
           {"@type":"Offer","priceCurrency":"BRL","price":"29.90","availability":"https://schema.org/InStock","itemOffered":{"@type":"SoftwareApplication","name":"REAPER","applicationCategory":"MultimediaApplication","operatingSystem":"Windows, macOS, Linux"}}
         ]
@@ -36,78 +35,75 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="#inicio" aria-label="Neural Plugins Store início"><span>Neural</span> Store</a>
+      <a class="brand" href="./index.html" aria-label="Neural X início"><span>Neural</span> X</a>
       <nav aria-label="Navegação principal">
-        <a href="#catalogo">Catálogo</a>
-        <a href="#login">Login</a>
-        <a href="#vendedores">Vendedores</a>
-        <a href="#seguranca">Segurança</a>
-        <a href="#seo">SEO</a>
-        <a href="#checkout">Comprar</a>
+        <a href="#produtos">Produtos</a>
+        <a href="./cart.html">Carrinho <span id="cartCount" class="cart-count">0</span></a>
+        <a href="./client-login.html">Login cliente</a>
+        <a href="./seller-login.html">Login vendedor</a>
       </nav>
     </header>
 
-    <main id="inicio">
-      <section class="hero">
+    <main>
+      <section class="hero storefront-hero">
         <div class="hero-copy">
-          <p class="eyebrow">Loja digital premium para produtores</p>
-          <h1>Plugins, FL Studio e REAPER por R$ 29,90.</h1>
-          <p class="lead">Uma vitrine escura, minimalista e de alto impacto para vender licenças digitais oficiais, com jornada de compra rápida, área do cliente e painel operacional para vendedores acompanharem faturamento, carrinhos e entregas.</p>
+          <p class="eyebrow">Neural X Store</p>
+          <h1>Plugins e DAWs por R$ 29,90.</h1>
+          <p class="lead">Compre o Pacote Neural X, FL Studio e REAPER em uma loja organizada, com carrinho, checkout externo seguro e área do cliente para acessar pedidos e downloads.</p>
           <div class="hero-actions">
-            <a class="button primary" href="#catalogo">Ver produtos</a>
-            <a class="button secondary" href="#vendedores">Painel vendedor</a>
+            <a class="button primary" href="#produtos">Comprar agora</a>
+            <a class="button secondary" href="./client-login.html">Entrar como cliente</a>
           </div>
           <ul class="trust-list" aria-label="Diferenciais da loja">
-            <li>Checkout externo criptografado e sem cartão salvo no site</li>
-            <li>Produtos digitais oficiais com entrega rastreável</li>
-            <li>SEO técnico, dados estruturados e conteúdo focado em conversão</li>
+            <li>Vitrine pública sem painel de vendedor exposto ao cliente</li>
+            <li>Carrinho persistente no navegador e checkout externo</li>
+            <li>Produtos digitais oficiais com entrega e suporte rastreáveis</li>
           </ul>
         </div>
         <figure class="hero-card image-card">
-          <img src="./assets/neural-collection.svg" width="760" height="520" alt="Coleção visual de plugins de áudio em vitrine premium escura" loading="eager" />
-          <figcaption>Experiência inspirada em lojas premium de áudio: fundo preto, cards grandes, tipografia forte e CTAs claros.</figcaption>
+          <img src="./assets/neural-collection.svg" width="760" height="520" alt="Pacote Neural X com plugins de áudio" loading="eager" />
+          <figcaption>Neural X: loja premium para produtos digitais de áudio.</figcaption>
         </figure>
       </section>
 
-      <section class="product-strip" id="catalogo" aria-labelledby="catalogo-title">
-        <div>
-          <p class="eyebrow">Catálogo R$ 29,90</p>
-          <h2 id="catalogo-title">Todos os produtos com preço único e compra direta.</h2>
-          <p>Use esta vitrine apenas para softwares que você tem autorização legal para vender, revender ou distribuir.</p>
+      <section class="section products-section" id="produtos" aria-labelledby="produtos-title">
+        <div class="section-heading centered">
+          <p class="eyebrow">Produtos reais da loja</p>
+          <h2 id="produtos-title">Escolha seu produto digital.</h2>
+          <p>As páginas abaixo são focadas no produto, com descrição clara, preço, compatibilidade e botão para adicionar ao carrinho.</p>
         </div>
-        <div class="catalog-grid">
-          <article class="product-card featured"><p class="badge">Plugins Neural</p><h3>Pacote de plugins</h3><p>Amp simulators, timbres modernos, presets e ferramentas para guitarra, baixo e produção.</p><div class="price-box"><span>Preço único</span><strong>R$ 29,90</strong><button class="button primary add-cart" data-product="Plugins Neural">Comprar</button></div></article>
-          <article class="product-card"><p class="badge">DAW oficial</p><h3>FL Studio</h3><p>Licença digital para produção, beatmaking, gravação e mixagem em home studio.</p><div class="price-box"><span>Preço único</span><strong>R$ 29,90</strong><button class="button primary add-cart" data-product="FL Studio">Comprar</button></div></article>
-          <article class="product-card"><p class="badge">DAW leve</p><h3>REAPER</h3><p>Ambiente flexível para gravação multipista, edição, mixagem e masterização.</p><div class="price-box"><span>Preço único</span><strong>R$ 29,90</strong><button class="button primary add-cart" data-product="REAPER">Comprar</button></div></article>
+        <div class="store-grid">
+          <article class="store-product">
+            <img src="./assets/neural-collection.svg" alt="Pacote Neural X" loading="lazy" />
+            <p class="badge">Pacote Neural X</p>
+            <h3>Pacote Neural X</h3>
+            <p>Pack com Fortin NTS Suite, Soldano SLO-100 X, Petrucci X, Rabea X, Tim Henson X, Mantra, Misha Mansoor X, Darkglass Ultimate e John Mayer X.</p>
+            <strong class="store-price">R$ 29,90</strong>
+            <div class="card-actions"><a class="button secondary" href="./produto-neural-x.html">Ver detalhes</a><button class="button primary add-cart" data-id="neural-x" data-name="Pacote Neural X" data-price="29.90">Adicionar</button></div>
+          </article>
+          <article class="store-product">
+            <div class="product-logo">FL</div>
+            <p class="badge">DAW oficial</p>
+            <h3>FL Studio</h3>
+            <p>Licença digital para produção, beatmaking, gravação e mixagem em home studio. Ideal para criação rápida de músicas e beats.</p>
+            <strong class="store-price">R$ 29,90</strong>
+            <div class="card-actions"><a class="button secondary" href="./produto-fl-studio.html">Ver detalhes</a><button class="button primary add-cart" data-id="fl-studio" data-name="FL Studio" data-price="29.90">Adicionar</button></div>
+          </article>
+          <article class="store-product">
+            <div class="product-logo">R</div>
+            <p class="badge">DAW leve</p>
+            <h3>REAPER</h3>
+            <p>Ambiente flexível para gravação multipista, edição, mixagem e masterização em Windows, macOS e Linux.</p>
+            <strong class="store-price">R$ 29,90</strong>
+            <div class="card-actions"><a class="button secondary" href="./produto-reaper.html">Ver detalhes</a><button class="button primary add-cart" data-id="reaper" data-name="REAPER" data-price="29.90">Adicionar</button></div>
+          </article>
         </div>
       </section>
 
-      <section class="section gallery" aria-labelledby="interfaces-title">
-        <div class="section-heading centered"><p class="eyebrow">Visual premium</p><h2 id="interfaces-title">Cards grandes, imagens fortes e layout no estilo áudio boutique.</h2><p>O design usa contraste alto, gradientes sutis, navegação sticky, microcopy de confiança e uma estrutura de catálogo fácil de indexar.</p></div>
-        <div class="gallery-grid">
-          <figure><img src="./assets/archetype-petrucci-x.svg" width="720" height="450" alt="Interface de plugin para timbres high gain e lead" loading="lazy" /><figcaption>Plugins para guitarra, baixo, vocal e mixagem.</figcaption></figure>
-          <figure><img src="./assets/soldano-slo-100-x.svg" width="720" height="450" alt="Amplificador virtual para rock e metal" loading="lazy" /><figcaption>Entrega digital com instruções e suporte.</figcaption></figure>
-          <figure><img src="./assets/john-mayer-x.svg" width="720" height="450" alt="Plugin com timbres clean, blues e ambiências" loading="lazy" /><figcaption>Checkout simples para reduzir abandono.</figcaption></figure>
-        </div>
-      </section>
-
-      <section class="section portals" id="login" aria-labelledby="login-title">
-        <div class="portal-card"><p class="eyebrow">Área do cliente</p><h2 id="login-title">Login para clientes.</h2><p>Após comprar, o cliente acessa downloads, chaves, comprovantes, histórico de pedidos e suporte.</p><form class="mini-form"><input type="email" placeholder="cliente@email.com" aria-label="E-mail do cliente" /><input type="password" placeholder="Senha" aria-label="Senha do cliente" /><button class="button secondary" type="button">Entrar no portal</button></form></div>
-        <div class="portal-card seller" id="vendedores"><p class="eyebrow">Cockpit dos vendedores</p><h2>Painel único com vendas e funis.</h2><p>Visão operacional parecida com marketplaces: compras, entregas, faturamento, visitas, intenções de compra e carrinhos.</p><div class="metrics-grid"><strong>R$ 8.721<span>Faturamento</span></strong><strong>312<span>Compras</span></strong><strong>1.984<span>Visitas</span></strong><strong>428<span>Carrinhos</span></strong></div></div>
-      </section>
-
-      <section class="section funnel" aria-labelledby="funil-title"><div class="section-heading"><p class="eyebrow">Métricas comerciais</p><h2 id="funil-title">Funil de venda pronto para instrumentar.</h2><p>Eventos simulados no front-end mostram o que deve ser conectado a Analytics, CRM ou banco de dados no backend.</p></div><div class="funnel-steps"><span>Visita</span><span>Produto visto</span><span>Intenção</span><span>Carrinho</span><span>Compra enviada</span></div></section>
-
-      <section class="section split" id="seguranca"><div><p class="eyebrow">Segurança máxima no estático</p><h2>Headers fortes, checkout externo e privacidade por padrão.</h2><p>O site aplica políticas de segurança no deploy, não processa cartão localmente e deixa claro que dados sensíveis devem ficar em provedores certificados.</p></div><ul class="checklist"><li>CSP, HSTS, X-Frame-Options e Permissions-Policy configurados</li><li>Sem armazenamento local de cartão, senha ou documento</li><li>Formulários com validação e consentimento LGPD</li><li>Login e painel desenhados para integração futura com backend seguro</li><li>Termos reforçam venda apenas de licenças oficiais/autorizadas</li></ul></section>
-
-      <section class="section split seo" id="seo"><div><p class="eyebrow">SEO para buscar o topo</p><h2>Base técnica otimizada para ranqueamento.</h2><p>Ninguém pode garantir top 1, mas a página agora tem título rico, meta description, canonical, conteúdo semântico, schema.org, performance estática e links internos.</p></div><ul class="checklist"><li>Palavras-chave naturais para plugins, DAWs e licenças digitais</li><li>Dados estruturados de loja, ofertas e software</li><li>Imagens com alt text descritivo</li><li>Conteúdo em português brasileiro focado em intenção de compra</li><li>Arquitetura preparada para páginas individuais de produtos</li></ul></section>
-
-      <section class="section checkout" id="checkout"><form class="checkout-box" id="leadForm" novalidate><p class="eyebrow">Checkout seguro</p><h2>Finalize sua compra digital.</h2><p id="selectedProduct">Produto selecionado: escolha um item do catálogo.</p><label for="buyerName">Nome completo</label><input id="buyerName" name="buyerName" type="text" autocomplete="name" minlength="2" required placeholder="Seu nome" /><label for="buyerEmail">E-mail para entrega</label><input id="buyerEmail" name="buyerEmail" type="email" autocomplete="email" required placeholder="voce@email.com" /><label class="consent"><input id="buyerConsent" type="checkbox" required /> Confirmo que quero comprar uma licença digital oficial/autorizada e aceito a <a href="./privacy.html">Política de Privacidade</a>.</label><p id="formMessage" class="form-message" role="status" aria-live="polite"></p><button class="button primary" type="submit">Ir para checkout criptografado</button><small>Substitua o link de teste no JavaScript pelo checkout real de Stripe, Mercado Pago, PayPal, Hotmart ou provedor equivalente.</small></form></section>
+      <section class="section split" id="seguranca"><div><p class="eyebrow">Compra protegida</p><h2>Loja pública limpa, carrinho e checkout seguro.</h2><p>O cliente vê produtos, carrinho, login e checkout. Métricas, faturamento e funil ficam apenas no portal do vendedor após login.</p></div><ul class="checklist"><li>Pagamento feito em provedor externo criptografado</li><li>Dados financeiros sensíveis não são salvos no site</li><li>Backend base com APIs de login, pedidos e métricas</li><li>Estrutura pronta para trocar dados demo por banco real</li><li>Termos reforçam venda apenas de licenças oficiais/autorizadas</li></ul></section>
     </main>
 
-    <footer class="site-footer"><p>© 2026 Neural Plugins Store. Loja de produtos digitais oficiais para produção musical.</p><div><a href="./privacy.html">Privacidade</a><a href="./terms.html">Termos</a></div></footer>
-    <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};</script>
-    <script defer src="/_vercel/insights/script.js"></script>
+    <footer class="site-footer"><p>© 2026 Neural X. Produtos digitais oficiais para produção musical.</p><div><a href="./privacy.html">Privacidade</a><a href="./terms.html">Termos</a><a href="./seller-login.html">Vendedor</a></div></footer>
     <script type="module" src="./main.js"></script>
   </body>
 </html>
