@@ -30,3 +30,25 @@ leadForm?.addEventListener('submit', (event) => {
   showMessage('Cadastro salvo. Redirecionando para o checkout seguro...');
   window.location.assign(checkoutUrl);
 });
+
+
+const loginForm = document.querySelector('#loginForm');
+const loginMessage = document.querySelector('#loginMessage');
+
+loginForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  if (!loginForm.checkValidity()) {
+    loginForm.reportValidity();
+    if (loginMessage) {
+      loginMessage.textContent = 'Use um e-mail válido e senha com pelo menos 8 caracteres.';
+      loginMessage.dataset.state = 'error';
+    }
+    return;
+  }
+
+  if (loginMessage) {
+    loginMessage.textContent = 'Demonstração: login validado. Conecte um backend seguro para produção.';
+    loginMessage.dataset.state = 'success';
+  }
+});
