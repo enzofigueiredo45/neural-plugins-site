@@ -1,57 +1,51 @@
 # Neural X Site
 
-Site estático para vender o pacote digital **Neural X Pack**.
+Loja Node/Express para produtos digitais da Neural X, com vitrine pública, carrinho, login, checklist de publicação e endpoint server-side para Stripe Checkout.
 
-## Deploy na Vercel
-
-Este projeto não usa build step. A Vercel deve publicar os arquivos da raiz do repositório:
-
-- `index.html`
-- `styles.css`
-- `main.js`
-- `assets/`
-- `privacy.html`
-- `terms.html`
-- `vercel.json`
-
-Se o deploy aparecer sem layout ou com texto antigo, confira no painel da Vercel:
-
-1. **Git Branch**: use a branch que recebeu o último push.
-2. **Root Directory**: deixe vazio ou como `./`.
-3. **Build Command**: deixe vazio.
-4. **Output Directory**: deixe vazio.
-5. **Install Command**: pode ficar vazio, porque não há dependências.
-6. Faça **Redeploy** usando a opção **Clear Build Cache**.
-
-A captura sem CSS normalmente indica que a Vercel está servindo um commit antigo ou uma configuração de projeto apontando para outra pasta/branch.
-
-## Teste local
+## Rodar localmente
 
 ```bash
-npm test
-python3 -m http.server 4173
-```
-
-Depois abra `http://127.0.0.1:4173/`.
-
-## Backend demo
-
-Este repositório agora inclui um backend Node.js simples para demonstração local:
-
-```bash
+npm install
 npm start
 ```
 
-Credenciais de teste:
+Abra `http://127.0.0.1:4173/`.
+
+Credenciais demo locais são criadas apenas fora de produção, salvo se `DEMO_ACCOUNTS_ENABLED=false`:
 
 - Cliente: `demo@neuralx.com` / `neuralx123`
 - Vendedor: `seller@neuralx.com` / `neuralx123`
 
-Endpoints disponíveis:
+## Configuração para produção
 
-- `POST /api/login/client`
-- `POST /api/login/seller`
-- `GET /api/orders`
-- `GET /api/seller/metrics`
+Copie `.env.example` para o painel de variáveis da hospedagem. Não commite `.env` com segredos reais.
 
-Para produção, substitua os dados em memória por banco de dados, hash de senha, sessões seguras, antifraude e integração real com checkout/licenças.
+Variáveis mínimas:
+
+- `NODE_ENV=production`
+- `SITE_URL=https://seu-dominio.com`
+- `SESSION_SECRET` com valor longo e único
+- `REDIS_URL` para sessões e rate limit de login
+- `DATABASE_URL` com Postgres em produção
+- `STRIPE_SECRET_KEY` no cofre/variáveis secretas da hospedagem
+- `STRIPE_PRICE_NEURAL_X`, `STRIPE_PRICE_FL_STUDIO`, `STRIPE_PRICE_REAPER`
+- `DEMO_ACCOUNTS_ENABLED=false`
+
+Veja `CONFIGURACOES_PUBLICACAO.md` para a lista completa de pendências antes de vender em produção.
+
+## Stripe
+
+O front-end envia o carrinho para `POST /api/create-checkout-session`. O servidor valida os IDs dos produtos contra uma lista permitida e usa os Price IDs configurados por variável de ambiente. Nunca coloque `sk_test` ou `sk_live` em HTML, JS público ou arquivos versionados.
+
+## SEO e confiança
+
+O projeto inclui `robots.txt`, `sitemap.xml`, metadados básicos, políticas públicas e checklist de publicação. Antes de publicar, configure domínio próprio, Search Console, contato/suporte, política de reembolso, comprovação de licença/autorização dos produtos e webhook do Stripe para liberação automática dos pedidos.
+
+## Testes úteis
+
+```bash
+node --check main.js
+node --check server.js
+npm audit --audit-level=high
+npm start
+```

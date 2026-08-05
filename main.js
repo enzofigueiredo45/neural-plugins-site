@@ -1,4 +1,3 @@
-const checkoutUrl = "https://buy.stripe.com/test_substitua_pelo_seu_link";
 const CART_KEY = "neuralx_cart";
 
 const readCart = () => {
@@ -53,10 +52,29 @@ if (cartList && cartTotal) {
     cartTotal.textContent = money(cart.reduce((total, item) => total + (item.price || 0) * (item.quantity || 0), 0));
   };
   document.querySelector("#clearCart")?.addEventListener("click", () => { writeCart([]); renderCart(); updateCartCount(); });
-  document.querySelector("#checkoutButton")?.addEventListener("click", () => {
-    if (!readCart().length) return;
-    window.va?.("event", { name: "checkout_iniciado", data: { items: readCart().length } });
-    window.location.assign(checkoutUrl);
+  document.querySelector("#checkoutButton")?.addEventListener("click", async () => {
+    const cart = readCart();
+    if (!cart.length) return;
+    const button = document.querySelector("#checkoutButton");
+    try {
+      if (button) button.disabled = true;
+      const csrfToken = await fetchCsrf();
+      const headers = { "Content-Type": "application/json" };
+      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ cart })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.url) throw new Error(data.error || "checkout_error");
+      window.va?.("event", { name: "checkout_iniciado", data: { items: cart.length } });
+      window.location.assign(data.url);
+    } catch (err) {
+      alert("Checkout ainda não configurado. Verifique STRIPE_SECRET_KEY e os STRIPE_PRICE_* no servidor.");
+      if (button) button.disabled = false;
+    }
   });
   renderCart();
 }
@@ -75,7 +93,7 @@ async function fetchCsrf() {
 const loginForm = document.querySelector("#loginForm");
 loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const submitBtn = document.getElementById('submitBtn');
+  const submitBtn = loginForm.querySelector('button[type="submit"]');
   const role = loginForm.dataset.role;
   const message = document.querySelector("#loginMessage");
   if (!role) {
@@ -87,7 +105,7 @@ loginForm?.addEventListener("submit", async (event) => {
   const email = loginForm.email.value;
   const password = loginForm.password.value;
   try {
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
     const csrfToken = await fetchCsrf();
     const headers = { "Content-Type": "application/json" };
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
@@ -100,7 +118,7 @@ loginForm?.addEventListener("submit", async (event) => {
   } catch (err) {
     message.textContent = "Use demo@neuralx.com / neuralx123 para cliente ou seller@neuralx.com / neuralx123 para vendedor.";
     message.dataset.state = "error";
-    submitBtn.disabled = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 });
 

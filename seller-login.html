@@ -1,1 +1,57 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Login do Vendedor | Neural X</title><link rel="stylesheet" href="./styles.css" /></head><body><header class="site-header"><a class="brand" href="./index.html"><span>Neural</span> X</a><nav><a href="./index.html#produtos">Produtos</a><a href="./client-login.html">Login cliente</a></nav></header><main class="section auth-page"><form class="checkout-box" id="loginForm" data-role="seller"><p class="eyebrow">Área restrita</p><h1>Entrar como vendedor</h1><p>Métricas, faturamento, pedidos enviados e funis ficam apenas aqui. Demo: <strong>seller@neuralx.com</strong> / <strong>neuralx123</strong>.</p><label for="email">E-mail</label><input id="email" name="email" type="email" required autocomplete="email" /><label for="password">Senha</label><input id="password" name="password" type="password" required autocomplete="current-password" /><p id="loginMessage" class="form-message" role="status"></p><button class="button primary" type="submit">Entrar no painel</button></form></main><script type="module" src="./main.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="robots" content="noindex,follow" />
+    <meta name="theme-color" content="#020305" />
+    <meta name="color-scheme" content="dark" />
+    <title>Login do Vendedor | Neural X</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html" aria-label="Neural X início"><span>Neural</span> X</a>
+      <nav aria-label="Navegação principal">
+        <a href="./index.html#produtos">Produtos</a>
+        <a href="./client-login.html">Login cliente</a>
+      </nav>
+    </header>
+
+    <main class="section auth-page auth-seller">
+      <section class="auth-shell" aria-labelledby="seller-login-title">
+        <div class="auth-copy">
+          <p class="eyebrow">Área restrita</p>
+          <h1 id="seller-login-title">Gerencie vendas com clareza.</h1>
+          <p class="lead">Métricas, faturamento, pedidos enviados e funis ficam separados da experiência pública do cliente.</p>
+          <ul class="checklist">
+            <li>Painel separado para operação da loja</li>
+            <li>Visual responsivo para desktop e celular</li>
+            <li>Acesso apenas para operadores autorizados</li>
+          </ul>
+        </div>
+
+        <form class="checkout-box auth-card" id="loginForm" data-role="seller" autocomplete="on">
+          <p class="eyebrow">Login seguro</p>
+          <h2>Entrar como vendedor</h2>
+          <p>Acesse apenas se você faz parte da operação Neural X.</p>
+
+          <div class="field-group">
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" placeholder="seller@neuralx.com" />
+          </div>
+
+          <div class="field-group">
+            <label for="password">Senha</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Digite sua senha" />
+          </div>
+
+          <p id="loginMessage" class="form-message" role="status" aria-live="polite"></p>
+          <button id="submitBtn" class="button primary" type="submit">Entrar no painel</button>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
