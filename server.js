@@ -3,12 +3,15 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const RedisStoreFactory = require('connect-redis');
 const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const sqlite3 = require('sqlite3').verbose();
+const cookieParser = require('cookie-parser');
+const csurf = require('csurf');
+const { createClient } = require('redis');
 
 const PORT = process.env.PORT || 4173;
 const root = process.cwd();
@@ -69,15 +72,25 @@ app.use(helmet());
 // JSON limit
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// Session
+// Redis client and session store
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisClient = createClient({ url: redisUrl });
+redisClient.connect().catch((err) => console.error('Redis connect error', err));
+const RedisStore = RedisStoreFactory(session);
+
+app.set('trust proxy', 1);
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.sqlite', dir: root }),
+  store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET || 'change-this-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
+  cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
 }));
+
+// CSRF protection (cookie-based)
+app.use(csurf({ cookie: true }));
 
 // Rate limiter (general)
 const generalLimiter = rateLimit({ windowMs: 60 * 1000, max: 200 });
@@ -106,9 +119,40 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ ok: false, error: 'unauthorized' });
 }
 
+// Expose CSRF token for clients (GET should be safe)
+app.get('/api/csrf-token', (req, res) => {
+  try {
+    res.json({ csrfToken: req.csrfToken() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'csrf_error' });
+  }
+});
+
+// API: register
+app.post('/api/register', async (req, res) => {
+  const { email, password, role = 'client' } = req.body || {};
+  if (!email || !password) return res.status(400).json({ ok: false, error: 'missing_fields' });
+  // simple validation
+  if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ ok: false, error: 'invalid_types' });
+  try {
+    db.get('SELECT id FROM users WHERE email = ?', [email], (err, row) => {
+      if (err) return res.status(500).json({ ok: false, error: 'db_error' });
+      if (row) return res.status(409).json({ ok: false, error: 'email_taken' });
+      const saltRounds = 10;
+      bcrypt.hash(password, saltRounds).then(hash => {
+        db.run('INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)', [email, hash, role], function(err2) {
+          if (err2) return res.status(500).json({ ok: false, error: 'db_error' });
+          res.json({ ok: true, id: this.lastID, email, role });
+        });
+      }).catch(e => res.status(500).json({ ok: false, error: 'hash_error' }));
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
 // API: login
 app.post('/api/login/:role', loginLimiter, (req, res) => {
-  const ip = req.ip;
   const role = req.params.role;
   const { email, password, hp } = req.body || {};
   if (hp) return res.status(400).json({ ok: false, error: 'bot_detected' });
