@@ -1,27 +1,57 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login do Cliente | Neural X</title>
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <main class="container">
-    <h1>Login do Cliente</h1>
-    <form id="loginForm" data-role="client" autocomplete="on">
-      <label for="email">Email</label>
-      <input id="email" name="email" type="email" required />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#020305" />
+    <meta name="color-scheme" content="dark" />
+    <title>Login do Cliente | Neural X</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html" aria-label="Neural X início"><span>Neural</span> X</a>
+      <nav aria-label="Navegação principal">
+        <a href="./index.html#produtos">Produtos</a>
+        <a href="./cart.html">Carrinho <span id="cartCount" class="cart-count">0</span></a>
+        <a href="./seller-login.html">Login vendedor</a>
+      </nav>
+    </header>
 
-      <label for="password">Senha</label>
-      <input id="password" name="password" type="password" required />
+    <main class="section auth-page auth-client">
+      <section class="auth-shell" aria-labelledby="client-login-title">
+        <div class="auth-copy">
+          <p class="eyebrow">Área do cliente</p>
+          <h1 id="client-login-title">Acesse seus pedidos e downloads.</h1>
+          <p class="lead">Entre para consultar compras, acompanhar a entrega e baixar seus produtos digitais da Neural X em um ambiente organizado.</p>
+          <ul class="checklist">
+            <li>Pedidos e downloads reunidos em um só painel</li>
+            <li>Sessão protegida com autenticação no servidor</li>
+            <li>Use o e-mail informado na compra para entrar</li>
+          </ul>
+        </div>
 
-      <button type="submit">Entrar</button>
-    </form>
+        <form class="checkout-box auth-card" id="loginForm" data-role="client" autocomplete="on">
+          <p class="eyebrow">Login seguro</p>
+          <h2>Entrar como cliente</h2>
+          <p>Use seu e-mail de compra para acessar o painel.</p>
 
-    <p id="loginMessage" class="form-message" aria-live="polite"></p>
-  </main>
+          <div class="field-group">
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" placeholder="demo@neuralx.com" />
+          </div>
 
-  <script src="./main.js"></script>
-</body>
+          <div class="field-group">
+            <label for="password">Senha</label>
+            <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Digite sua senha" />
+          </div>
+
+          <p id="loginMessage" class="form-message" role="status" aria-live="polite"></p>
+          <button id="submitBtn" class="button primary" type="submit">Entrar no painel</button>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
 </html>
