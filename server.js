@@ -22,6 +22,20 @@ const root = process.cwd();
 const uploadsDir = path.join(root, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
+const indexablePages = [
+  { path: '/', priority: '1.0' },
+  { path: '/produto-neural-x.html', priority: '0.9' },
+  { path: '/produto-fl-studio.html', priority: '0.8' },
+  { path: '/produto-reaper.html', priority: '0.8' },
+  { path: '/contact.html', priority: '0.6' },
+  { path: '/privacy.html', priority: '0.4' },
+  { path: '/terms.html', priority: '0.4' }
+];
+
+function xmlEscape(value) {
+  return String(value).replace(/[<>&'"]/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[char]));
+}
+
 // init db sqlite if used
 db.initSqlite().then(() => seedDemoData()).catch((err) => console.error('Database init error', err));
 
@@ -38,10 +52,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://*.stripe.com'],
       frameAncestors: ["'none'"],
       objectSrc: ["'none'"]
     }
@@ -93,6 +108,25 @@ const upload = multer({ dest: uploadsDir, limits: { fileSize: 5 * 1024 * 1024 },
   if (!file.mimetype.startsWith('image/')) return cb(new Error('Only images allowed'));
   cb(null, true);
 }});
+
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send([
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /seller-dashboard.html',
+    'Disallow: /client-dashboard.html',
+    'Disallow: /api/',
+    '',
+    `Sitemap: ${canonicalUrl}/sitemap.xml`
+  ].join('\n'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const lastmod = new Date().toISOString().slice(0, 10);
+  const urls = indexablePages.map((page) => `  <url><loc>${xmlEscape(canonicalUrl + page.path)}</loc><lastmod>${lastmod}</lastmod><priority>${page.priority}</priority></url>`).join('\n');
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`);
+});
 
 // serve static and uploads
 app.use('/uploads', express.static(uploadsDir));
