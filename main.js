@@ -1,12 +1,20 @@
 const checkoutUrl = "https://buy.stripe.com/test_substitua_pelo_seu_link";
 const CART_KEY = "neuralx_cart";
 
-const readCart = () => JSON.parse(localStorage.getItem(CART_KEY) || "[]");
+const readCart = () => {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    localStorage.removeItem(CART_KEY);
+    return [];
+  }
+};
 const writeCart = (cart) => localStorage.setItem(CART_KEY, JSON.stringify(cart));
-const money = (value) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const money = (value) => Number.isFinite(value) ? value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "R$ 0,00";
 
 const updateCartCount = () => {
-  const count = readCart().reduce((total, item) => total + item.quantity, 0);
+  const count = readCart().reduce((total, item) => total + (item.quantity || 0), 0);
   document.querySelectorAll("#cartCount, [data-cart-count]").forEach((node) => {
     node.textContent = String(count);
   });
@@ -24,7 +32,11 @@ const addToCart = (product) => {
 
 document.querySelectorAll(".add-cart").forEach((button) => {
   button.addEventListener("click", () => {
-    addToCart({ id: button.dataset.id, name: button.dataset.name, price: Number(button.dataset.price) });
+    const id = button.dataset.id;
+    const name = button.dataset.name || "Produto";
+    const priceRaw = Number(button.dataset.price);
+    const price = Number.isFinite(priceRaw) ? priceRaw : 0;
+    addToCart({ id, name, price });
     button.textContent = "Adicionado";
     setTimeout(() => (button.textContent = "Adicionar"), 1200);
   });
@@ -38,7 +50,7 @@ if (cartList && cartTotal) {
     cartList.innerHTML = cart.length
       ? cart.map((item) => `<li><span>${item.name} <small>x${item.quantity}</small></span><strong>${money(item.price * item.quantity)}</strong></li>`).join("")
       : "<li>Seu carrinho está vazio.</li>";
-    cartTotal.textContent = money(cart.reduce((total, item) => total + item.price * item.quantity, 0));
+    cartTotal.textContent = money(cart.reduce((total, item) => total + (item.price || 0) * (item.quantity || 0), 0));
   };
   document.querySelector("#clearCart")?.addEventListener("click", () => { writeCart([]); renderCart(); updateCartCount(); });
   document.querySelector("#checkoutButton")?.addEventListener("click", () => {
@@ -53,9 +65,14 @@ const loginForm = document.querySelector("#loginForm");
 loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const role = loginForm.dataset.role;
+  const message = document.querySelector("#loginMessage");
+  if (!role) {
+    message.textContent = "Role inválido";
+    message.dataset.state = "error";
+    return;
+  }
   const email = loginForm.email.value;
   const password = loginForm.password.value;
-  const message = document.querySelector("#loginMessage");
   try {
     const response = await fetch(`/api/login/${role}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
     if (!response.ok) throw new Error("Login inválido");
