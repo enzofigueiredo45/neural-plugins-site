@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: neuralx
+      POSTGRES_PASSWORD: neuralx
+      POSTGRES_DB: neuralxdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+volumes:
+  db_data:
