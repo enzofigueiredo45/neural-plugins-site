@@ -77,6 +77,7 @@ loginForm?.addEventListener("submit", async (event) => {
     const response = await fetch(`/api/login/${role}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
     if (!response.ok) throw new Error("Login inválido");
     sessionStorage.setItem("neuralx_role", role);
+    sessionStorage.setItem("neuralx_email", email);
     window.location.assign(role === "seller" ? "./seller-dashboard.html" : "./client-dashboard.html");
   } catch {
     message.textContent = "Use demo@neuralx.com / neuralx123 para cliente ou seller@neuralx.com / neuralx123 para vendedor.";
