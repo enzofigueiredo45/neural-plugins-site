@@ -782,3 +782,159 @@ input[type="password"] {
     max-width: none;
   }
 }
+
+/* Auth screens: compact, readable login layout across desktop and mobile. */
+.auth-page {
+  min-height: calc(100svh - 5rem);
+  display: grid;
+  align-items: center;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(143, 183, 255, 0.16), transparent 24rem),
+    radial-gradient(circle at 88% 8%, rgba(199, 215, 255, 0.12), transparent 26rem);
+}
+
+.auth-shell {
+  width: min(100%, 74rem);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+  gap: clamp(1.25rem, 4vw, 4rem);
+  align-items: center;
+}
+
+.auth-copy {
+  min-width: 0;
+}
+
+.auth-copy h1 {
+  max-width: 10ch;
+  font-size: clamp(3.1rem, 7vw, 6.8rem);
+}
+
+.auth-copy .lead {
+  max-width: 36rem;
+}
+
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+  justify-self: end;
+  gap: 1rem;
+  padding: clamp(1.35rem, 4vw, 2.25rem);
+  overflow: hidden;
+}
+
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0.28rem;
+  background: linear-gradient(90deg, var(--brand-2), var(--brand), transparent);
+}
+
+.auth-card h2 {
+  margin-bottom: 0;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+}
+
+.auth-card h2,
+.auth-card .eyebrow,
+.auth-card p,
+.auth-card small {
+  text-align: left;
+}
+
+.field-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  min-height: 3.35rem;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+input::placeholder {
+  color: rgba(174, 184, 207, 0.62);
+}
+
+.button:hover,
+.button:focus-visible {
+  transform: translateY(-1px);
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
+@media (max-width: 900px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-copy h1 {
+    max-width: none;
+  }
+
+  .auth-card {
+    max-width: none;
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 560px) {
+  .auth-page {
+    min-height: auto;
+    align-items: start;
+    padding-block: 2rem 3rem;
+  }
+
+  .auth-copy h1 {
+    font-size: clamp(2.55rem, 15vw, 4.2rem);
+  }
+
+  .auth-card {
+    border-radius: 1.25rem;
+  }
+}
+
+.auth-copy,
+.auth-card,
+.checklist li,
+.form-message {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .auth-copy h1 {
+    letter-spacing: -0.085em;
+    line-height: 0.88;
+  }
+
+  .auth-copy .checklist {
+    font-size: 0.96rem;
+  }
+}
+
+.checklist li {
+  overflow-wrap: normal;
+}
+
+.demo-credentials {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.demo-credentials strong {
+  overflow-wrap: anywhere;
+}

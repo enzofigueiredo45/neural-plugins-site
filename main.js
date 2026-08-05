@@ -75,7 +75,7 @@ async function fetchCsrf() {
 const loginForm = document.querySelector("#loginForm");
 loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const submitBtn = document.getElementById('submitBtn');
+  const submitBtn = loginForm.querySelector('button[type="submit"]');
   const role = loginForm.dataset.role;
   const message = document.querySelector("#loginMessage");
   if (!role) {
@@ -87,7 +87,7 @@ loginForm?.addEventListener("submit", async (event) => {
   const email = loginForm.email.value;
   const password = loginForm.password.value;
   try {
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
     const csrfToken = await fetchCsrf();
     const headers = { "Content-Type": "application/json" };
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
@@ -100,7 +100,7 @@ loginForm?.addEventListener("submit", async (event) => {
   } catch (err) {
     message.textContent = "Use demo@neuralx.com / neuralx123 para cliente ou seller@neuralx.com / neuralx123 para vendedor.";
     message.dataset.state = "error";
-    submitBtn.disabled = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 });
 
