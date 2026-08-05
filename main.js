@@ -61,9 +61,23 @@ if (cartList && cartTotal) {
   renderCart();
 }
 
+// Anti-bot/anti-AI basic front-end checks
+function isLikelyBot() {
+  // Headless detections
+  if (navigator.webdriver) return true;
+  // Minimal plugin/renderer checks
+  if (navigator.plugins && navigator.plugins.length === 0 && navigator.userAgent && /HeadlessChrome|PhantomJS/i.test(navigator.userAgent)) return true;
+  // Very fast form submissions (under 300ms) are suspicious
+  const now = Date.now();
+  const loadedAt = window.__pageLoadedAt || (window.__pageLoadedAt = now);
+  if (now - loadedAt < 300) return true;
+  return false;
+}
+
 const loginForm = document.querySelector("#loginForm");
 loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const submitBtn = document.getElementById('submitBtn');
   const role = loginForm.dataset.role;
   const message = document.querySelector("#loginMessage");
   if (!role) {
@@ -71,17 +85,33 @@ loginForm?.addEventListener("submit", async (event) => {
     message.dataset.state = "error";
     return;
   }
+
+  // Honeypot check (field should be empty)
+  if (loginForm.hp && loginForm.hp.value) {
+    message.textContent = "Detecção de bot: acesso negado.";
+    message.dataset.state = "error";
+    return;
+  }
+
+  if (isLikelyBot()) {
+    message.textContent = "Acesso suspeito detectado. Por favor use o navegador normal.";
+    message.dataset.state = "error";
+    return;
+  }
+
   const email = loginForm.email.value;
   const password = loginForm.password.value;
   try {
+    submitBtn.disabled = true;
     const response = await fetch(`/api/login/${role}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
     if (!response.ok) throw new Error("Login inválido");
     sessionStorage.setItem("neuralx_role", role);
     sessionStorage.setItem("neuralx_email", email);
     window.location.assign(role === "seller" ? "./seller-dashboard.html" : "./client-dashboard.html");
-  } catch {
+  } catch (err) {
     message.textContent = "Use demo@neuralx.com / neuralx123 para cliente ou seller@neuralx.com / neuralx123 para vendedor.";
     message.dataset.state = "error";
+    submitBtn.disabled = false;
   }
 });
 
