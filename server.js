@@ -9,8 +9,21 @@ const users = {
   seller: { email: "seller@neuralx.com", password: "neuralx123" },
 };
 
+// Basic in-memory rate-limit / brute force protection for demo purposes
+const loginAttempts = new Map(); // ip -> { count, first }
+const LOGIN_LIMIT = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+const defaultSecurityHeaders = {
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+  "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';",
+};
+
 const send = (res, status, body, type = "application/json") => {
-  res.writeHead(status, { "Content-Type": type, "X-Content-Type-Options": "nosniff" });
+  const headers = Object.assign({ "Content-Type": type, "X-Content-Type-Options": "nosniff" }, defaultSecurityHeaders);
+  res.writeHead(status, headers);
   if (type === "application/json") {
     try {
       res.end(typeof body === "string" ? body : JSON.stringify(body));
@@ -46,10 +59,34 @@ const readBody = (req, { limit = 1e6 } = {}) =>
     req.on("error", reject);
   });
 
+const isBlockedIp = (ip) => {
+  const info = loginAttempts.get(ip);
+  if (!info) return false;
+  if (Date.now() - info.first > LOGIN_WINDOW_MS) {
+    loginAttempts.delete(ip);
+    return false;
+  }
+  return info.count >= LOGIN_LIMIT;
+};
+
+const registerFailedAttempt = (ip) => {
+  const info = loginAttempts.get(ip) || { count: 0, first: Date.now() };
+  if (Date.now() - info.first > LOGIN_WINDOW_MS) {
+    info.count = 1;
+    info.first = Date.now();
+  } else {
+    info.count += 1;
+  }
+  loginAttempts.set(ip, info);
+};
+
 const server = http.createServer(async (req, res) => {
   try {
     // Simple API routes
     if (req.method === "POST" && req.url.startsWith("/api/login/")) {
+      const ip = req.socket.remoteAddress || 'unknown';
+      if (isBlockedIp(ip)) return send(res, 429, { ok: false, error: 'too_many_requests' });
+
       const urlPath = req.url.split("?")[0];
       const parts = urlPath.split("/").filter(Boolean);
       const role = parts[parts.length - 1] || "";
@@ -62,8 +99,22 @@ const server = http.createServer(async (req, res) => {
         return send(res, 400, { ok: false, error: e.message === "Invalid JSON" ? "invalid_json" : "payload_too_large" });
       }
 
+      // Honeypot check: bots may fill hidden fields
+      if (body.hp) {
+        // Treat as bot and increment attempts
+        registerFailedAttempt(ip);
+        return send(res, 400, { ok: false, error: 'bot_detected' });
+      }
+
       const user = users[role];
-      if (user && body.email === user.email && body.password === user.password) return send(res, 200, { ok: true, role });
+      if (user && body.email === user.email && body.password === user.password) {
+        // successful login -> reset attempts
+        loginAttempts.delete(ip);
+        return send(res, 200, { ok: true, role });
+      }
+
+      // failed login
+      registerFailedAttempt(ip);
       return send(res, 401, { ok: false, error: "invalid_credentials" });
     }
 
@@ -96,7 +147,7 @@ const server = http.createServer(async (req, res) => {
     fs.readFile(filePath, (error, file) => {
       if (error) return send(res, 404, "Not found", "text/plain");
       const ext = path.extname(filePath);
-      const types = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml" };
+      const types = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png" };
       send(res, 200, file, types[ext] || "application/octet-stream");
     });
   } catch (err) {
