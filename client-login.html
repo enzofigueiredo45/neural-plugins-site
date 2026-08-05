@@ -6,20 +6,17 @@
   <title>Login do Cliente | Neural X</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body class="auth-page">
-  <main class="container auth-container">
+<body>
+  <main class="container">
     <h1>Login do Cliente</h1>
     <form id="loginForm" data-role="client" autocomplete="on">
-      <!-- honeypot field to trap bots -->
-      <input type="text" name="hp" id="hp" style="display:none" tabindex="-1" autocomplete="off" />
-
       <label for="email">Email</label>
       <input id="email" name="email" type="email" required />
 
       <label for="password">Senha</label>
       <input id="password" name="password" type="password" required />
 
-      <button type="submit" id="submitBtn" class="button primary">Entrar</button>
+      <button type="submit">Entrar</button>
     </form>
 
     <p id="loginMessage" class="form-message" aria-live="polite"></p>

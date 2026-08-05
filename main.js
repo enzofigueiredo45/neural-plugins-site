@@ -61,17 +61,15 @@ if (cartList && cartTotal) {
   renderCart();
 }
 
-// Anti-bot/anti-AI basic front-end checks
-function isLikelyBot() {
-  // Headless detections
-  if (navigator.webdriver) return true;
-  // Minimal plugin/renderer checks
-  if (navigator.plugins && navigator.plugins.length === 0 && navigator.userAgent && /HeadlessChrome|PhantomJS/i.test(navigator.userAgent)) return true;
-  // Very fast form submissions (under 300ms) are suspicious
-  const now = Date.now();
-  const loadedAt = window.__pageLoadedAt || (window.__pageLoadedAt = now);
-  if (now - loadedAt < 300) return true;
-  return false;
+async function fetchCsrf() {
+  try {
+    const res = await fetch('/api/csrf-token', { credentials: 'include' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.csrfToken || null;
+  } catch {
+    return null;
+  }
 }
 
 const loginForm = document.querySelector("#loginForm");
@@ -86,24 +84,15 @@ loginForm?.addEventListener("submit", async (event) => {
     return;
   }
 
-  // Honeypot check (field should be empty)
-  if (loginForm.hp && loginForm.hp.value) {
-    message.textContent = "Detecção de bot: acesso negado.";
-    message.dataset.state = "error";
-    return;
-  }
-
-  if (isLikelyBot()) {
-    message.textContent = "Acesso suspeito detectado. Por favor use o navegador normal.";
-    message.dataset.state = "error";
-    return;
-  }
-
   const email = loginForm.email.value;
   const password = loginForm.password.value;
   try {
     submitBtn.disabled = true;
-    const response = await fetch(`/api/login/${role}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+    const csrfToken = await fetchCsrf();
+    const headers = { "Content-Type": "application/json" };
+    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+    const response = await fetch(`/api/login/${role}`, { method: "POST", headers, credentials: 'include', body: JSON.stringify({ email, password }) });
     if (!response.ok) throw new Error("Login inválido");
     sessionStorage.setItem("neuralx_role", role);
     sessionStorage.setItem("neuralx_email", email);
