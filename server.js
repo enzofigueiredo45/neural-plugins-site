@@ -1,159 +1,173 @@
-const http = require("node:http");
-const fs = require("node:fs");
-const path = require("node:path");
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const helmet = require('helmet');
+const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcrypt');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const sqlite3 = require('sqlite3').verbose();
 
-const port = process.env.PORT || 4173;
-const root = path.resolve(process.cwd());
-const users = {
-  client: { email: "demo@neuralx.com", password: "neuralx123" },
-  seller: { email: "seller@neuralx.com", password: "neuralx123" },
-};
+const PORT = process.env.PORT || 4173;
+const root = process.cwd();
+const uploadsDir = path.join(root, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-// Basic in-memory rate-limit / brute force protection for demo purposes
-const loginAttempts = new Map(); // ip -> { count, first }
-const LOGIN_LIMIT = 5;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+// Setup DB (sqlite)
+const dbFile = path.join(root, 'data.sqlite');
+const db = new sqlite3.Database(dbFile);
 
-const defaultSecurityHeaders = {
-  "X-Frame-Options": "DENY",
-  "Referrer-Policy": "no-referrer",
-  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-  "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';",
-};
+// Initialize tables
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-const send = (res, status, body, type = "application/json") => {
-  const headers = Object.assign({ "Content-Type": type, "X-Content-Type-Options": "nosniff" }, defaultSecurityHeaders);
-  res.writeHead(status, headers);
-  if (type === "application/json") {
-    try {
-      res.end(typeof body === "string" ? body : JSON.stringify(body));
-    } catch {
-      res.end(JSON.stringify({ ok: false }));
+  db.run(`CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    buyer_email TEXT NOT NULL,
+    product TEXT NOT NULL,
+    status TEXT NOT NULL,
+    price REAL,
+    image TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Seed demo users if not exist
+  db.get(`SELECT COUNT(1) as c FROM users`, (err, row) => {
+    if (err) return console.error('DB check users error', err);
+    if (row && row.c === 0) {
+      const insert = db.prepare(`INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)`);
+      const demoPassword = 'neuralx123';
+      const sellerPassword = 'neuralx123';
+      const saltRounds = 10;
+      bcrypt.hash(demoPassword, saltRounds).then(hash => {
+        insert.run('demo@neuralx.com', hash, 'client');
+        bcrypt.hash(sellerPassword, saltRounds).then(hash2 => {
+          insert.run('seller@neuralx.com', hash2, 'seller');
+          insert.finalize();
+          // Seed a demo order
+          db.run(`INSERT INTO orders (buyer_email, product, status, price, image) VALUES (?, ?, ?, ?, ?)`,
+            ['demo@neuralx.com', 'Pacote Neural X', 'Enviado', 199.9, '/assets/placeholder.png']);
+        });
+      }).catch(console.error);
     }
-  } else {
-    res.end(body);
-  }
-};
-
-// Read body with limits and JSON parse safety
-const readBody = (req, { limit = 1e6 } = {}) =>
-  new Promise((resolve, reject) => {
-    let data = "";
-    let length = 0;
-    req.on("data", (chunk) => {
-      length += chunk.length;
-      if (length > limit) {
-        req.destroy();
-        return reject(new Error("Payload too large"));
-      }
-      data += chunk;
-    });
-    req.on("end", () => {
-      if (!data) return resolve({});
-      try {
-        resolve(JSON.parse(data));
-      } catch (err) {
-        reject(new Error("Invalid JSON"));
-      }
-    });
-    req.on("error", reject);
   });
+});
 
-const isBlockedIp = (ip) => {
-  const info = loginAttempts.get(ip);
-  if (!info) return false;
-  if (Date.now() - info.first > LOGIN_WINDOW_MS) {
-    loginAttempts.delete(ip);
-    return false;
-  }
-  return info.count >= LOGIN_LIMIT;
-};
+const app = express();
 
-const registerFailedAttempt = (ip) => {
-  const info = loginAttempts.get(ip) || { count: 0, first: Date.now() };
-  if (Date.now() - info.first > LOGIN_WINDOW_MS) {
-    info.count = 1;
-    info.first = Date.now();
-  } else {
-    info.count += 1;
-  }
-  loginAttempts.set(ip, info);
-};
+// Security headers
+app.use(helmet());
 
-const server = http.createServer(async (req, res) => {
-  try {
-    // Simple API routes
-    if (req.method === "POST" && req.url.startsWith("/api/login/")) {
-      const ip = req.socket.remoteAddress || 'unknown';
-      if (isBlockedIp(ip)) return send(res, 429, { ok: false, error: 'too_many_requests' });
+// JSON limit
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-      const urlPath = req.url.split("?")[0];
-      const parts = urlPath.split("/").filter(Boolean);
-      const role = parts[parts.length - 1] || "";
-      if (!role) return send(res, 400, { ok: false, error: "invalid_role" });
+// Session
+app.use(session({
+  store: new SQLiteStore({ db: 'sessions.sqlite', dir: root }),
+  secret: process.env.SESSION_SECRET || 'change-this-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
+}));
 
-      let body;
-      try {
-        body = await readBody(req);
-      } catch (e) {
-        return send(res, 400, { ok: false, error: e.message === "Invalid JSON" ? "invalid_json" : "payload_too_large" });
-      }
+// Rate limiter (general)
+const generalLimiter = rateLimit({ windowMs: 60 * 1000, max: 200 });
+app.use(generalLimiter);
 
-      // Honeypot check: bots may fill hidden fields
-      if (body.hp) {
-        // Treat as bot and increment attempts
-        registerFailedAttempt(ip);
-        return send(res, 400, { ok: false, error: 'bot_detected' });
-      }
+// Rate limiter for login
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
 
-      const user = users[role];
-      if (user && body.email === user.email && body.password === user.password) {
-        // successful login -> reset attempts
-        loginAttempts.delete(ip);
-        return send(res, 200, { ok: true, role });
-      }
-
-      // failed login
-      registerFailedAttempt(ip);
-      return send(res, 401, { ok: false, error: "invalid_credentials" });
-    }
-
-    if (req.url === "/api/seller/metrics") return send(res, 200, { revenue: 8721, orders: 312, visits: 1984, carts: 428 });
-
-    // Serve orders with image and price; support ?email=<email> filter for demo
-    if (req.url.startsWith("/api/orders")) {
-      const urlObj = new URL(req.url, `http://localhost:${port}`);
-      const email = urlObj.searchParams.get("email") || "";
-      const orders = [
-        {
-          id: 1042,
-          product: "Pacote Neural X",
-          status: "Enviado",
-          price: 199.9,
-          image: "/assets/placeholder.png",
-          buyerEmail: "demo@neuralx.com",
-        },
-      ];
-      const filtered = email ? orders.filter((o) => o.buyerEmail === email) : orders;
-      return send(res, 200, filtered);
-    }
-
-    // Serve static files safely
-    const requested = req.url === "/" ? "/index.html" : decodeURIComponent(req.url.split("?")[0]);
-    // Prevent absolute requested paths from escaping
-    const filePath = path.resolve(root, "." + requested);
-    if (!(filePath === root || filePath.startsWith(root + path.sep))) return send(res, 403, "Forbidden", "text/plain");
-
-    fs.readFile(filePath, (error, file) => {
-      if (error) return send(res, 404, "Not found", "text/plain");
-      const ext = path.extname(filePath);
-      const types = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png" };
-      send(res, 200, file, types[ext] || "application/octet-stream");
-    });
-  } catch (err) {
-    console.error("Unhandled error:", err);
-    send(res, 500, { ok: false, error: "internal_error" });
+// Multer for uploads
+const upload = multer({
+  dest: uploadsDir,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only images allowed'));
+    cb(null, true);
   }
 });
 
-server.listen(port, () => console.log(`Neural X server running on http://localhost:${port}`));
+// Serve static frontend and uploads
+app.use('/uploads', express.static(uploadsDir));
+app.use(express.static(path.join(root)));
+
+// Helper: require auth
+function requireAuth(req, res, next) {
+  if (req.session && req.session.user && req.session.user.email) return next();
+  return res.status(401).json({ ok: false, error: 'unauthorized' });
+}
+
+// API: login
+app.post('/api/login/:role', loginLimiter, (req, res) => {
+  const ip = req.ip;
+  const role = req.params.role;
+  const { email, password, hp } = req.body || {};
+  if (hp) return res.status(400).json({ ok: false, error: 'bot_detected' });
+  if (!email || !password) return res.status(400).json({ ok: false, error: 'missing_fields' });
+
+  db.get('SELECT id, email, password_hash, role FROM users WHERE email = ?', [email], (err, user) => {
+    if (err) return res.status(500).json({ ok: false, error: 'db_error' });
+    if (!user) return res.status(401).json({ ok: false, error: 'invalid_credentials' });
+    if (user.role !== role) return res.status(401).json({ ok: false, error: 'invalid_role' });
+    bcrypt.compare(password, user.password_hash).then(match => {
+      if (!match) return res.status(401).json({ ok: false, error: 'invalid_credentials' });
+      // set session
+      req.session.user = { id: user.id, email: user.email, role: user.role };
+      return res.json({ ok: true, role: user.role });
+    }).catch(e => res.status(500).json({ ok: false, error: 'bcrypt_error' }));
+  });
+});
+
+// API: logout
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+// API: current user
+app.get('/api/me', (req, res) => {
+  if (!req.session.user) return res.status(401).json({ ok: false, error: 'unauthorized' });
+  res.json({ ok: true, user: { email: req.session.user.email, role: req.session.user.role } });
+});
+
+// API: orders for current user
+app.get('/api/orders', requireAuth, (req, res) => {
+  const email = req.session.user.email;
+  db.all('SELECT id, product, status, price, image FROM orders WHERE buyer_email = ?', [email], (err, rows) => {
+    if (err) return res.status(500).json({ ok: false, error: 'db_error' });
+    res.json(rows);
+  });
+});
+
+// API: upload (image) - requires auth
+app.post('/api/uploads', requireAuth, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ ok: false, error: 'no_file' });
+  // rename file to uuid + ext
+  const ext = path.extname(req.file.originalname) || '';
+  const filename = uuidv4() + ext;
+  const dest = path.join(uploadsDir, filename);
+  fs.rename(req.file.path, dest, (err) => {
+    if (err) return res.status(500).json({ ok: false, error: 'save_error' });
+    const url = '/uploads/' + filename;
+    res.json({ ok: true, url });
+  });
+});
+
+// Health
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Fallback - serve index.html
+app.get('*', (req, res) => {
+  const index = path.join(root, 'index.html');
+  res.sendFile(index);
+});
+
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
