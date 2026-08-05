@@ -68,7 +68,24 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.url === "/api/seller/metrics") return send(res, 200, { revenue: 8721, orders: 312, visits: 1984, carts: 428 });
-    if (req.url === "/api/orders") return send(res, 200, [{ id: 1042, product: "Pacote Neural X", status: "Enviado" }]);
+
+    // Serve orders with image and price; support ?email=<email> filter for demo
+    if (req.url.startsWith("/api/orders")) {
+      const urlObj = new URL(req.url, `http://localhost:${port}`);
+      const email = urlObj.searchParams.get("email") || "";
+      const orders = [
+        {
+          id: 1042,
+          product: "Pacote Neural X",
+          status: "Enviado",
+          price: 199.9,
+          image: "/assets/placeholder.png",
+          buyerEmail: "demo@neuralx.com",
+        },
+      ];
+      const filtered = email ? orders.filter((o) => o.buyerEmail === email) : orders;
+      return send(res, 200, filtered);
+    }
 
     // Serve static files safely
     const requested = req.url === "/" ? "/index.html" : decodeURIComponent(req.url.split("?")[0]);
