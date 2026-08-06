@@ -32,12 +32,6 @@ Variáveis mínimas:
 
 Veja `CONFIGURACOES_PUBLICACAO.md` para a lista completa de pendências antes de vender em produção.
 
-## Banco de dados e login
-
-Para desenvolvimento local, rode `npm start`: o servidor cria `data.sqlite`, a tabela `users`, a tabela `orders`, o usuário demo e um pedido demo automaticamente. Para produção, crie um Postgres, copie a connection string para `DATABASE_URL` e o servidor cria/atualiza as tabelas ao iniciar.
-
-O login só funciona quando a página é aberta pelo servidor Node (`npm start`), porque o formulário chama `/api/csrf-token` e `POST /api/login/client`. Se abrir os HTMLs direto por arquivo estático sem backend, o login não terá API para autenticar.
-
 ## Stripe
 
 O front-end envia o carrinho para `POST /api/create-checkout-session`. O servidor valida os IDs dos produtos contra uma lista permitida e usa os Price IDs configurados por variável de ambiente. Nunca coloque `sk_test` ou `sk_live` em HTML, JS público ou arquivos versionados.

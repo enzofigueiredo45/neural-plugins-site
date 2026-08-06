@@ -521,7 +521,11 @@ summary {
 
 .catalog-grid .featured {
   background:
-    radial-gradient(circle at 15% 0%, rgba(143, 183, 255, 0.22), transparent 22rem),
+    radial-gradient(
+      circle at 15% 0%,
+      rgba(143, 183, 255, 0.22),
+      transparent 22rem
+    ),
     linear-gradient(160deg, rgba(21, 27, 45, 0.98), rgba(9, 12, 23, 0.98));
 }
 
@@ -536,11 +540,14 @@ summary {
   border-radius: clamp(1.4rem, 2.6vw, 2.4rem);
   padding: clamp(1.5rem, 4vw, 3rem);
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.02)
+    ),
     #070a13;
   box-shadow: var(--shadow);
 }
-
 
 .mini-form,
 .metrics-grid {
@@ -583,7 +590,11 @@ input[type="password"] {
 }
 
 .funnel {
-  background: radial-gradient(circle at 50% 0%, rgba(143, 183, 255, 0.12), transparent 32rem);
+  background: radial-gradient(
+    circle at 50% 0%,
+    rgba(143, 183, 255, 0.12),
+    transparent 32rem
+  );
 }
 
 .funnel-steps {
@@ -671,7 +682,11 @@ input[type="password"] {
   border: 1px solid var(--line);
   border-radius: clamp(1.2rem, 2vw, 2rem);
   padding: clamp(1.2rem, 2.4vw, 2rem);
-  background: linear-gradient(180deg, rgba(21, 27, 45, 0.92), rgba(8, 11, 21, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(21, 27, 45, 0.92),
+    rgba(8, 11, 21, 0.96)
+  );
   box-shadow: var(--shadow);
 }
 
@@ -709,7 +724,13 @@ input[type="password"] {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 1rem;
-  background: radial-gradient(circle at 50% 20%, rgba(143, 183, 255, 0.28), transparent 18rem), #060914;
+  background:
+    radial-gradient(
+      circle at 50% 20%,
+      rgba(143, 183, 255, 0.28),
+      transparent 18rem
+    ),
+    #060914;
   font-size: clamp(5rem, 10vw, 9rem);
   font-weight: 900;
   letter-spacing: -0.1em;
@@ -759,7 +780,6 @@ input[type="password"] {
   font-size: clamp(2rem, 4vw, 3.5rem);
 }
 
-
 @media (max-width: 1180px) {
   .store-grid {
     grid-template-columns: 1fr;
@@ -780,8 +800,16 @@ input[type="password"] {
   display: grid;
   align-items: center;
   background:
-    radial-gradient(circle at 12% 12%, rgba(143, 183, 255, 0.16), transparent 24rem),
-    radial-gradient(circle at 88% 8%, rgba(199, 215, 255, 0.12), transparent 26rem);
+    radial-gradient(
+      circle at 12% 12%,
+      rgba(143, 183, 255, 0.16),
+      transparent 24rem
+    ),
+    radial-gradient(
+      circle at 88% 8%,
+      rgba(199, 215, 255, 0.12),
+      transparent 26rem
+    );
 }
 
 .auth-shell {
@@ -934,7 +962,11 @@ input::placeholder {
 .cart-layout,
 .dashboard-page {
   background:
-    radial-gradient(circle at 18% 0%, rgba(143, 183, 255, 0.15), transparent 26rem),
+    radial-gradient(
+      circle at 18% 0%,
+      rgba(143, 183, 255, 0.15),
+      transparent 26rem
+    ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
 }
 
@@ -1024,7 +1056,11 @@ input::placeholder {
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 30% 20%, rgba(143, 183, 255, 0.35), transparent 5rem),
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(143, 183, 255, 0.35),
+      transparent 5rem
+    ),
     #070a13;
   color: var(--text);
   font-size: clamp(1.6rem, 4vw, 2.6rem);

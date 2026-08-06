@@ -2,7 +2,10 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta name="robots" content="noindex,follow" />
     <meta name="theme-color" content="#020305" />
     <title>Área do Cliente | Neural X</title>
@@ -13,7 +16,9 @@
       <a class="brand" href="./index.html"><span>Neural</span> X</a>
       <nav aria-label="Navegação principal">
         <a href="./index.html#produtos">Produtos</a>
-        <a href="./cart.html">Carrinho <span id="cartCount" class="cart-count">0</span></a>
+        <a href="./cart.html"
+          >Carrinho <span id="cartCount" class="cart-count">0</span></a
+        >
         <a href="./contact.html">Suporte</a>
       </nav>
     </header>
@@ -25,7 +30,10 @@
           <div>
             <p class="eyebrow">Área do cliente</p>
             <h1 id="dashboard-title">Meus produtos</h1>
-            <p class="lead">Veja seu perfil, pedidos comprados, status de entrega e links de acesso.</p>
+            <p class="lead">
+              Veja seu perfil, pedidos comprados, status de entrega e links de
+              acesso.
+            </p>
           </div>
         </div>
         <button class="button secondary" id="logout" type="button">Sair</button>
@@ -36,7 +44,13 @@
           <p class="eyebrow">Perfil</p>
           <div class="field-group">
             <label for="profileName">Nome</label>
-            <input id="profileName" name="name" type="text" autocomplete="name" placeholder="Seu nome" />
+            <input
+              id="profileName"
+              name="name"
+              type="text"
+              autocomplete="name"
+              placeholder="Seu nome"
+            />
           </div>
           <div class="field-group">
             <label for="profileEmail">E-mail</label>
@@ -44,13 +58,26 @@
           </div>
           <div class="field-group">
             <label for="profileAvatar">URL da foto</label>
-            <input id="profileAvatar" name="avatarUrl" type="text" placeholder="https://..." />
+            <input
+              id="profileAvatar"
+              name="avatarUrl"
+              type="text"
+              placeholder="https://..."
+            />
           </div>
-          <p id="profileMessage" class="form-message" role="status" aria-live="polite"></p>
+          <p
+            id="profileMessage"
+            class="form-message"
+            role="status"
+            aria-live="polite"
+          ></p>
           <button class="button primary" type="submit">Salvar perfil</button>
         </form>
 
-        <section class="checkout-box orders-panel" aria-labelledby="orders-title">
+        <section
+          class="checkout-box orders-panel"
+          aria-labelledby="orders-title"
+        >
           <p class="eyebrow">Pedidos</p>
           <h2 id="orders-title">Produtos comprados</h2>
           <div id="ordersList" class="orders-list" aria-live="polite"></div>
