@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /client-dashboard.html
+Disallow: /api/
+
+Sitemap: https://neural-x.vercel.app/sitemap.xml

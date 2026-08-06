@@ -1,95 +1,63 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portal do Cliente | Neural X</title>
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <main class="container">
-    <header>
-      <h1>Portal do Cliente</h1>
-      <div id="userInfo">
-        <strong id="userName">Cliente</strong>
-        <span id="userEmail"></span>
-      </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="robots" content="noindex,follow" />
+    <meta name="theme-color" content="#020305" />
+    <title>Área do Cliente | Neural X</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><span>Neural</span> X</a>
+      <nav aria-label="Navegação principal">
+        <a href="./index.html#produtos">Produtos</a>
+        <a href="./cart.html">Carrinho <span id="cartCount" class="cart-count">0</span></a>
+        <a href="./contact.html">Suporte</a>
+      </nav>
     </header>
 
-    <section id="orderSection">
-      <h2>Seu pedido</h2>
-      <div id="orderCard" class="card">
-        <div class="product-image">
-          <img id="productImage" src="/assets/placeholder.png" alt="Imagem do produto" />
+    <main class="section dashboard-page">
+      <section class="dashboard-hero" aria-labelledby="dashboard-title">
+        <div class="profile-card">
+          <div class="avatar" id="avatarPreview" aria-hidden="true">NX</div>
+          <div>
+            <p class="eyebrow">Área do cliente</p>
+            <h1 id="dashboard-title">Meus produtos</h1>
+            <p class="lead">Veja seu perfil, pedidos comprados, status de entrega e links de acesso.</p>
+          </div>
         </div>
-        <div class="product-info">
-          <p><strong id="productName">-</strong></p>
-          <p>Status: <span id="productStatus">-</span></p>
-          <p>Valor: <span id="productPrice">-</span></p>
-        </div>
-      </div>
+        <button class="button secondary" id="logout" type="button">Sair</button>
+      </section>
 
-      <div class="image-upload">
-        <label for="photoInput">Enviar foto do comprovante / imagem:</label>
-        <input type="file" id="photoInput" accept="image/*" />
-        <div id="photoPreview"></div>
-      </div>
-    </section>
+      <section class="dashboard-grid">
+        <form class="checkout-box profile-form" id="profileForm">
+          <p class="eyebrow">Perfil</p>
+          <div class="field-group">
+            <label for="profileName">Nome</label>
+            <input id="profileName" name="name" type="text" autocomplete="name" placeholder="Seu nome" />
+          </div>
+          <div class="field-group">
+            <label for="profileEmail">E-mail</label>
+            <input id="profileEmail" name="email" type="email" disabled />
+          </div>
+          <div class="field-group">
+            <label for="profileAvatar">URL da foto</label>
+            <input id="profileAvatar" name="avatarUrl" type="text" placeholder="https://..." />
+          </div>
+          <p id="profileMessage" class="form-message" role="status" aria-live="polite"></p>
+          <button class="button primary" type="submit">Salvar perfil</button>
+        </form>
 
-    <button id="logout">Sair</button>
-  </main>
+        <section class="checkout-box orders-panel" aria-labelledby="orders-title">
+          <p class="eyebrow">Pedidos</p>
+          <h2 id="orders-title">Produtos comprados</h2>
+          <div id="ordersList" class="orders-list" aria-live="polite"></div>
+        </section>
+      </section>
+    </main>
 
-  <script>
-    // Redirect to login if not authenticated as client
-    const role = sessionStorage.getItem('neuralx_role');
-    const email = sessionStorage.getItem('neuralx_email') || '';
-    if (role !== 'client') {
-      window.location.assign('./client-login.html');
-    }
-
-    document.getElementById('userEmail').textContent = email;
-
-    async function loadOrder() {
-      try {
-        const res = await fetch('/api/orders');
-        if (!res.ok) throw new Error('failed');
-        const orders = await res.json();
-        const order = Array.isArray(orders) && orders.length ? orders[0] : null;
-        if (!order) return;
-        document.getElementById('productName').textContent = order.product || '-';
-        document.getElementById('productStatus').textContent = order.status || '-';
-        document.getElementById('productPrice').textContent = order.price ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.price) : 'R$ 0,00';
-        // if product has image field use it
-        if (order.image) document.getElementById('productImage').src = order.image;
-      } catch (e) {
-        console.error('Could not load order', e);
-      }
-    }
-
-    document.getElementById('photoInput').addEventListener('change', (ev) => {
-      const file = ev.target.files && ev.target.files[0];
-      const preview = document.getElementById('photoPreview');
-      preview.innerHTML = '';
-      if (!file) return;
-      const img = document.createElement('img');
-      img.alt = 'Pré-visualização';
-      img.style.maxWidth = '300px';
-      img.style.maxHeight = '300px';
-      const reader = new FileReader();
-      reader.onload = () => {
-        img.src = reader.result;
-        preview.appendChild(img);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    document.getElementById('logout').addEventListener('click', () => {
-      sessionStorage.removeItem('neuralx_role');
-      sessionStorage.removeItem('neuralx_email');
-      window.location.assign('./client-login.html');
-    });
-
-    loadOrder();
-  </script>
-</body>
+    <script type="module" src="./main.js"></script>
+  </body>
 </html>

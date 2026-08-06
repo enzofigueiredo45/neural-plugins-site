@@ -1,1 +1,44 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Carrinho | Neural X</title><link rel="stylesheet" href="./styles.css" /></head><body><header class="site-header"><a class="brand" href="./index.html"><span>Neural</span> X</a><nav><a href="./index.html#produtos">Produtos</a><a href="./client-login.html">Login cliente</a></nav></header><main class="section cart-page"><div class="checkout-box"><p class="eyebrow">Carrinho</p><h1>Sua compra</h1><ul class="cart-list" id="cartList"></ul><div class="cart-total"><span>Total</span><strong id="cartTotal">R$ 0,00</strong></div><div class="hero-actions"><button class="button secondary" id="clearCart" type="button">Limpar carrinho</button><button class="button primary" id="checkoutButton" type="button">Finalizar compra</button></div><small>O botão de finalizar usa um link de checkout externo de teste. Troque pelo link real do seu provedor.</small></div></main><script type="module" src="./main.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="robots" content="noindex,follow" />
+    <meta name="theme-color" content="#020305" />
+    <title>Carrinho | Neural X</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./index.html"><span>Neural</span> X</a>
+      <nav aria-label="Navegação principal">
+        <a href="./index.html#produtos">Produtos</a>
+        <a href="./client-login.html">Login cliente</a>
+        <a href="./contact.html">Suporte</a>
+      </nav>
+    </header>
+
+    <main class="section cart-page cart-layout">
+      <section class="cart-panel" aria-labelledby="cart-title">
+        <div>
+          <p class="eyebrow">Carrinho</p>
+          <h1 id="cart-title">Sua compra</h1>
+          <p class="lead">Revise seus produtos digitais antes de seguir para o checkout seguro.</p>
+        </div>
+
+        <ul class="cart-list cart-items" id="cartList" aria-live="polite"></ul>
+      </section>
+
+      <aside class="checkout-box cart-summary" aria-label="Resumo da compra">
+        <p class="eyebrow">Resumo</p>
+        <div class="cart-total"><span>Total</span><strong id="cartTotal">R$ 0,00</strong></div>
+        <button class="button primary" id="checkoutButton" type="button">Finalizar compra</button>
+        <button class="button secondary" id="clearCart" type="button">Limpar carrinho</button>
+        <small>Checkout seguro via Stripe. Se aparecer aviso de configuração, preencha STRIPE_SECRET_KEY e STRIPE_PRICE_* no servidor.</small>
+        <a class="support-link" href="./contact.html">Precisa de ajuda? Fale com o suporte.</a>
+      </aside>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
