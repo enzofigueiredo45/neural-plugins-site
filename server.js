@@ -27,7 +27,7 @@ const canonicalUrl = (
   process.env.SITE_URL || `http://localhost:${PORT}`
 ).replace(/\/$/, "");
 const root = process.cwd();
-const uploadsDir = path.join(root, "uploads");
+cconst uploadsDir = path.join("/tmp", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const indexablePages = [
