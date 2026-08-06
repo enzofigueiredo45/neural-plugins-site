@@ -155,14 +155,20 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+const registrationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // uploads
 const upload = multer({
-  dest: uploadsDir,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith("image/"))
-      return cb(new Error("Only images allowed"));
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.mimetype))
+      return cb(new Error("Only PNG, JPEG and WebP images are allowed"));
     cb(null, true);
   },
 });
@@ -197,9 +203,32 @@ app.get("/sitemap.xml", (req, res) => {
     );
 });
 
-// serve static and uploads
-app.use("/uploads", express.static(uploadsDir));
-app.use(express.static(path.join(root)));
+// Publish only intentional web assets. Serving the repository root would also
+// expose backend source, package metadata and operational documentation.
+app.use(
+  "/uploads",
+  express.static(uploadsDir, {
+    dotfiles: "deny",
+    fallthrough: false,
+    immutable: true,
+    maxAge: "1d",
+    setHeaders: (res) => res.setHeader("X-Content-Type-Options", "nosniff"),
+  }),
+);
+app.use("/assets", express.static(path.join(root, "assets"), { dotfiles: "deny" }));
+app.get(["/main.js", "/styles.css", "/llms.txt"], (req, res) =>
+  res.sendFile(path.join(root, req.path.slice(1))),
+);
+const publicPages = new Set([
+  "index.html", "cart.html", "client-dashboard.html", "client-login.html",
+  "contact.html", "privacy.html", "produto-fl-studio.html",
+  "produto-neural-x.html", "produto-reaper.html", "success.html", "terms.html",
+]);
+app.get(["/", "/*.html"], (req, res, next) => {
+  const page = req.path === "/" ? "index.html" : req.path.slice(1);
+  if (!publicPages.has(page)) return next();
+  return res.sendFile(path.join(root, page));
+});
 
 // helpers: account lockout using Redis
 async function recordFailedLogin(email) {
@@ -351,11 +380,21 @@ app.get("/api/csrf-token", (req, res) => {
 });
 
 // register
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", registrationLimiter, async (req, res) => {
   try {
-    const { email, password, captcha } = req.body || {};
+    const { password, captcha } = req.body || {};
+    const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email || !password)
       return res.status(400).json({ ok: false, error: "missing_fields" });
+    if (
+      email.length > 254 ||
+      !/^\S+@\S+\.\S+$/.test(email) ||
+      String(password).length < 12 ||
+      String(password).length > 128
+    )
+      return res
+        .status(400)
+        .json({ ok: false, error: "invalid_credentials_format" });
     if (!(await verifyCaptcha(captcha)))
       return res.status(400).json({ ok: false, error: "captcha_failed" });
     const exists = await getUserByEmail(email);
@@ -374,7 +413,8 @@ app.post("/api/register", async (req, res) => {
 app.post("/api/login/:role", loginLimiter, async (req, res) => {
   try {
     const role = req.params.role;
-    const { email, password, captcha, mfa_token } = req.body || {};
+    const { password, captcha, mfa_token } = req.body || {};
+    const email = String(req.body?.email || "").trim().toLowerCase();
     if (role !== "client")
       return res.status(404).json({ ok: false, error: "portal_disabled" });
     if (!email || !password)
@@ -415,8 +455,13 @@ app.post("/api/login/:role", loginLimiter, async (req, res) => {
 
     // success
     await clearFailed(email);
-    req.session.user = { id: user.id, email: user.email, role: user.role };
-    res.json({ ok: true, role: user.role });
+    req.session.regenerate((err) => {
+      if (err)
+        return res.status(500).json({ ok: false, error: "session_error" });
+      req.session.user = { id: user.id, email: user.email, role: user.role };
+      req.session.csrfToken = randomUUID();
+      return res.json({ ok: true, role: user.role });
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: "server_error" });
@@ -543,10 +588,33 @@ app.post(
   upload.single("file"),
   (req, res) => {
     if (!req.file) return res.status(400).json({ ok: false, error: "no_file" });
-    const ext = path.extname(req.file.originalname) || "";
+    const signatures = [
+      {
+        ext: ".png",
+        test: (buffer) =>
+          buffer
+            .subarray(0, 8)
+            .equals(Buffer.from("89504e470d0a1a0a", "hex")),
+      },
+      {
+        ext: ".jpg",
+        test: (buffer) =>
+          buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
+      },
+      {
+        ext: ".webp",
+        test: (buffer) =>
+          buffer.subarray(0, 4).toString() === "RIFF" &&
+          buffer.subarray(8, 12).toString() === "WEBP",
+      },
+    ];
+    const detected = signatures.find(({ test }) => test(req.file.buffer));
+    if (!detected)
+      return res.status(400).json({ ok: false, error: "invalid_image" });
+    const ext = detected.ext;
     const filename = randomUUID() + ext;
     const dest = path.join(uploadsDir, filename);
-    fs.rename(req.file.path, dest, (err) => {
+    fs.writeFile(dest, req.file.buffer, { flag: "wx", mode: 0o600 }, (err) => {
       if (err) return res.status(500).json({ ok: false, error: "save_error" });
       res.json({ ok: true, url: "/uploads/" + filename });
     });
@@ -603,9 +671,11 @@ app.post("/api/create-checkout-session", async (req, res) => {
 // health
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// fallback
-app.get("*", (req, res) => {
-  res.sendFile(path.join(root, "index.html"));
+// Do not turn unknown or sensitive-looking paths into successful responses.
+app.use((req, res) => {
+  if (req.path.startsWith("/api/"))
+    return res.status(404).json({ ok: false, error: "not_found" });
+  return res.status(404).type("text/plain").send("Not found");
 });
 
 if (require.main === module) {
