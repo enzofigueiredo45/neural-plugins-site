@@ -45,3 +45,11 @@
 - `npm start`
 - Testar login, carrinho, criação de sessão Stripe, cancelamento e retorno de sucesso.
 - Validar sitemap, robots, Lighthouse, rich results e Search Console.
+
+## 6. Banco de dados e login do cliente
+
+- Desenvolvimento local: rode `npm install` e `npm start`. O servidor cria `data.sqlite`, tabelas `users`/`orders`, usuário demo e pedido demo automaticamente.
+- Produção: crie um banco Postgres no provedor escolhido e configure `DATABASE_URL` nas variáveis de ambiente.
+- O login do cliente depende do backend Node ativo. Abrir `client-login.html` direto como arquivo estático ou com um servidor sem API não autentica.
+- Após login, o cliente é direcionado para `client-dashboard.html`, onde vê perfil, e-mail, foto e produtos comprados.
+- O portal/painel de vendedor foi removido da navegação e das rotas de login públicas.

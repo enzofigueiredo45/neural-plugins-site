@@ -30,7 +30,7 @@ DATABASE_URL=postgres://usuario:senha@host:porta/banco
 DEMO_ACCOUNTS_ENABLED=false
 ```
 
-`SESSION_SECRET` assina cookies de sessão. `REDIS_URL` guarda sessão e bloqueio de tentativas. `DATABASE_URL` deve apontar para Postgres em produção.
+`SESSION_SECRET` assina cookies de sessão. `REDIS_URL` guarda sessão e bloqueio de tentativas. `DATABASE_URL` deve apontar para Postgres em produção; em desenvolvimento, sem `DATABASE_URL`, o servidor usa SQLite local em `data.sqlite` e cria as tabelas automaticamente.
 
 ### 3. reCAPTCHA / antifraude
 

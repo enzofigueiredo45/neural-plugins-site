@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /seller-dashboard.html
 Disallow: /client-dashboard.html
 Disallow: /api/
 

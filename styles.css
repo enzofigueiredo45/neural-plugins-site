@@ -521,7 +521,11 @@ summary {
 
 .catalog-grid .featured {
   background:
-    radial-gradient(circle at 15% 0%, rgba(143, 183, 255, 0.22), transparent 22rem),
+    radial-gradient(
+      circle at 15% 0%,
+      rgba(143, 183, 255, 0.22),
+      transparent 22rem
+    ),
     linear-gradient(160deg, rgba(21, 27, 45, 0.98), rgba(9, 12, 23, 0.98));
 }
 
@@ -536,15 +540,13 @@ summary {
   border-radius: clamp(1.4rem, 2.6vw, 2.4rem);
   padding: clamp(1.5rem, 4vw, 3rem);
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.02)
+    ),
     #070a13;
   box-shadow: var(--shadow);
-}
-
-.portal-card.seller {
-  background:
-    radial-gradient(circle at 90% 8%, rgba(143, 183, 255, 0.24), transparent 22rem),
-    linear-gradient(160deg, rgba(21, 27, 45, 0.96), rgba(9, 12, 23, 0.96));
 }
 
 .mini-form,
@@ -588,7 +590,11 @@ input[type="password"] {
 }
 
 .funnel {
-  background: radial-gradient(circle at 50% 0%, rgba(143, 183, 255, 0.12), transparent 32rem);
+  background: radial-gradient(
+    circle at 50% 0%,
+    rgba(143, 183, 255, 0.12),
+    transparent 32rem
+  );
 }
 
 .funnel-steps {
@@ -676,7 +682,11 @@ input[type="password"] {
   border: 1px solid var(--line);
   border-radius: clamp(1.2rem, 2vw, 2rem);
   padding: clamp(1.2rem, 2.4vw, 2rem);
-  background: linear-gradient(180deg, rgba(21, 27, 45, 0.92), rgba(8, 11, 21, 0.96));
+  background: linear-gradient(
+    180deg,
+    rgba(21, 27, 45, 0.92),
+    rgba(8, 11, 21, 0.96)
+  );
   box-shadow: var(--shadow);
 }
 
@@ -714,7 +724,13 @@ input[type="password"] {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 1rem;
-  background: radial-gradient(circle at 50% 20%, rgba(143, 183, 255, 0.28), transparent 18rem), #060914;
+  background:
+    radial-gradient(
+      circle at 50% 20%,
+      rgba(143, 183, 255, 0.28),
+      transparent 18rem
+    ),
+    #060914;
   font-size: clamp(5rem, 10vw, 9rem);
   font-weight: 900;
   letter-spacing: -0.1em;
@@ -764,11 +780,6 @@ input[type="password"] {
   font-size: clamp(2rem, 4vw, 3.5rem);
 }
 
-.seller-metrics,
-.seller-funnel {
-  margin-bottom: 1rem;
-}
-
 @media (max-width: 1180px) {
   .store-grid {
     grid-template-columns: 1fr;
@@ -789,8 +800,16 @@ input[type="password"] {
   display: grid;
   align-items: center;
   background:
-    radial-gradient(circle at 12% 12%, rgba(143, 183, 255, 0.16), transparent 24rem),
-    radial-gradient(circle at 88% 8%, rgba(199, 215, 255, 0.12), transparent 26rem);
+    radial-gradient(
+      circle at 12% 12%,
+      rgba(143, 183, 255, 0.16),
+      transparent 24rem
+    ),
+    radial-gradient(
+      circle at 88% 8%,
+      rgba(199, 215, 255, 0.12),
+      transparent 26rem
+    );
 }
 
 .auth-shell {
@@ -937,4 +956,191 @@ input::placeholder {
 
 .demo-credentials strong {
   overflow-wrap: anywhere;
+}
+
+/* Cart and customer dashboard polish */
+.cart-layout,
+.dashboard-page {
+  background:
+    radial-gradient(
+      circle at 18% 0%,
+      rgba(143, 183, 255, 0.15),
+      transparent 26rem
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
+}
+
+.cart-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+  gap: clamp(1.25rem, 4vw, 3rem);
+  align-items: start;
+}
+
+.cart-panel,
+.dashboard-hero,
+.profile-card,
+.order-card {
+  min-width: 0;
+}
+
+.cart-panel h1,
+.dashboard-hero h1 {
+  max-width: none;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+}
+
+.cart-summary {
+  position: sticky;
+  top: 6.5rem;
+  width: 100%;
+  gap: 1rem;
+}
+
+.cart-summary .button,
+.profile-form .button {
+  width: 100%;
+}
+
+.cart-items {
+  gap: 1rem;
+}
+
+.cart-items li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.cart-items li span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cart-items small,
+.support-link {
+  color: var(--muted);
+}
+
+.empty-cart {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+.support-link {
+  text-align: center;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+
+.dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.profile-card {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.avatar {
+  flex: 0 0 auto;
+  width: clamp(5rem, 10vw, 7rem);
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 1.6rem;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(143, 183, 255, 0.35),
+      transparent 5rem
+    ),
+    #070a13;
+  color: var(--text);
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  box-shadow: var(--shadow);
+  background-size: cover;
+  background-position: center;
+}
+
+.avatar.has-image {
+  color: transparent;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.82fr) minmax(0, 1.18fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.orders-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.order-card {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.order-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #05070d;
+}
+
+.order-card h3 {
+  max-width: none;
+  font-size: clamp(1.7rem, 3vw, 2.6rem);
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .cart-layout,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cart-summary {
+    position: static;
+  }
+
+  .dashboard-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .cart-items li,
+  .empty-cart,
+  .order-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cart-items li strong:last-child {
+    justify-self: start;
+  }
+
+  .profile-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
