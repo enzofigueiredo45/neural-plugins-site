@@ -1,8 +1,10 @@
 const express = require("express");
-console.log("================================");
-console.log("DATABASE_URL:", process.env.DATABASE_URL ? "SIM" : "NAO");
-console.log("NODE_ENV:", process.env.NODE_ENV);
-console.log("================================");
+const databaseUrl = process.env.DATABASE_URL || "";
+
+const usePostgres = !!databaseUrl;
+
+console.log("DATABASE_URL existe?", !!process.env.DATABASE_URL);
+console.log("Usando PostgreSQL?", usePostgres);
 const path = require("path");
 const fs = require("fs");
 const helmet = require("helmet");
