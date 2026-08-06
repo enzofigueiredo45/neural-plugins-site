@@ -42,14 +42,14 @@ const indexablePages = [
 
 function xmlEscape(value) {
   return String(value).replace(
-    /[<>&'"]/g,
+    /[<>&'\"]/g,
     (char) =>
       ({
         "<": "&lt;",
         ">": "&gt;",
         "&": "&amp;",
         "'": "&apos;",
-        '"': "&quot;",
+        '\"': "&quot;",
       })[char],
   );
 }
@@ -234,7 +234,8 @@ async function clearFailed(email) {
 }
 
 async function seedDemoData() {
-  if (isProduction || process.env.DEMO_ACCOUNTS_ENABLED === "false") return;
+  const demosEnabled = String(process.env.DEMO_ACCOUNTS_ENABLED || "") === "true";
+  if (isProduction || !demosEnabled) return;
   const demoEmail = "demo@neuralx.com";
   const exists = await getUserByEmail(demoEmail);
   if (!exists) {
@@ -268,12 +269,14 @@ function getStripeSecret() {
   return process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET || "";
 }
 
-console.log("===== STRIPE CONFIG =====");
-console.log("SECRET:", !!process.env.STRIPE_SECRET_KEY);
-console.log("NEURAL:", process.env.STRIPE_PRICE_NEURAL_X);
-console.log("FL:", process.env.STRIPE_PRICE_FL_STUDIO);
-console.log("REAPER:", process.env.STRIPE_PRICE_REAPER);
-console.log("=========================");
+if (!isProduction) {
+  console.log("===== STRIPE CONFIG =====");
+  console.log("SECRET:", !!process.env.STRIPE_SECRET_KEY);
+  console.log("NEURAL:", process.env.STRIPE_PRICE_NEURAL_X);
+  console.log("FL:", process.env.STRIPE_PRICE_FL_STUDIO);
+  console.log("REAPER:", process.env.STRIPE_PRICE_REAPER);
+  console.log("=====================");
+}
 
 function getProductCatalog() {
   return {
@@ -292,7 +295,11 @@ function getProductCatalog() {
 // captcha verification
 async function verifyCaptcha(token) {
   const secret = process.env.RECAPTCHA_SECRET;
-  if (!secret) return true; // no captcha configured: bypass (but recommend to set)
+  if (isProduction && !secret) {
+    console.error("RECAPTCHA_SECRET is required in production");
+    return false;
+  }
+  if (!secret) return true; // no captcha configured: bypass in dev only
   try {
     const res = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
       method: "POST",
@@ -300,7 +307,8 @@ async function verifyCaptcha(token) {
       body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`,
     });
     const data = await res.json();
-    return data.success === true && data.score && data.score >= 0.3;
+    // support both v2 (no score) and v3 (with score)
+    return data.success === true && (data.score === undefined ? true : data.score >= 0.3);
   } catch (e) {
     console.error("captcha verify err", e);
     return false;
@@ -555,6 +563,7 @@ app.post("/api/create-checkout-session", async (req, res) => {
   const catalog = getProductCatalog();
   const lineItems = cart
     .map((item) => {
+      if (!item || typeof item.id !== "string") return null;
       const product = catalog[item.id];
       const quantity = Number.parseInt(item.quantity, 10);
       if (
