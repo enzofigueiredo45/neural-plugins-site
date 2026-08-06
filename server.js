@@ -262,6 +262,13 @@ function getStripeSecret() {
   return process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET || "";
 }
 
+console.log("===== STRIPE CONFIG =====");
+console.log("SECRET:", !!process.env.STRIPE_SECRET_KEY);
+console.log("NEURAL:", process.env.STRIPE_PRICE_NEURAL_X);
+console.log("FL:", process.env.STRIPE_PRICE_FL_STUDIO);
+console.log("REAPER:", process.env.STRIPE_PRICE_REAPER);
+console.log("=========================");
+
 function getProductCatalog() {
   return {
     "neural-x": {
