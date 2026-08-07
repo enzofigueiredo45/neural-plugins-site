@@ -23,25 +23,38 @@
       </nav>
     </header>
 
-    <main class="section dashboard-page">
+    <main class="dashboard-page">
       <section class="dashboard-hero" aria-labelledby="dashboard-title">
-        <div class="profile-card">
-          <div class="avatar" id="avatarPreview" aria-hidden="true">NX</div>
-          <div>
-            <p class="eyebrow">Área do cliente</p>
-            <h1 id="dashboard-title">Meus produtos</h1>
-            <p class="lead">
-              Veja seu perfil, pedidos comprados, status de entrega e links de
-              acesso.
-            </p>
-          </div>
+        <div>
+          <p class="eyebrow">Minha biblioteca</p>
+          <h1 id="dashboard-title">Olá, <span id="welcomeName">cliente</span>.</h1>
+          <p class="lead">Seus produtos, downloads e dados da conta em um só lugar.</p>
         </div>
-        <button class="button secondary" id="logout" type="button">Sair</button>
+        <button class="button ghost danger" id="logout" type="button">Sair da conta</button>
+      </section>
+
+      <section class="account-summary" aria-label="Resumo da conta">
+        <article class="summary-card">
+          <span class="summary-icon" aria-hidden="true">↓</span>
+          <div><strong id="productCount">—</strong><small>produtos disponíveis</small></div>
+        </article>
+        <article class="summary-card">
+          <span class="summary-icon" aria-hidden="true">✓</span>
+          <div><strong>Conta ativa</strong><small>acesso protegido</small></div>
+        </article>
+        <a class="summary-card summary-link" href="./contact.html">
+          <span class="summary-icon" aria-hidden="true">?</span>
+          <div><strong>Precisa de ajuda?</strong><small>fale com o suporte →</small></div>
+        </a>
       </section>
 
       <section class="dashboard-grid">
+        <aside class="account-panel">
         <form class="checkout-box profile-form" id="profileForm">
-          <p class="eyebrow">Perfil</p>
+          <div class="profile-heading">
+            <div class="avatar" id="avatarPreview" aria-hidden="true">NX</div>
+            <div><p class="eyebrow">Sua conta</p><h2>Perfil</h2></div>
+          </div>
           <div class="field-group">
             <label for="profileName">Nome</label>
             <input
@@ -57,13 +70,10 @@
             <input id="profileEmail" name="email" type="email" disabled />
           </div>
           <div class="field-group">
-            <label for="profileAvatar">URL da foto</label>
-            <input
-              id="profileAvatar"
-              name="avatarUrl"
-              type="text"
-              placeholder="https://..."
-            />
+            <label for="profileAvatarFile">Foto de perfil <span>(opcional)</span></label>
+            <input id="profileAvatarFile" name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
+            <input id="profileAvatar" name="avatarUrl" type="hidden" />
+            <small class="field-hint">PNG, JPG ou WebP de até 5 MB.</small>
           </div>
           <p
             id="profileMessage"
@@ -73,14 +83,14 @@
           ></p>
           <button class="button primary" type="submit">Salvar perfil</button>
         </form>
+        </aside>
 
         <section
           class="checkout-box orders-panel"
           aria-labelledby="orders-title"
         >
-          <p class="eyebrow">Pedidos</p>
-          <h2 id="orders-title">Produtos comprados</h2>
-          <div id="ordersList" class="orders-list" aria-live="polite"></div>
+          <div class="panel-heading"><div><p class="eyebrow">Biblioteca</p><h2 id="orders-title">Seus produtos</h2></div><a href="./index.html#produtos">Ver loja →</a></div>
+          <div id="ordersList" class="orders-list" aria-live="polite"><div class="loading-state">Carregando sua biblioteca…</div></div>
         </section>
       </section>
     </main>

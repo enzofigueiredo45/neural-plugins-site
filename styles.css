@@ -1041,6 +1041,91 @@ input::placeholder {
   margin-bottom: 2rem;
 }
 
+/* Logged-in area: calm workspace with clear account and library hierarchy. */
+.dashboard-page {
+  min-height: calc(100svh - 5rem);
+  padding: clamp(2.5rem, 6vw, 5rem) clamp(1.25rem, 5vw, 6rem) 6rem;
+}
+
+.dashboard-page > * {
+  width: min(100%, 82rem);
+  margin-inline: auto;
+}
+
+.dashboard-hero h1 {
+  margin-bottom: 0.7rem;
+  font-size: clamp(2.8rem, 6vw, 5.7rem);
+}
+
+.dashboard-hero .lead {
+  margin-bottom: 0;
+}
+
+.button.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.button.danger:hover,
+.button.danger:focus-visible {
+  border-color: rgba(255, 130, 130, 0.55);
+  color: #ffb4b4;
+}
+
+.account-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1.25rem;
+}
+
+.summary-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background: rgba(12, 17, 30, 0.72);
+}
+
+.summary-card div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.summary-card strong {
+  font-size: 1.02rem;
+}
+
+.summary-card small,
+.field-hint,
+.field-group label span {
+  color: var(--muted);
+}
+
+.summary-icon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 0.8rem;
+  background: rgba(143, 183, 255, 0.13);
+  color: var(--brand-2);
+  font-weight: 900;
+}
+
+.summary-link {
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.summary-link:hover {
+  border-color: rgba(143, 183, 255, 0.55);
+  transform: translateY(-2px);
+}
+
 .profile-card {
   display: flex;
   gap: 1.25rem;
@@ -1077,9 +1162,74 @@ input::placeholder {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(18rem, 0.82fr) minmax(0, 1.18fr);
-  gap: 1rem;
+  grid-template-columns: minmax(18rem, 0.7fr) minmax(0, 1.3fr);
+  gap: 1.25rem;
   align-items: start;
+}
+
+.profile-form,
+.orders-panel {
+  border-radius: 1.4rem;
+  background: rgba(9, 13, 24, 0.82);
+}
+
+.profile-heading,
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.profile-heading {
+  justify-content: flex-start;
+}
+
+.profile-heading .avatar {
+  width: 4.2rem;
+  border-radius: 1.2rem;
+  box-shadow: none;
+}
+
+.profile-heading h2,
+.panel-heading h2,
+.profile-heading p,
+.panel-heading p {
+  margin-bottom: 0;
+}
+
+.panel-heading > a {
+  color: var(--brand-2);
+  font-weight: 800;
+}
+
+input[type="file"] {
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.8rem;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 0.8rem;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: var(--brand-2);
+  color: #05070d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.loading-state {
+  padding: 2.5rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 1rem;
+  color: var(--muted);
+  text-align: center;
 }
 
 .orders-list {
@@ -1094,7 +1244,13 @@ input::placeholder {
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 1.25rem;
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(255, 255, 255, 0.025);
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.order-card:hover {
+  border-color: rgba(143, 183, 255, 0.38);
+  transform: translateY(-2px);
 }
 
 .order-card img {
@@ -1112,9 +1268,39 @@ input::placeholder {
   margin-bottom: 0.5rem;
 }
 
+.order-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.status-badge {
+  margin-bottom: 0.65rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(118, 231, 171, 0.25);
+  border-radius: 999px;
+  background: rgba(64, 190, 123, 0.1);
+  color: #9ce8be;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.button.compact {
+  min-height: 2.65rem;
+  margin-top: auto;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.86rem;
+}
+
 @media (max-width: 900px) {
   .cart-layout,
   .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-summary {
     grid-template-columns: 1fr;
   }
 
