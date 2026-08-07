@@ -55,6 +55,9 @@ document.querySelectorAll(".add-cart").forEach((button) => {
 const cartList = document.querySelector("#cartList");
 const cartTotal = document.querySelector("#cartTotal");
 if (cartList && cartTotal) {
+  // Start session/CSRF negotiation while the customer reviews the cart rather
+  // than adding this round trip after the checkout click.
+  const csrfReady = fetchCsrf();
   const renderCart = () => {
     const cart = readCart();
     cartList.innerHTML = cart.length
@@ -67,9 +70,15 @@ if (cartList && cartTotal) {
     const cart = readCart();
     if (!cart.length) return;
     const button = document.querySelector("#checkoutButton");
+    const buttonLabel = button?.querySelector(".checkout-button-label");
+    const status = document.querySelector("#checkoutStatus");
+    const clearButton = document.querySelector("#clearCart");
     try {
-      if (button) button.disabled = true;
-      const csrfToken = await fetchCsrf();
+      if (button) { button.disabled = true; button.classList.add("is-loading"); }
+      if (buttonLabel) buttonLabel.textContent = "Abrindo checkout seguro…";
+      if (clearButton) clearButton.disabled = true;
+      if (status) status.textContent = "Conectando com a Stripe. Isso leva apenas alguns segundos.";
+      const csrfToken = await csrfReady;
       const headers = { "Content-Type": "application/json" };
       if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
       const response = await fetch("/api/create-checkout-session", {
@@ -83,22 +92,32 @@ if (cartList && cartTotal) {
       window.va?.("event", { name: "checkout_iniciado", data: { items: cart.length } });
       window.location.assign(data.url);
     } catch (err) {
-      alert("Checkout ainda não configurado. Verifique STRIPE_SECRET_KEY e os STRIPE_PRICE_* no servidor.");
-      if (button) button.disabled = false;
+      alert("Não foi possível abrir o checkout agora. Tente novamente em instantes.");
+      if (button) { button.disabled = false; button.classList.remove("is-loading"); }
+      if (buttonLabel) buttonLabel.textContent = "Finalizar compra";
+      if (clearButton) clearButton.disabled = false;
+      if (status) status.textContent = "Não foi possível abrir o checkout. Tente novamente.";
     }
   });
   renderCart();
 }
 
+let csrfRequest;
 async function fetchCsrf() {
-  try {
-    const res = await fetch('/api/csrf-token', { credentials: 'include' });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.csrfToken || null;
-  } catch {
-    return null;
-  }
+  if (csrfRequest) return csrfRequest;
+  csrfRequest = (async () => {
+    try {
+      const res = await fetch('/api/csrf-token', { credentials: 'include' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.csrfToken || null;
+    } catch {
+      return null;
+    }
+  })();
+  const token = await csrfRequest;
+  if (!token) csrfRequest = null;
+  return token;
 }
 
 const loginForm = document.querySelector("#loginForm");

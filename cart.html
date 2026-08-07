@@ -9,6 +9,8 @@
     <meta name="robots" content="noindex,follow" />
     <meta name="theme-color" content="#020305" />
     <title>Carrinho | Neural X</title>
+    <link rel="preconnect" href="https://checkout.stripe.com" crossorigin />
+    <link rel="dns-prefetch" href="https://checkout.stripe.com" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -41,15 +43,13 @@
           <span>Total</span><strong id="cartTotal">R$ 0,00</strong>
         </div>
         <button class="button primary" id="checkoutButton" type="button">
-          Finalizar compra
+          <span class="checkout-button-label">Finalizar compra</span>
         </button>
+        <p class="checkout-status" id="checkoutStatus" role="status" aria-live="polite"></p>
         <button class="button secondary" id="clearCart" type="button">
           Limpar carrinho
         </button>
-        <small
-          >Checkout seguro via Stripe. Se aparecer aviso de configuração,
-          preencha STRIPE_SECRET_KEY e STRIPE_PRICE_* no servidor.</small
-        >
+        <small>Pagamento processado em ambiente seguro pela Stripe. Seus dados de cartão não passam pela Neural X.</small>
         <a class="support-link" href="./contact.html"
           >Precisa de ajuda? Fale com o suporte.</a
         >

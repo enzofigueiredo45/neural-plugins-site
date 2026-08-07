@@ -298,6 +298,11 @@ function getStripeSecret() {
   return process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET || "";
 }
 
+// Build the SDK client at startup instead of paying module initialization cost
+// on the customer's checkout request.
+const stripeSecret = getStripeSecret();
+const stripeClient = stripeSecret ? require("stripe")(stripeSecret) : null;
+
 if (!isProduction) {
   console.log("===== STRIPE CONFIG =====");
   console.log("SECRET:", !!process.env.STRIPE_SECRET_KEY);
@@ -623,8 +628,7 @@ app.post(
 
 // Stripe checkout endpoint (server-side only)
 app.post("/api/create-checkout-session", async (req, res) => {
-  const stripeSecret = getStripeSecret();
-  if (!stripeSecret)
+  if (!stripeClient)
     return res.status(501).json({ ok: false, error: "stripe_not_configured" });
 
   const cart = Array.isArray(req.body?.cart) ? req.body.cart : [];
@@ -651,9 +655,8 @@ app.post("/api/create-checkout-session", async (req, res) => {
       .json({ ok: false, error: "invalid_cart_or_missing_price_ids" });
   }
 
-  const stripe = require("stripe")(stripeSecret);
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await stripeClient.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
