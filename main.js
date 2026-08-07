@@ -52,6 +52,7 @@ document.querySelectorAll(".add-cart").forEach((button) => {
   });
 });
 
+let csrfRequest;
 const cartList = document.querySelector("#cartList");
 const cartTotal = document.querySelector("#cartTotal");
 if (cartList && cartTotal) {
@@ -102,7 +103,7 @@ if (cartList && cartTotal) {
   renderCart();
 }
 
-let csrfRequest;
+
 async function fetchCsrf() {
   if (csrfRequest) return csrfRequest;
   csrfRequest = (async () => {
