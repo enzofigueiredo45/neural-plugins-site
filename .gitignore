@@ -1,6 +1,11 @@
 node_modules/
-data.sqlite
-uploads/
 .env
 .env.*
 !.env.example
+data.sqlite
+data.sqlite-*
+coverage/
+npm-debug.log*
+.vercel/
+.DS_Store
+Thumbs.db

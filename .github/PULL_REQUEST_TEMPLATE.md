@@ -1,19 +1,17 @@
----
-name: "Fix client login and dashboard"
-about: "Valida login do cliente; mostra produto comprado com imagem, nome e email; melhorias de segurança e parsing JSON"
----
+## Resumo
 
-This PR includes:
+Descreva o objetivo e o comportamento alterado.
 
-- client-login.html: Página de login do cliente (validação no front-end).
-- client-dashboard.html: Dashboard do cliente que exibe email, produto comprado (nome, status, preço) e permite upload/preview de imagem.
-- main.js: Ajustes para salvar role/email na sessionStorage, validação e proteção do fluxo.
-- server.js: Correções de segurança (path.resolve, JSON parse seguro) feitas anteriormente on this branch.
+## Como validar
 
-Suggested testing steps:
-1. Run `node server.js`
-2. Open `/client-login.html` and log in with `demo@neuralx.com / neuralx123`
-3. Confirm redirect to `/client-dashboard.html` with product details and image preview working.
+- [ ] `npm ci`
+- [ ] `npm run check`
+- [ ] `npm run security`
+- [ ] Fluxos afetados foram testados manualmente
 
-Notes:
-- The server currently returns static demo orders. For production, implement server-side sessions and persistent storage for orders and uploaded images.
+## Checklist de produção
+
+- [ ] Nenhum segredo foi incluído no código ou nos logs
+- [ ] Variáveis de ambiente novas estão documentadas
+- [ ] Migrações e compatibilidade com dados existentes foram consideradas
+- [ ] O rollback está claro quando a mudança afeta checkout, login ou banco

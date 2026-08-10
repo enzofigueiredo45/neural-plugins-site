@@ -1,34 +1,41 @@
 const express = require("express");
 const databaseUrl = process.env.DATABASE_URL || "";
-
-const usePostgres = !!databaseUrl;
-
-console.log("DATABASE_URL existe?", !!process.env.DATABASE_URL);
-console.log("Usando PostgreSQL?", usePostgres);
 const path = require("path");
-const fs = require("fs");
 const helmet = require("helmet");
 const session = require("express-session");
 const { default: RedisStore } = require("connect-redis");
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcrypt");
 const multer = require("multer");
-const { randomUUID, timingSafeEqual } = require("crypto");
+const { createHash, randomUUID, timingSafeEqual } = require("crypto");
 const cookieParser = require("cookie-parser");
 const { createClient } = require("redis");
-const db = require("./lib/db");
-const fetch = global.fetch || require("node-fetch");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
+const {
+  isStripePriceId,
+  isStripeSessionId,
+  normalizeAvatarUrl,
+  validateRuntimeConfig,
+} = require("./lib/validation");
 
 const PORT = process.env.PORT || 4173;
 const isProduction = process.env.NODE_ENV === "production";
+const runtimeConfig = validateRuntimeConfig(process.env, isProduction);
 const canonicalUrl = (
   process.env.SITE_URL || `http://localhost:${PORT}`
 ).replace(/\/$/, "");
 const root = process.cwd();
-const uploadsDir = path.join("/tmp", "uploads");
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const db = databaseUrl || !isProduction ? require("./lib/db") : null;
+
+if (runtimeConfig.errors.length)
+  console.error("Runtime configuration invalid", {
+    missingOrInvalid: runtimeConfig.errors,
+  });
+if (runtimeConfig.warnings.length)
+  console.warn("Optional production configuration missing", {
+    variables: runtimeConfig.warnings,
+  });
 
 const indexablePages = [
   { path: "/", priority: "1.0" },
@@ -54,37 +61,113 @@ function xmlEscape(value) {
   );
 }
 
-// init db sqlite if used
-const dbReady = db
-  .initSqlite()
-  .then(() => seedDemoData())
-  .catch((err) => {
-    console.error("Database init error", err);
-    throw err;
+function logError(scope, error, requestId) {
+  console.error(scope, {
+    requestId,
+    name: error?.name,
+    code: error?.code,
+    type: error?.type,
+    message: error?.message || String(error),
+    providerRequestId: error?.requestId,
   });
+}
+
+let databaseReady = false;
+let databaseReadyPromise = null;
+let lastDatabaseAttempt = 0;
+async function ensureDatabaseReady() {
+  if (!db) return false;
+  if (databaseReady) return true;
+  if (databaseReadyPromise) return databaseReadyPromise;
+  if (Date.now() - lastDatabaseAttempt < 5_000) return false;
+  lastDatabaseAttempt = Date.now();
+  databaseReadyPromise = db
+    .initSqlite()
+    .then(() => seedDemoData())
+    .then(() => {
+      databaseReady = true;
+      return true;
+    })
+    .catch((err) => {
+      logError("database_init_error", err);
+      return false;
+    })
+    .finally(() => {
+      databaseReadyPromise = null;
+    });
+  return databaseReadyPromise;
+}
+void ensureDatabaseReady();
 
 // Redis and session store
 const redisUrl = process.env.REDIS_URL || "";
-const redisClient = redisUrl ? createClient({ url: redisUrl }) : null;
+const redisClient = redisUrl
+  ? createClient({
+      url: redisUrl,
+      socket: {
+        connectTimeout: 3_000,
+        reconnectStrategy: (retries) =>
+          retries > 2
+            ? new Error("Redis connection retry limit reached")
+            : Math.min(retries * 200, 2_000),
+      },
+    })
+  : null;
 if (redisClient)
-  redisClient
+  redisClient.on("error", (err) => logError("redis_error", err));
+let redisReadyPromise = null;
+let lastRedisAttempt = 0;
+async function ensureRedisReady() {
+  if (!redisClient) return false;
+  if (redisClient.isReady) return true;
+  if (redisReadyPromise) return redisReadyPromise;
+  if (redisClient.isOpen || Date.now() - lastRedisAttempt < 5_000) return false;
+  lastRedisAttempt = Date.now();
+  redisReadyPromise = redisClient
     .connect()
-    .catch((err) => console.error("Redis connect error", err));
+    .then(() => true)
+    .catch((err) => {
+      logError("redis_connect_error", err);
+      return false;
+    })
+    .finally(() => {
+      redisReadyPromise = null;
+    });
+  return redisReadyPromise;
+}
+void ensureRedisReady();
 
 const app = express();
 app.set("trust proxy", 1);
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader("X-Request-Id", req.requestId);
+  next();
+});
 
 // Helmet with CSP tightened
 app.use(
   helmet({
+    crossOriginEmbedderPolicy: false,
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://www.google.com",
+          "https://www.gstatic.com",
+        ],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://*.stripe.com"],
+        connectSrc: [
+          "'self'",
+          "https://*.stripe.com",
+          "https://www.google.com",
+        ],
+        frameSrc: ["https://www.google.com", "https://recaptcha.google.com"],
         frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
       },
@@ -92,63 +175,97 @@ app.use(
   }),
 );
 
+// Stripe needs the untouched request body to validate webhook signatures.
+app.post(
+  "/api/stripe-webhook",
+  express.raw({ type: "application/json", limit: "256kb" }),
+  handleStripeWebhook,
+);
+
 // body parsing
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// sessions
-if (isProduction && !process.env.SESSION_SECRET) {
-  throw new Error("SESSION_SECRET is required in production");
-}
-if (isProduction && !redisClient) {
-  throw new Error("REDIS_URL is required in production");
-}
-
+const sessionMiddleware = session({
+  store: redisClient ? new RedisStore({ client: redisClient }) : undefined,
+  secret:
+    process.env.SESSION_SECRET ||
+    (isProduction ? randomUUID() : "dev-only-change-this-secret"),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+});
+const statelessApiPaths = new Set([
+  "/api/health",
+  "/api/public-config",
+  "/api/checkout-session",
+]);
+app.use("/api", (req, res, next) => {
+  if (statelessApiPaths.has(req.originalUrl.split("?")[0])) return next();
+  if (isProduction && hasConfigurationError("SESSION_SECRET", "REDIS_URL"))
+    return res.status(503).json({
+      ok: false,
+      error: "session_not_configured",
+      requestId: req.requestId,
+    });
+  return next();
+});
 app.use(
-  session({
-    store: redisClient ? new RedisStore({ client: redisClient }) : undefined,
-    secret:
-      process.env.SESSION_SECRET ||
-      (isProduction ? undefined : "dev-only-change-this-secret"),
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-    },
+  asyncHandler(async (req, res, next) => {
+    if (!req.path.startsWith("/api/") || statelessApiPaths.has(req.path))
+      return next();
+    if (isProduction && !(await ensureRedisReady()))
+      return res.status(503).json({
+        ok: false,
+        error: "session_store_not_ready",
+        requestId: req.requestId,
+      });
+    return sessionMiddleware(req, res, next);
   }),
 );
 
 // CSRF protection for state-changing API requests.
 app.use((req, res, next) => {
-  if (!req.session.csrfToken) req.session.csrfToken = randomUUID();
   const safeMethod = ["GET", "HEAD", "OPTIONS"].includes(req.method);
   if (safeMethod) return next();
 
   const provided = String(req.get("X-CSRF-Token") || "");
   const expected = String(req.session.csrfToken || "");
   const valid =
+    provided.length > 0 &&
+    expected.length > 0 &&
     provided.length === expected.length &&
     timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 
-  if (!valid) return res.status(403).json({ ok: false, error: "csrf_error" });
+  if (!valid)
+    return res.status(403).json({
+      ok: false,
+      error: "csrf_error",
+      requestId: req.requestId,
+    });
   return next();
 });
 
-app.use("/api", async (req, res, next) => {
-  try {
-    await dbReady;
-    next();
-  } catch {
-    res.status(500).json({ ok: false, error: "database_not_ready" });
-  }
-});
-
 // rate limiters
-app.use(rateLimit({ windowMs: 60 * 1000, max: 500 }));
+app.use(
+  "/api",
+  (req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  },
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -165,7 +282,7 @@ const registrationLimiter = rateLimit({
 // uploads
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 256 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.mimetype))
       return cb(new Error("Only PNG, JPEG and WebP images are allowed"));
@@ -205,16 +322,6 @@ app.get("/sitemap.xml", (req, res) => {
 
 // Publish only intentional web assets. Serving the repository root would also
 // expose backend source, package metadata and operational documentation.
-app.use(
-  "/uploads",
-  express.static(uploadsDir, {
-    dotfiles: "deny",
-    fallthrough: false,
-    immutable: true,
-    maxAge: "1d",
-    setHeaders: (res) => res.setHeader("X-Content-Type-Options", "nosniff"),
-  }),
-);
 app.use("/assets", express.static(path.join(root, "assets"), { dotfiles: "deny" }));
 app.get(["/main.js", "/styles.css", "/llms.txt"], (req, res) =>
   res.sendFile(path.join(root, req.path.slice(1))),
@@ -230,6 +337,25 @@ app.get(["/", "/*.html"], (req, res, next) => {
   return res.sendFile(path.join(root, page));
 });
 
+function asyncHandler(handler) {
+  return (req, res, next) =>
+    Promise.resolve(handler(req, res, next)).catch(next);
+}
+
+async function requireDatabase(req, res, next) {
+  if (!db || !(await ensureDatabaseReady()))
+    return res.status(503).json({
+      ok: false,
+      error: "database_not_ready",
+      requestId: req.requestId,
+    });
+  return next();
+}
+
+function hasConfigurationError(...variables) {
+  return variables.some((variable) => runtimeConfig.errors.includes(variable));
+}
+
 // helpers: account lockout using Redis
 async function recordFailedLogin(email) {
   try {
@@ -241,7 +367,8 @@ async function recordFailedLogin(email) {
       await redisClient.set(`login:lock:${email}`, "1", { EX: 30 * 60 }); // lock 30 min
     return v;
   } catch (e) {
-    console.error("redis err", e);
+    logError("redis_login_error", e);
+    return 0;
   }
 }
 async function isLocked(email) {
@@ -295,56 +422,63 @@ async function seedDemoData() {
 }
 
 function getStripeSecret() {
-  return process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET || "";
+  return process.env.STRIPE_SECRET_KEY || "";
 }
 
 // Build the SDK client at startup instead of paying module initialization cost
 // on the customer's checkout request.
 const stripeSecret = getStripeSecret();
-const stripeClient = stripeSecret ? require("stripe")(stripeSecret) : null;
-
-if (!isProduction) {
-  console.log("===== STRIPE CONFIG =====");
-  console.log("SECRET:", !!process.env.STRIPE_SECRET_KEY);
-  console.log("NEURAL:", process.env.STRIPE_PRICE_NEURAL_X);
-  console.log("FL:", process.env.STRIPE_PRICE_FL_STUDIO);
-  console.log("REAPER:", process.env.STRIPE_PRICE_REAPER);
-  console.log("=====================");
-}
+const stripeClient = stripeSecret
+  ? require("stripe")(stripeSecret, { maxNetworkRetries: 2, timeout: 10_000 })
+  : null;
 
 function getProductCatalog() {
   return {
     "neural-x": {
       price: process.env.STRIPE_PRICE_NEURAL_X,
       name: "Pacote Neural X",
+      image: "/assets/neural-collection.svg",
     },
     "fl-studio": {
       price: process.env.STRIPE_PRICE_FL_STUDIO,
       name: "FL Studio",
+      image: "",
     },
-    reaper: { price: process.env.STRIPE_PRICE_REAPER, name: "REAPER" },
+    reaper: {
+      price: process.env.STRIPE_PRICE_REAPER,
+      name: "REAPER",
+      image: "",
+    },
   };
 }
 
+function getProductByPrice(priceId) {
+  return Object.values(getProductCatalog()).find(
+    (product) => product.price === priceId,
+  );
+}
+
 // captcha verification
-async function verifyCaptcha(token) {
+async function verifyCaptcha(token, expectedAction) {
   const secret = process.env.RECAPTCHA_SECRET;
-  if (isProduction && !secret) {
-    console.error("RECAPTCHA_SECRET is required in production");
-    return false;
-  }
-  if (!secret) return true; // no captcha configured: bypass in dev only
+  if (!secret) return true;
+  if (!token) return false;
   try {
     const res = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`,
+      signal: AbortSignal.timeout(5_000),
     });
     const data = await res.json();
     // support both v2 (no score) and v3 (with score)
-    return data.success === true && (data.score === undefined ? true : data.score >= 0.3);
+    return (
+      data.success === true &&
+      (data.score === undefined ? true : data.score >= 0.3) &&
+      (!data.action || data.action === expectedAction)
+    );
   } catch (e) {
-    console.error("captcha verify err", e);
+    logError("captcha_verify_error", e);
     return false;
   }
 }
@@ -378,15 +512,113 @@ async function createUser(
   );
 }
 
-// expose csrf token
-app.get("/api/csrf-token", (req, res) => {
-  if (!req.session.csrfToken) req.session.csrfToken = randomUUID();
-  res.json({ csrfToken: req.session.csrfToken });
-});
+function requireAuth(req, res, next) {
+  if (!req.session.user)
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  return next();
+}
 
-// register
-app.post("/api/register", registrationLimiter, async (req, res) => {
+function saveSession(req) {
+  return new Promise((resolve, reject) =>
+    req.session.save((err) => (err ? reject(err) : resolve())),
+  );
+}
+
+async function fulfillCheckoutSession(sessionId) {
+  if (!stripeClient || !db || !(await ensureDatabaseReady()))
+    throw new Error("Fulfillment dependencies are not ready");
+
+  const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
+    expand: ["line_items"],
+  });
+  if (checkout.payment_status !== "paid") return false;
+
+  const buyerEmail = String(
+    checkout.customer_details?.email || checkout.customer_email || "",
+  )
+    .trim()
+    .toLowerCase();
+  if (!buyerEmail) throw new Error("Paid checkout session has no customer email");
+
+  for (const item of checkout.line_items?.data || []) {
+    const priceId = typeof item.price === "string" ? item.price : item.price?.id;
+    const product = getProductByPrice(priceId);
+    if (!product) continue;
+    const quantity = Math.max(Number.parseInt(item.quantity, 10) || 1, 1);
+    const amount = Number(item.amount_total || 0) / 100;
+    const values = [
+      buyerEmail,
+      product.name,
+      "Pagamento confirmado",
+      amount,
+      quantity,
+      product.image,
+      null,
+      checkout.id,
+      priceId,
+    ];
+    await db.run(
+      db.usePostgres
+        ? "INSERT INTO orders (buyer_email, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING"
+        : "INSERT OR IGNORE INTO orders (buyer_email, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES (?,?,?,?,?,?,?,?,?)",
+      values,
+    );
+  }
+  return true;
+}
+
+async function handleStripeWebhook(req, res, next) {
   try {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const signature = req.get("stripe-signature");
+    if (!stripeClient || !webhookSecret)
+      return res.status(503).json({ ok: false, error: "webhook_not_configured" });
+    if (!signature)
+      return res.status(400).json({ ok: false, error: "missing_signature" });
+
+    let event;
+    try {
+      event = stripeClient.webhooks.constructEvent(
+        req.body,
+        signature,
+        webhookSecret,
+      );
+    } catch (error) {
+      logError("stripe_webhook_signature_error", error, req.requestId);
+      return res.status(400).json({ ok: false, error: "invalid_signature" });
+    }
+
+    if (
+      ["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(
+        event.type,
+      )
+    ) {
+      await fulfillCheckoutSession(event.data.object.id);
+    }
+    return res.json({ received: true });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+app.get("/api/public-config", (req, res) =>
+  res.json({ recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || "" }),
+);
+
+app.get(
+  "/api/csrf-token",
+  asyncHandler(async (req, res) => {
+    if (!req.session.csrfToken) req.session.csrfToken = randomUUID();
+    await saveSession(req);
+    return res.json({ csrfToken: req.session.csrfToken });
+  }),
+);
+
+app.post(
+  "/api/register",
+  registrationLimiter,
+  asyncHandler(requireDatabase),
+  asyncHandler(async (req, res) => {
     const { password, captcha } = req.body || {};
     const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email || !password)
@@ -400,23 +632,20 @@ app.post("/api/register", registrationLimiter, async (req, res) => {
       return res
         .status(400)
         .json({ ok: false, error: "invalid_credentials_format" });
-    if (!(await verifyCaptcha(captcha)))
+    if (!(await verifyCaptcha(captcha, "register")))
       return res.status(400).json({ ok: false, error: "captcha_failed" });
-    const exists = await getUserByEmail(email);
-    if (exists)
+    if (await getUserByEmail(email))
       return res.status(409).json({ ok: false, error: "email_taken" });
-    const hash = await bcrypt.hash(password, 10);
-    await createUser(email, hash);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
+    await createUser(email, await bcrypt.hash(password, 12));
+    return res.status(201).json({ ok: true });
+  }),
+);
 
-// login
-app.post("/api/login/:role", loginLimiter, async (req, res) => {
-  try {
+app.post(
+  "/api/login/:role",
+  loginLimiter,
+  asyncHandler(requireDatabase),
+  asyncHandler(async (req, res) => {
     const role = req.params.role;
     const { password, captcha, mfa_token } = req.body || {};
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -424,26 +653,25 @@ app.post("/api/login/:role", loginLimiter, async (req, res) => {
       return res.status(404).json({ ok: false, error: "portal_disabled" });
     if (!email || !password)
       return res.status(400).json({ ok: false, error: "missing_fields" });
-    if (!(await verifyCaptcha(captcha)))
+    if (
+      email.length > 254 ||
+      !/^\S+@\S+\.\S+$/.test(email) ||
+      String(password).length > 128
+    )
+      return res.status(401).json({ ok: false, error: "invalid_credentials" });
+    if (!(await verifyCaptcha(captcha, "login")))
       return res.status(400).json({ ok: false, error: "captcha_failed" });
     if (await isLocked(email))
       return res.status(429).json({ ok: false, error: "account_locked" });
-    const user = await getUserByEmail(email);
-    if (!user) {
-      await recordFailedLogin(email);
-      return res.status(401).json({ ok: false, error: "invalid_credentials" });
-    }
-    if (user.role !== role) {
-      await recordFailedLogin(email);
-      return res.status(401).json({ ok: false, error: "invalid_role" });
-    }
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
-      await recordFailedLogin(email);
-      return res.status(401).json({ ok: false, error: "invalid_credentials" });
-    }
 
-    // if MFA enabled, verify token
+    const user = await getUserByEmail(email);
+    const matches = user
+      ? await bcrypt.compare(String(password), user.password_hash)
+      : false;
+    if (!user || user.role !== role || !matches) {
+      await recordFailedLogin(email);
+      return res.status(401).json({ ok: false, error: "invalid_credentials" });
+    }
     if (user.mfa_enabled) {
       if (!mfa_token)
         return res.status(400).json({ ok: false, error: "mfa_required" });
@@ -451,6 +679,7 @@ app.post("/api/login/:role", loginLimiter, async (req, res) => {
         secret: user.mfa_secret,
         encoding: "base32",
         token: String(mfa_token),
+        window: 1,
       });
       if (!verified) {
         await recordFailedLogin(email);
@@ -458,156 +687,145 @@ app.post("/api/login/:role", loginLimiter, async (req, res) => {
       }
     }
 
-    // success
     await clearFailed(email);
-    req.session.regenerate((err) => {
-      if (err)
-        return res.status(500).json({ ok: false, error: "session_error" });
-      req.session.user = { id: user.id, email: user.email, role: user.role };
-      req.session.csrfToken = randomUUID();
-      return res.json({ ok: true, role: user.role });
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
+    req.session.user = { id: user.id, email: user.email, role: user.role };
+    req.session.csrfToken = randomUUID();
+    await saveSession(req);
+    return res.json({ ok: true, role: user.role });
+  }),
+);
+
+app.post(
+  "/api/mfa/setup",
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const email = req.session.user.email;
+    const secret = speakeasy.generateSecret({ name: `NeuralX (${email})` });
+    const qr = await qrcode.toDataURL(secret.otpauth_url);
+    req.session.mfaTemp = { secret: secret.base32 };
+    await saveSession(req);
+    return res.json({ ok: true, qr, secret: secret.base32 });
+  }),
+);
+
+app.post(
+  "/api/mfa/verify",
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!req.session.mfaTemp)
+      return res.status(401).json({ ok: false, error: "unauthorized" });
+    const token = String(req.body?.token || "");
+    if (!/^\d{6}$/.test(token))
+      return res.status(400).json({ ok: false, error: "mfa_failed" });
+    const secret = req.session.mfaTemp.secret;
+    if (!speakeasy.totp.verify({ secret, encoding: "base32", token, window: 1 }))
+      return res.status(400).json({ ok: false, error: "mfa_failed" });
+    await db.run(
+      db.usePostgres
+        ? "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE email = $2"
+        : "UPDATE users SET mfa_enabled = 1, mfa_secret = ? WHERE email = ?",
+      [secret, req.session.user.email],
+    );
+    delete req.session.mfaTemp;
+    await saveSession(req);
+    return res.json({ ok: true });
+  }),
+);
+
+app.post("/api/logout", (req, res, next) => {
+  req.session.destroy((err) => {
+    if (err) return next(err);
+    res.clearCookie("connect.sid");
+    return res.json({ ok: true });
+  });
+});
+
+app.get(
+  "/api/me",
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await getUserByEmail(req.session.user.email);
+    return res.json({
+      ok: true,
+      user: {
+        email: req.session.user.email,
+        role: req.session.user.role,
+        name: user?.name || "Cliente Neural X",
+        avatarUrl: user?.avatar_url || "",
+      },
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
+  }),
+);
 
-// MFA setup (requires authentication)
-app.post("/api/mfa/setup", async (req, res) => {
-  if (!req.session.user)
-    return res.status(401).json({ ok: false, error: "unauthorized" });
-  const email = req.session.user.email;
-  const secret = speakeasy.generateSecret({ name: `NeuralX (${email})` });
-  const otpauth = secret.otpauth_url;
-  const qr = await qrcode.toDataURL(otpauth);
-  // store secret temporarily in session until verified
-  req.session.mfaTemp = { secret: secret.base32 };
-  res.json({ ok: true, qr, secret: secret.base32 });
-});
-
-app.post("/api/mfa/verify", async (req, res) => {
-  if (!req.session.user || !req.session.mfaTemp)
-    return res.status(401).json({ ok: false, error: "unauthorized" });
-  const { token } = req.body || {};
-  const email = req.session.user.email;
-  const secret = req.session.mfaTemp.secret;
-  const verified = speakeasy.totp.verify({
-    secret,
-    encoding: "base32",
-    token: String(token),
-  });
-  if (!verified)
-    return res.status(400).json({ ok: false, error: "mfa_failed" });
-  // persist to user
-  if (db.usePostgres) {
+app.post(
+  "/api/profile",
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const name = String(req.body?.name || "").trim().slice(0, 80);
+    const avatarUrl = normalizeAvatarUrl(req.body?.avatarUrl);
+    if (!name) return res.status(400).json({ ok: false, error: "missing_name" });
+    if (avatarUrl === null)
+      return res.status(400).json({ ok: false, error: "invalid_avatar_url" });
     await db.run(
-      "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE email = $2",
-      [secret, email],
+      db.usePostgres
+        ? "UPDATE users SET name = $1, avatar_url = $2 WHERE email = $3"
+        : "UPDATE users SET name = ?, avatar_url = ? WHERE email = ?",
+      [name, avatarUrl, req.session.user.email],
     );
-  } else {
-    await db.run(
-      "UPDATE users SET mfa_enabled = 1, mfa_secret = ? WHERE email = ?",
-      [secret, email],
-    );
-  }
-  delete req.session.mfaTemp;
-  res.json({ ok: true });
-});
+    return res.json({
+      ok: true,
+      user: {
+        email: req.session.user.email,
+        role: req.session.user.role,
+        name,
+        avatarUrl,
+      },
+    });
+  }),
+);
 
-// logout
-app.post("/api/logout", (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
-});
-
-// me
-app.get("/api/me", async (req, res) => {
-  if (!req.session.user)
-    return res.status(401).json({ ok: false, error: "unauthorized" });
-  const user = await getUserByEmail(req.session.user.email);
-  res.json({
-    ok: true,
-    user: {
-      email: req.session.user.email,
-      role: req.session.user.role,
-      name: user?.name || "Cliente Neural X",
-      avatarUrl: user?.avatar_url || "",
-    },
-  });
-});
-
-app.post("/api/profile", async (req, res) => {
-  if (!req.session.user)
-    return res.status(401).json({ ok: false, error: "unauthorized" });
-  const name = String(req.body?.name || "")
-    .trim()
-    .slice(0, 80);
-  const avatarUrl = String(req.body?.avatarUrl || "")
-    .trim()
-    .slice(0, 500);
-  if (!name) return res.status(400).json({ ok: false, error: "missing_name" });
-  await db.run(
-    db.usePostgres
-      ? "UPDATE users SET name = $1, avatar_url = $2 WHERE email = $3"
-      : "UPDATE users SET name = ?, avatar_url = ? WHERE email = ?",
-    [name, avatarUrl, req.session.user.email],
-  );
-  res.json({
-    ok: true,
-    user: {
-      email: req.session.user.email,
-      role: req.session.user.role,
-      name,
-      avatarUrl,
-    },
-  });
-});
-
-// orders
-app.get("/api/orders", async (req, res) => {
-  if (!req.session.user)
-    return res.status(401).json({ ok: false, error: "unauthorized" });
-  const email = req.session.user.email;
-  try {
+app.get(
+  "/api/orders",
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
-        ? "SELECT id, product, status, price, image, download_url FROM orders WHERE buyer_email = $1"
-        : "SELECT id, product, status, price, image, download_url FROM orders WHERE buyer_email = ?",
-      [email],
+        ? "SELECT id, product, status, price, quantity, image, download_url FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC"
+        : "SELECT id, product, status, price, quantity, image, download_url FROM orders WHERE buyer_email = ? ORDER BY created_at DESC",
+      [req.session.user.email],
     );
-    res.json(rows);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "db_error" });
-  }
-});
+    return res.json(rows);
+  }),
+);
 
-// uploads
 app.post(
   "/api/uploads",
-  (req, res, next) => {
-    if (!req.session.user)
-      return res.status(401).json({ ok: false, error: "unauthorized" });
-    next();
-  },
+  asyncHandler(requireDatabase),
+  requireAuth,
   upload.single("file"),
   (req, res) => {
     if (!req.file) return res.status(400).json({ ok: false, error: "no_file" });
     const signatures = [
       {
-        ext: ".png",
+        mime: "image/png",
         test: (buffer) =>
-          buffer
-            .subarray(0, 8)
-            .equals(Buffer.from("89504e470d0a1a0a", "hex")),
+          buffer.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex")),
       },
       {
-        ext: ".jpg",
+        mime: "image/jpeg",
         test: (buffer) =>
           buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
       },
       {
-        ext: ".webp",
+        mime: "image/webp",
         test: (buffer) =>
           buffer.subarray(0, 4).toString() === "RIFF" &&
           buffer.subarray(8, 12).toString() === "WEBP",
@@ -616,75 +834,233 @@ app.post(
     const detected = signatures.find(({ test }) => test(req.file.buffer));
     if (!detected)
       return res.status(400).json({ ok: false, error: "invalid_image" });
-    const ext = detected.ext;
-    const filename = randomUUID() + ext;
-    const dest = path.join(uploadsDir, filename);
-    fs.writeFile(dest, req.file.buffer, { flag: "wx", mode: 0o600 }, (err) => {
-      if (err) return res.status(500).json({ ok: false, error: "save_error" });
-      res.json({ ok: true, url: "/uploads/" + filename });
+    return res.json({
+      ok: true,
+      url: `data:${detected.mime};base64,${req.file.buffer.toString("base64")}`,
     });
   },
 );
 
-// Stripe checkout endpoint (server-side only)
-app.post("/api/create-checkout-session", async (req, res) => {
-  if (!stripeClient)
-    return res.status(501).json({ ok: false, error: "stripe_not_configured" });
-
-  const cart = Array.isArray(req.body?.cart) ? req.body.cart : [];
-  const catalog = getProductCatalog();
-  const lineItems = cart
-    .map((item) => {
-      if (!item || typeof item.id !== "string") return null;
-      const product = catalog[item.id];
-      const quantity = Number.parseInt(item.quantity, 10);
-      if (
-        !product?.price ||
-        !Number.isInteger(quantity) ||
-        quantity < 1 ||
-        quantity > 10
+app.post(
+  "/api/create-checkout-session",
+  asyncHandler(async (req, res) => {
+    if (
+      !stripeClient ||
+      hasConfigurationError(
+        "STRIPE_SECRET_KEY",
+        "STRIPE_PRICE_NEURAL_X",
+        "STRIPE_PRICE_FL_STUDIO",
+        "STRIPE_PRICE_REAPER",
       )
-        return null;
-      return { price: product.price, quantity };
-    })
-    .filter(Boolean);
+    )
+      return res.status(503).json({
+        ok: false,
+        error: "stripe_not_configured",
+        requestId: req.requestId,
+      });
 
-  if (!lineItems.length || lineItems.length !== cart.length) {
-    return res
-      .status(400)
-      .json({ ok: false, error: "invalid_cart_or_missing_price_ids" });
-  }
+    const catalog = getProductCatalog();
+    const cart = Array.isArray(req.body?.cart) ? req.body.cart : [];
+    const cartIds = cart.map((item) => item?.id);
+    const invalidCartShape =
+      cart.length < 1 ||
+      cart.length > Object.keys(catalog).length ||
+      new Set(cartIds).size !== cart.length;
+    if (invalidCartShape)
+      return res.status(400).json({
+        ok: false,
+        error: "invalid_cart_or_missing_price_ids",
+        requestId: req.requestId,
+      });
+    const lineItems = cart
+      .map((item) => {
+        if (!item || typeof item.id !== "string") return null;
+        const product = catalog[item.id];
+        const quantity = Number.parseInt(item.quantity, 10);
+        if (
+          !isStripePriceId(product?.price) ||
+          !Number.isInteger(quantity) ||
+          quantity < 1 ||
+          quantity > 10
+        )
+          return null;
+        return { price: product.price, quantity };
+      })
+      .filter(Boolean);
 
-  try {
-    const session = await stripeClient.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items: lineItems,
-      success_url: `${canonicalUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${canonicalUrl}/cart.html?checkout=cancelled`,
-      metadata: { source: "neural-x-site" },
+    if (!lineItems.length || lineItems.length !== cart.length)
+      return res.status(400).json({
+        ok: false,
+        error: "invalid_cart_or_missing_price_ids",
+        requestId: req.requestId,
+      });
+
+    const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
+    const idempotencyKey = createHash("sha256")
+      .update(`${req.sessionID}:${JSON.stringify(lineItems)}:${bucket}`)
+      .digest("hex");
+
+    try {
+      const checkout = await stripeClient.checkout.sessions.create(
+        {
+          payment_method_types: ["card"],
+          mode: "payment",
+          line_items: lineItems,
+          customer_email: req.session.user?.email || undefined,
+          client_reference_id: req.session.user?.id
+            ? String(req.session.user.id)
+            : undefined,
+          success_url: `${canonicalUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${canonicalUrl}/cart.html?checkout=cancelled`,
+          after_expiration: { recovery: { enabled: true } },
+          metadata: {
+            source: "neural-x-site",
+            cart: JSON.stringify(
+              cart.map(({ id, quantity }) => ({ id, quantity })),
+            ),
+          },
+        },
+        { idempotencyKey: `checkout-${idempotencyKey}` },
+      );
+      return res.json({ ok: true, url: checkout.url });
+    } catch (error) {
+      logError("stripe_checkout_error", error, req.requestId);
+      const publicError =
+        error?.code === "resource_missing"
+          ? "stripe_price_not_found"
+          : error?.type === "StripeAuthenticationError"
+            ? "stripe_authentication_error"
+            : "stripe_error";
+      return res.status(error?.statusCode === 400 ? 400 : 502).json({
+        ok: false,
+        error: publicError,
+        requestId: req.requestId,
+      });
+    }
+  }),
+);
+
+app.get(
+  "/api/checkout-session",
+  asyncHandler(async (req, res) => {
+    const sessionId = String(req.query.session_id || "");
+    if (!stripeClient)
+      return res.status(503).json({ ok: false, error: "stripe_not_configured" });
+    if (!isStripeSessionId(sessionId))
+      return res.status(400).json({ ok: false, error: "invalid_session_id" });
+    try {
+      const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
+        expand: ["line_items"],
+      });
+      return res.json({
+        ok: true,
+        status: checkout.status,
+        paymentStatus: checkout.payment_status,
+        amountTotal: checkout.amount_total,
+        currency: checkout.currency,
+        products: (checkout.line_items?.data || []).map((item) => ({
+          name: item.description,
+          quantity: item.quantity,
+        })),
+      });
+    } catch (error) {
+      logError("stripe_session_lookup_error", error, req.requestId);
+      return res.status(404).json({ ok: false, error: "session_not_found" });
+    }
+  }),
+);
+
+app.get(
+  "/api/health",
+  asyncHandler(async (req, res) => {
+    const [databaseInitialized, redisConnected] = await Promise.all([
+      ensureDatabaseReady(),
+      ensureRedisReady(),
+    ]);
+    let databaseHealthy = false;
+    let redisHealthy = false;
+    if (databaseInitialized && db) {
+      try {
+        await db.query("SELECT 1 AS ok");
+        databaseHealthy = true;
+      } catch (error) {
+        logError("database_health_error", error, req.requestId);
+      }
+    }
+    if (redisConnected && redisClient) {
+      try {
+        redisHealthy = (await redisClient.ping()) === "PONG";
+      } catch (error) {
+        logError("redis_health_error", error, req.requestId);
+      }
+    }
+    const ok =
+      databaseHealthy &&
+      (!isProduction || redisHealthy) &&
+      runtimeConfig.errors.length === 0;
+    return res.status(ok ? 200 : 503).json({
+      ok,
+      services: {
+        database: databaseHealthy ? "ok" : "unavailable",
+        redis: redisHealthy ? "ok" : isProduction ? "unavailable" : "optional",
+        stripe: stripeClient ? "configured" : "unavailable",
+      },
+      configuration: {
+        valid: runtimeConfig.errors.length === 0,
+        missingOrInvalid: runtimeConfig.errors,
+        optionalMissing: runtimeConfig.warnings,
+      },
+      requestId: req.requestId,
     });
-    res.json({ ok: true, url: session.url });
-  } catch (e) {
-    console.error("stripe err", e);
-    res.status(500).json({ ok: false, error: "stripe_error" });
-  }
-});
-
-// health
-app.get("/api/health", (req, res) => res.json({ ok: true }));
+  }),
+);
 
 // Do not turn unknown or sensitive-looking paths into successful responses.
 app.use((req, res) => {
   if (req.path.startsWith("/api/"))
-    return res.status(404).json({ ok: false, error: "not_found" });
+    return res.status(404).json({
+      ok: false,
+      error: "not_found",
+      requestId: req.requestId,
+    });
   return res.status(404).type("text/plain").send("Not found");
 });
 
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  logError("request_error", error, req.requestId);
+  if (error instanceof multer.MulterError || error?.type === "entity.too.large")
+    return res.status(413).json({
+      ok: false,
+      error: "payload_too_large",
+      requestId: req.requestId,
+    });
+  if (error?.message === "Only PNG, JPEG and WebP images are allowed")
+    return res.status(400).json({
+      ok: false,
+      error: "invalid_image_type",
+      requestId: req.requestId,
+    });
+  return res.status(500).json({
+    ok: false,
+    error: "server_error",
+    requestId: req.requestId,
+  });
+});
+
 if (require.main === module) {
-  app.listen(PORT, () =>
+  const server = app.listen(PORT, () =>
     console.log(`Server running on http://localhost:${PORT}`),
   );
+  const shutdown = () => {
+    server.close(async () => {
+      if (redisClient?.isOpen) await redisClient.quit().catch(() => {});
+      if (db) await db.close().catch(() => {});
+      process.exit(0);
+    });
+  };
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
 }
 
 module.exports = app;

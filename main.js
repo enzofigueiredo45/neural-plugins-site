@@ -23,6 +23,45 @@ const safeUrl = (value, fallback = "") => {
   }
 };
 
+const readJsonResponse = async (response) => {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return {};
+  return response.json().catch(() => ({}));
+};
+
+let publicConfigRequest;
+let recaptchaLoader;
+const getRecaptchaToken = async (action) => {
+  publicConfigRequest ||= fetch('/api/public-config', { credentials: 'include' })
+    .then(readJsonResponse)
+    .catch(() => ({}));
+  const { recaptchaSiteKey } = await publicConfigRequest;
+  if (!recaptchaSiteKey) return '';
+
+  recaptchaLoader ||= new Promise((resolve, reject) => {
+    if (window.grecaptcha) return resolve(window.grecaptcha);
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(recaptchaSiteKey)}`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve(window.grecaptcha);
+    script.onerror = () => reject(new Error('captcha_load_error'));
+    document.head.appendChild(script);
+  });
+  const grecaptcha = await recaptchaLoader;
+  await new Promise((resolve) => grecaptcha.ready(resolve));
+  return grecaptcha.execute(recaptchaSiteKey, { action });
+};
+
+const checkoutErrorMessages = {
+  csrf_error: "Sua sessão expirou. Atualize a página e tente novamente.",
+  session_store_not_ready: "O serviço de sessão está iniciando. Tente novamente em instantes.",
+  stripe_not_configured: "O pagamento está temporariamente indisponível.",
+  stripe_price_not_found: "Um produto está com o preço desatualizado. Fale com o suporte.",
+  stripe_authentication_error: "A conexão de pagamento precisa ser revisada pelo suporte.",
+  invalid_cart_or_missing_price_ids: "O carrinho contém um produto indisponível. Limpe-o e adicione novamente.",
+};
+
 const updateCartCount = () => {
   const count = readCart().reduce((total, item) => total + (item.quantity || 0), 0);
   document.querySelectorAll("#cartCount, [data-cart-count]").forEach((node) => {
@@ -58,7 +97,7 @@ const cartTotal = document.querySelector("#cartTotal");
 if (cartList && cartTotal) {
   // Start session/CSRF negotiation while the customer reviews the cart rather
   // than adding this round trip after the checkout click.
-  const csrfReady = fetchCsrf();
+  void fetchCsrf();
   const renderCart = () => {
     const cart = readCart();
     cartList.innerHTML = cart.length
@@ -79,7 +118,8 @@ if (cartList && cartTotal) {
       if (buttonLabel) buttonLabel.textContent = "Abrindo checkout seguro…";
       if (clearButton) clearButton.disabled = true;
       if (status) status.textContent = "Conectando com a Stripe. Isso leva apenas alguns segundos.";
-      const csrfToken = await csrfReady;
+      const csrfToken = await fetchCsrf();
+      if (!csrfToken) throw new Error("session_store_not_ready");
       const headers = { "Content-Type": "application/json" };
       if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
       const response = await fetch("/api/create-checkout-session", {
@@ -88,16 +128,17 @@ if (cartList && cartTotal) {
         credentials: "include",
         body: JSON.stringify({ cart })
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok || !data.url) throw new Error(data.error || "checkout_error");
       window.va?.("event", { name: "checkout_iniciado", data: { items: cart.length } });
       window.location.assign(data.url);
     } catch (err) {
-      alert("Não foi possível abrir o checkout agora. Tente novamente em instantes.");
+      const message = checkoutErrorMessages[err.message] || "Não foi possível abrir o checkout agora. Tente novamente em instantes.";
+      alert(message);
       if (button) { button.disabled = false; button.classList.remove("is-loading"); }
       if (buttonLabel) buttonLabel.textContent = "Finalizar compra";
       if (clearButton) clearButton.disabled = false;
-      if (status) status.textContent = "Não foi possível abrir o checkout. Tente novamente.";
+      if (status) status.textContent = message;
     }
   });
   renderCart();
@@ -137,11 +178,12 @@ loginForm?.addEventListener("submit", async (event) => {
   const password = loginForm.password.value;
   try {
     if (submitBtn) submitBtn.disabled = true;
+    const captcha = await getRecaptchaToken('login');
     const csrfToken = await fetchCsrf();
     const headers = { "Content-Type": "application/json" };
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
-    const response = await fetch(`/api/login/${role}`, { method: "POST", headers, credentials: 'include', body: JSON.stringify({ email, password }) });
+    const response = await fetch(`/api/login/${role}`, { method: "POST", headers, credentials: 'include', body: JSON.stringify({ email, password, captcha }) });
     if (!response.ok) throw new Error("Login inválido");
     sessionStorage.setItem("neuralx_role", role);
     sessionStorage.setItem("neuralx_email", email);
@@ -225,6 +267,8 @@ if (dashboardPage) {
       const csrfToken = await fetchCsrf();
       if (saveButton) { saveButton.disabled = true; saveButton.textContent = 'Salvando…'; }
       if (profileAvatarFile?.files[0]) {
+        if (profileAvatarFile.files[0].size > 256 * 1024)
+          throw new Error('avatar_too_large');
         const uploadData = new FormData();
         uploadData.append('file', profileAvatarFile.files[0]);
         const uploadHeaders = csrfToken ? { 'X-CSRF-Token': csrfToken } : {};
@@ -272,6 +316,41 @@ if (dashboardPage) {
   });
 
   requireClient().then((user) => { if (user) loadOrders(); });
+}
+
+const checkoutSuccess = document.querySelector('[data-checkout-success]');
+if (checkoutSuccess) {
+  const title = document.querySelector('#successTitle');
+  const message = document.querySelector('#successMessage');
+  const sessionId = new URLSearchParams(window.location.search).get('session_id');
+  const showFailure = () => {
+    title.textContent = 'Não foi possível confirmar o pagamento.';
+    message.textContent = 'Confira o pagamento na Stripe ou fale com o suporte antes de tentar novamente.';
+    checkoutSuccess.dataset.state = 'error';
+  };
+  if (!sessionId) {
+    showFailure();
+  } else {
+    fetch(`/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`, {
+      credentials: 'include'
+    })
+      .then(async (response) => ({ response, data: await readJsonResponse(response) }))
+      .then(({ response, data }) => {
+        if (!response.ok) throw new Error(data.error || 'session_lookup_error');
+        if (data.paymentStatus === 'paid') {
+          writeCart([]);
+          updateCartCount();
+          title.textContent = 'Compra aprovada.';
+          message.textContent = 'Pagamento confirmado pela Stripe. O pedido será vinculado ao e-mail informado no checkout.';
+          checkoutSuccess.dataset.state = 'success';
+          return;
+        }
+        title.textContent = 'Pagamento em processamento.';
+        message.textContent = 'A Stripe ainda está processando o pagamento. Atualize esta página em alguns instantes.';
+        checkoutSuccess.dataset.state = 'pending';
+      })
+      .catch(showFailure);
+  }
 }
 
 updateCartCount();

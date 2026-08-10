@@ -10,15 +10,16 @@
   - `STRIPE_PRICE_FL_STUDIO`
   - `STRIPE_PRICE_REAPER`
 - Configurar `SITE_URL` com o domínio final para que `success_url` e `cancel_url` apontem para produção.
-- Criar webhook do Stripe para confirmar pagamento e liberar download/pedido no banco. O endpoint ainda precisa ser implementado antes de vender em produção.
+- Criar na Stripe um webhook apontando para `https://SEU_DOMINIO/api/stripe-webhook`, selecionar `checkout.session.completed` e `checkout.session.async_payment_succeeded` e salvar o segredo como `STRIPE_WEBHOOK_SECRET` na hospedagem.
 
 ## 2. Segurança e infraestrutura obrigatórias
 
 - Definir `SESSION_SECRET` com valor longo e único.
 - Configurar `REDIS_URL` para sessões e bloqueio de tentativas de login.
 - Configurar `DATABASE_URL` com Postgres em produção; SQLite deve ficar apenas para desenvolvimento.
+- Definir `DATABASE_SSL=true` e manter `DATABASE_POOL_MAX=3` para limitar conexões por função serverless.
 - Definir `NODE_ENV=production`.
-- Ativar `RECAPTCHA_SECRET` ou solução antifraude equivalente nos formulários.
+- Para ativar reCAPTCHA v3, configurar juntos `RECAPTCHA_SECRET` e `RECAPTCHA_SITE_KEY`. Sem ambos, a proteção continua baseada em rate limit e bloqueio temporário de login.
 - Remover contas demo públicas com `DEMO_ACCOUNTS_ENABLED=false`.
 
 ## 3. Pontos que faziam o site parecer falso ou incompleto
@@ -43,6 +44,7 @@
 - `node --check main.js`
 - `node --check server.js`
 - `npm start`
+- `npm test`
 - Testar login, carrinho, criação de sessão Stripe, cancelamento e retorno de sucesso.
 - Validar sitemap, robots, Lighthouse, rich results e Search Console.
 
