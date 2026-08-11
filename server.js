@@ -583,15 +583,24 @@ async function verifyCaptcha(token, expectedAction) {
 }
 
 // helper db functions
-async function getUserByEmail(email) {
+async function getUserSummaryByEmail(email) {
   if (!email) return null;
-  const row = await db.getOne(
+  return db.getOne(
     db.usePostgres
-      ? "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret, terms_accepted_at, last_login_at FROM users WHERE email = $1 LIMIT 1"
-      : "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret, terms_accepted_at, last_login_at FROM users WHERE email = ? LIMIT 1",
+      ? "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = $1 LIMIT 1"
+      : "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = ? LIMIT 1",
     [email],
   );
-  return row;
+}
+
+async function getUserAuthByEmail(email) {
+  if (!email) return null;
+  return db.getOne(
+    db.usePostgres
+      ? "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret FROM users WHERE email = $1 LIMIT 1"
+      : "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret FROM users WHERE email = ? LIMIT 1",
+    [email],
+  );
 }
 async function createUser(
   email,
@@ -770,7 +779,7 @@ app.post(
       return res.status(400).json({ ok: false, error: "weak_password" });
     if (!(await verifyCaptcha(captcha, "register")))
       return res.status(400).json({ ok: false, error: "captcha_failed" });
-    if (await getUserByEmail(email))
+    if (await getUserSummaryByEmail(email))
       return res.status(409).json({ ok: false, error: "email_taken" });
     try {
       await createUser(
@@ -808,7 +817,7 @@ app.post(
     if (await isLocked(email))
       return res.status(429).json({ ok: false, error: "account_locked" });
 
-    const user = await getUserByEmail(email);
+    const user = await getUserAuthByEmail(email);
     const matches = user
       ? await bcrypt.compare(String(password), user.password_hash)
       : false;
@@ -859,7 +868,7 @@ app.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const email = req.session.user.email;
-    const user = await getUserByEmail(email);
+    const user = await getUserSummaryByEmail(email);
     if (user?.mfa_enabled)
       return res.status(409).json({ ok: false, error: "mfa_already_enabled" });
     const secret = speakeasy.generateSecret({ name: `NeuralX (${email})` });
@@ -918,7 +927,7 @@ app.get(
   asyncHandler(requireDatabase),
   requireAuth,
   asyncHandler(async (req, res) => {
-    const user = await getUserByEmail(req.session.user.email);
+    const user = await getUserSummaryByEmail(req.session.user.email);
     return res.json({
       ok: true,
       user: {
@@ -971,7 +980,7 @@ app.post(
     if (currentPassword === newPassword)
       return res.status(400).json({ ok: false, error: "password_unchanged" });
 
-    const user = await getUserByEmail(req.session.user.email);
+    const user = await getUserAuthByEmail(req.session.user.email);
     const matches = user
       ? await bcrypt.compare(currentPassword, user.password_hash)
       : false;
