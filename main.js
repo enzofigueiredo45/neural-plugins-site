@@ -10,13 +10,13 @@ const PRODUCTS = Object.freeze({
     id: "fl-studio",
     name: "FL Studio",
     price: 19.9,
-    image: "/assets/product-fl-studio.svg",
+    image: "/assets/product-fl-studio.jpg",
   },
   reaper: {
     id: "reaper",
     name: "REAPER",
     price: 19.9,
-    image: "/assets/product-reaper.svg",
+    image: "/assets/product-reaper.jpg",
   },
 });
 

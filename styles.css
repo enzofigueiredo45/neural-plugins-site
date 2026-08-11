@@ -891,6 +891,14 @@ details p {
   box-shadow: var(--shadow);
 }
 
+.product-visual figcaption {
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  text-align: right;
+}
+
 .product-buy {
   display: flex;
   flex-wrap: wrap;

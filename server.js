@@ -468,12 +468,12 @@ function getProductCatalog() {
     "fl-studio": {
       price: process.env.STRIPE_PRICE_FL_STUDIO,
       name: "FL Studio",
-      image: "/assets/product-fl-studio.svg",
+      image: "/assets/product-fl-studio.jpg",
     },
     reaper: {
       price: process.env.STRIPE_PRICE_REAPER,
       name: "REAPER",
-      image: "/assets/product-reaper.svg",
+      image: "/assets/product-reaper.jpg",
     },
   };
 }
