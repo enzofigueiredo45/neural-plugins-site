@@ -1,21 +1,36 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Contato e suporte da Neural X para pedidos, downloads, reembolso e dúvidas sobre produtos digitais de áudio." />
-    <meta name="robots" content="index,follow" />
-    <link rel="canonical" href="https://neural-plugins-site.vercel.app/contact.html" />
-    <title>Contato e Suporte | Neural X</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <script type="application/ld+json">
-      {"@context":"https://schema.org","@type":"ContactPage","name":"Contato e Suporte Neural X","url":"https://neural-plugins-site.vercel.app/contact.html","about":"Suporte para pedidos, downloads e produtos digitais de áudio","publisher":{"@type":"Organization","name":"Neural X","url":"https://neural-plugins-site.vercel.app/"}}
-    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#08090b">
+    <meta name="description" content="Suporte Neural X para dúvidas antes da compra, pagamentos, acesso, pedidos e produtos digitais.">
+    <meta name="robots" content="index,follow">
+    <link rel="canonical" href="https://neural-plugins-site.vercel.app/contact.html">
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <meta property="og:title" content="Suporte | Neural X"><meta property="og:description" content="Abra um chamado sobre compra, pagamento, acesso ou compatibilidade."><meta property="og:type" content="website"><meta property="og:url" content="https://neural-plugins-site.vercel.app/contact.html">
+    <title>Suporte e contato | Neural X</title><link rel="stylesheet" href="./styles.css">
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"ContactPage","name":"Suporte Neural X","url":"https://neural-plugins-site.vercel.app/contact.html","about":"Atendimento ao cliente para compras e produtos digitais","isPartOf":{"@type":"WebSite","name":"Neural X","url":"https://neural-plugins-site.vercel.app/"}}</script>
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="./index.html"><span>Neural</span> X</a><nav><a href="./index.html#produtos">Produtos</a><a href="./privacy.html">Privacidade</a><a href="./terms.html">Termos</a></nav></header>
-    <main class="section checkout"><section class="checkout-box"><p class="eyebrow">Suporte Neural X</p><h1>Contato e suporte.</h1><p>Use esta página para publicar o e-mail oficial, WhatsApp, CNPJ/razão social, prazo de resposta, política de reembolso e canal de suporte ao cliente antes de divulgar a loja.</p><ul class="checklist"><li>E-mail de suporte: suporte@seudominio.com</li><li>Prazo sugerido de resposta: até 2 dias úteis</li><li>Informe o número do pedido para localizar a compra</li></ul></section></main>
-    <footer class="site-footer"><p>© 2026 Neural X.</p><div><a href="./privacy.html">Privacidade</a><a href="./terms.html">Termos</a></div></footer>
-    <script type="module" src="./main.js"></script>
+    <a class="skip-link" href="#conteudo">Ir para o conteúdo</a><div class="promo-bar">Suporte para dúvidas, pagamentos, acesso e pedidos</div>
+    <header class="site-header"><div class="header-inner"><a class="brand" href="./index.html"><span class="brand-mark">NX</span><span class="brand-name">Neural X</span></a><nav class="main-nav" aria-label="Navegação principal" id="mainNav" data-mobile-nav><a href="./index.html#produtos">Produtos</a><a href="./index.html#faq">Dúvidas</a><a href="./client-login.html">Minha conta</a></nav><div class="header-actions"><a class="header-cart" href="./cart.html"><span class="header-cart-label">Carrinho</span><span class="cart-count" data-cart-count>0</span></a><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav" aria-label="Abrir menu"><span></span></button></div></div></header>
+    <main class="container contact-page" id="conteudo">
+      <div class="contact-layout">
+        <section class="contact-intro"><p class="eyebrow">Suporte Neural X</p><h1>Como podemos ajudar?</h1><p class="lead">Envie sua dúvida pelo formulário. Você receberá um número de chamado para acompanhar a solicitação.</p><div class="contact-points"><div class="contact-point"><strong>Antes da compra</strong><span>Compatibilidade, conteúdo e modalidade de acesso.</span></div><div class="contact-point"><strong>Pagamento e pedido</strong><span>Use o mesmo e-mail informado no checkout.</span></div><div class="contact-point"><strong>Acesso à conta</strong><span>Informe o e-mail cadastrado, nunca envie sua senha.</span></div></div></section>
+        <form class="form-card support-form" id="supportForm" novalidate>
+          <div><p class="eyebrow">Abrir chamado</p><h2>Conte o que aconteceu.</h2><p class="form-intro">Não envie senha, dados completos do cartão nem documentos pessoais.</p></div>
+          <div class="field-row"><div class="field-group"><label for="supportName">Nome</label><input id="supportName" name="name" type="text" required autocomplete="name" maxlength="80" placeholder="Seu nome"></div><div class="field-group"><label for="supportEmail">E-mail</label><input id="supportEmail" name="email" type="email" required autocomplete="email" inputmode="email" maxlength="254" placeholder="voce@exemplo.com"></div></div>
+          <div class="field-row"><div class="field-group"><label for="supportCategory">Assunto</label><select id="supportCategory" name="category" required><option value="">Selecione</option><option value="pre_sale">Dúvida antes da compra</option><option value="payment">Pagamento</option><option value="order">Pedido ou entrega</option><option value="access">Acesso à conta</option><option value="compatibility">Compatibilidade</option><option value="privacy">Privacidade e dados</option><option value="other">Outro assunto</option></select></div><div class="field-group"><label for="orderReference">Referência do pedido <span>(opcional)</span></label><input id="orderReference" name="orderReference" type="text" maxlength="100" placeholder="Ex.: e-mail ou código do pedido"></div></div>
+          <div class="field-group"><label for="supportMessage">Mensagem</label><textarea id="supportMessage" name="message" required minlength="20" maxlength="2000" placeholder="Descreva sua dúvida com detalhes..."></textarea><small class="field-hint">Entre 20 e 2.000 caracteres.</small></div>
+          <label class="consent"><input name="privacyConsent" type="checkbox" required> <span>Concordo com o uso destes dados para responder ao chamado, conforme a <a href="./privacy.html" target="_blank" rel="noopener">Política de privacidade</a>.</span></label>
+          <p id="supportMessageStatus" class="form-message" role="status" aria-live="polite"></p>
+          <button class="button primary" type="submit">Enviar chamado</button>
+        </form>
+      </div>
+    </main>
+    <footer class="site-footer"><div class="footer-grid"><div class="footer-brand"><a class="brand" href="./index.html"><span class="brand-mark">NX</span><span>Neural X</span></a><p>Plugins, DAWs e ferramentas digitais para músicos criarem com mais liberdade.</p></div><div class="footer-column"><strong>Loja</strong><a href="./index.html#produtos">Produtos</a><a href="./cart.html">Carrinho</a></div><div class="footer-column"><strong>Conta</strong><a href="./client-login.html">Entrar</a><a href="./client-register.html">Criar conta</a></div><div class="footer-column"><strong>Legal</strong><a href="./privacy.html">Privacidade</a><a href="./terms.html">Termos de compra</a></div></div><div class="footer-bottom"><span>© 2026 Neural X.</span><span>Não envie dados financeiros pelo suporte.</span></div></footer>
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div><script type="module" src="./main.js"></script>
   </body>
 </html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" role="img" aria-labelledby="t d">
+  <title id="t">FL Studio</title><desc id="d">Composição abstrata inspirada em piano roll, mixer e produção de beats.</desc>
+  <defs><linearGradient id="b" x2="1" y2="1"><stop stop-color="#231b17"/><stop offset=".55" stop-color="#100f0f"/><stop offset="1" stop-color="#070809"/></linearGradient></defs>
+  <rect width="900" height="650" rx="36" fill="url(#b)"/>
+  <circle cx="730" cy="90" r="250" fill="#ff7a2f" opacity=".16"/>
+  <rect x="90" y="95" width="720" height="460" rx="28" fill="#111317" stroke="#484c52" stroke-width="3"/>
+  <rect x="125" y="135" width="650" height="52" rx="12" fill="#08090b"/>
+  <g fill="#ff8a3d"><circle cx="158" cy="161" r="8"/><circle cx="186" cy="161" r="8" opacity=".6"/><circle cx="214" cy="161" r="8" opacity=".35"/></g>
+  <g transform="translate(125 220)">
+    <rect width="650" height="215" rx="14" fill="#08090b"/>
+    <g stroke="#2d3137"><path d="M0 43h650M0 86h650M0 129h650M0 172h650"/><path d="M65 0v215M130 0v215M195 0v215M260 0v215M325 0v215M390 0v215M455 0v215M520 0v215M585 0v215"/></g>
+    <g fill="#ff8a3d"><rect x="18" y="18" width="112" height="22" rx="5"/><rect x="154" y="61" width="78" height="22" rx="5"/><rect x="260" y="104" width="144" height="22" rx="5"/><rect x="428" y="147" width="92" height="22" rx="5"/><rect x="545" y="61" width="80" height="22" rx="5"/></g>
+  </g>
+  <text x="125" y="505" fill="#f6f7f3" font-family="Arial,sans-serif" font-size="43" font-weight="800">FL STUDIO</text>
+  <text x="775" y="505" fill="#ff8a3d" font-family="Arial,sans-serif" font-size="18" font-weight="700" text-anchor="end" letter-spacing="5">CREATE / ARRANGE / MIX</text>
+</svg>

@@ -11,9 +11,7 @@ npm start
 
 Abra `http://127.0.0.1:4173/`.
 
-Credenciais demo locais são criadas no banco SQLite apenas fora de produção, salvo se `DEMO_ACCOUNTS_ENABLED=false`:
-
-- Cliente: `demo@neuralx.com` / `neuralx123`
+Crie uma conta pela página de cadastro para testar o fluxo local.
 
 ## Configuração para produção
 
@@ -27,10 +25,9 @@ Variáveis mínimas:
 - `REDIS_URL` para sessões e rate limit de login
 - `DATABASE_URL` com Postgres em produção; sem essa variável o servidor cria `data.sqlite` para desenvolvimento local
 - `DATABASE_SSL=true` e `DATABASE_POOL_MAX=3` para uma conexão Postgres compatível com serverless
-- `STRIPE_SECRET_KEY` no cofre/variáveis secretas da hospedagem
+- `STRIPE_SECRET_KEY` no cofre/variáveis secretas da hospedagem; prefira uma chave restrita `rk_live_` com permissões mínimas
 - `STRIPE_PRICE_NEURAL_X`, `STRIPE_PRICE_FL_STUDIO`, `STRIPE_PRICE_REAPER`
 - `STRIPE_WEBHOOK_SECRET` para registrar pedidos pagos de forma idempotente
-- `DEMO_ACCOUNTS_ENABLED=false`
 
 Veja `CONFIGURACOES_PUBLICACAO.md` para a lista completa de pendências antes de vender em produção.
 

@@ -1,94 +1,35 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
-    <meta name="robots" content="noindex,follow" />
-    <meta name="theme-color" content="#020305" />
-    <meta name="color-scheme" content="dark" />
-    <title>Login do Cliente | Neural X</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#08090b">
+    <meta name="color-scheme" content="dark">
+    <meta name="robots" content="noindex,follow">
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Entrar na minha conta | Neural X</title>
+    <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="./index.html" aria-label="Neural X início"
-        ><span>Neural</span> X</a
-      >
-      <nav aria-label="Navegação principal">
-        <a href="./index.html#produtos">Produtos</a>
-        <a href="./cart.html"
-          >Carrinho <span id="cartCount" class="cart-count">0</span></a
-        >
-      </nav>
-    </header>
-
-    <main class="section auth-page auth-client">
-      <section class="auth-shell" aria-labelledby="client-login-title">
-        <div class="auth-copy">
-          <p class="eyebrow">Área do cliente</p>
-          <h1 id="client-login-title">Acesse seus pedidos e downloads.</h1>
-          <p class="lead">
-            Entre para consultar compras, acompanhar a entrega e baixar seus
-            produtos digitais da Neural X em um ambiente organizado.
-          </p>
-          <ul class="checklist">
-            <li>Pedidos e downloads reunidos em um só painel</li>
-            <li>Sessão protegida com autenticação no servidor</li>
-            <li>Use o e-mail informado na compra para entrar</li>
-          </ul>
-        </div>
-
-        <form
-          class="checkout-box auth-card"
-          id="loginForm"
-          data-role="client"
-          autocomplete="on"
-        >
-          <p class="eyebrow">Login seguro</p>
-          <h2>Entrar como cliente</h2>
-          <p>Use seu e-mail de compra para acessar o painel.</p>
-
-          <div class="field-group">
-            <label for="email">E-mail</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autocomplete="email"
-              inputmode="email"
-              placeholder="demo@neuralx.com"
-            />
-          </div>
-
-          <div class="field-group">
-            <label for="password">Senha</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autocomplete="current-password"
-              placeholder="Digite sua senha"
-            />
-          </div>
-
-          <p
-            id="loginMessage"
-            class="form-message"
-            role="status"
-            aria-live="polite"
-          ></p>
-          <button id="submitBtn" class="button primary" type="submit">
-            Entrar no painel
-          </button>
+    <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+    <header class="site-header"><div class="header-inner"><a class="brand" href="./index.html"><span class="brand-mark">NX</span><span class="brand-name">Neural X</span></a><nav class="main-nav" aria-label="Navegação principal" id="mainNav" data-mobile-nav><a href="./index.html#produtos">Produtos</a><a href="./contact.html">Suporte</a></nav><div class="header-actions"><a class="header-cart" href="./cart.html"><span class="header-cart-label">Carrinho</span><span class="cart-count" data-cart-count>0</span></a><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav" aria-label="Abrir menu"><span></span></button></div></div></header>
+    <main class="container auth-page" id="conteudo">
+      <section class="auth-shell" aria-labelledby="login-title">
+        <div class="auth-copy"><p class="eyebrow">Área do cliente</p><h1 id="login-title">Sua música continua aqui.</h1><p class="lead">Entre para acompanhar pedidos, consultar sua biblioteca e manter sua conta protegida.</p><div class="auth-benefits"><div class="auth-benefit"><strong>Biblioteca</strong>Compras organizadas em um só lugar.</div><div class="auth-benefit"><strong>Segurança</strong>Sessão protegida e opção de MFA.</div><div class="auth-benefit"><strong>Suporte</strong>Chamados vinculados à sua conta.</div></div></div>
+        <form class="form-card form-grid" id="loginForm" data-role="client" autocomplete="on" novalidate>
+          <div><p class="eyebrow">Login seguro</p><h2>Entrar</h2><p class="form-intro">Use o e-mail cadastrado na Neural X.</p></div>
+          <div class="field-group"><label for="email">E-mail</label><input id="email" name="email" type="email" required autocomplete="email" inputmode="email" maxlength="254" placeholder="voce@exemplo.com"></div>
+          <div class="field-group"><label for="password">Senha</label><div class="password-wrap"><input id="password" name="password" type="password" required autocomplete="current-password" maxlength="128" placeholder="Sua senha"><button class="password-toggle" type="button" data-password-toggle="password" aria-label="Mostrar senha">Mostrar</button></div></div>
+          <div class="field-group mfa-field" id="mfaField" hidden><label for="mfaToken">Código de verificação</label><input id="mfaToken" name="mfa_token" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="000000"><small class="field-hint">Digite o código de 6 dígitos do seu autenticador.</small></div>
+          <div><a class="inline-link" href="./contact.html?assunto=acesso">Esqueceu sua senha?</a></div>
+          <p id="loginMessage" class="form-message" role="status" aria-live="polite"></p>
+          <button class="button primary" type="submit">Entrar na conta</button>
+          <p class="form-footer">Primeira vez? <a class="inline-link" href="./client-register.html">Criar minha conta</a></p>
         </form>
       </section>
     </main>
-
-    <script type="module" src="./main.js"></script>
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div><script type="module" src="./main.js"></script>
   </body>
 </html>

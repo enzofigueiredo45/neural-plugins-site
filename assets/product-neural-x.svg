@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" role="img" aria-labelledby="t d">
+  <title id="t">Neural X Collection</title><desc id="d">Coleção visual de módulos de timbre para guitarra e baixo.</desc>
+  <defs><linearGradient id="a" x2="1" y2="1"><stop stop-color="#1d2025"/><stop offset="1" stop-color="#070809"/></linearGradient><filter id="s"><feDropShadow dy="24" stdDeviation="25" flood-opacity=".5"/></filter></defs>
+  <rect width="900" height="650" rx="36" fill="#0a0b0d"/>
+  <circle cx="720" cy="80" r="230" fill="#d8ff3e" opacity=".13"/>
+  <g transform="translate(105 95)" filter="url(#s)">
+    <rect width="690" height="460" rx="28" fill="url(#a)" stroke="#4c5158" stroke-width="3"/>
+    <text x="52" y="72" fill="#d8ff3e" font-family="Arial,sans-serif" font-size="20" font-weight="700" letter-spacing="7">NEURAL X</text>
+    <text x="52" y="130" fill="#f6f7f3" font-family="Arial,sans-serif" font-size="52" font-weight="800">COLLECTION</text>
+    <g transform="translate(52 180)">
+      <rect width="175" height="205" rx="18" fill="#d8ff3e"/><rect x="205" width="175" height="205" rx="18" fill="#23272d"/><rect x="410" width="175" height="205" rx="18" fill="#14171b" stroke="#383d44"/>
+      <g fill="#0b0c0e"><circle cx="87" cy="68" r="29"/><circle cx="87" cy="145" r="17"/></g>
+      <g fill="#d8ff3e"><circle cx="292" cy="68" r="29"/><circle cx="497" cy="68" r="29"/></g>
+      <g fill="#f6f7f3" font-family="Arial,sans-serif" font-size="14" font-weight="700" text-anchor="middle"><text x="87" y="190">DRIVE</text><text x="292" y="190">AMPS</text><text x="497" y="190">SPACE</text></g>
+    </g>
+  </g>
+</svg>

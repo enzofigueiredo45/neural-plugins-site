@@ -1,0 +1,12 @@
+{
+  "name": "Neural X",
+  "short_name": "Neural X",
+  "description": "Plugins, DAWs e ferramentas digitais para músicos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08090b",
+  "theme_color": "#08090b",
+  "icons": [
+    { "src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

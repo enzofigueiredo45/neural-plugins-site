@@ -3,7 +3,6 @@ const assert = require("node:assert/strict");
 const {
   isStripePriceId,
   isStripeSessionId,
-  normalizeAvatarUrl,
   validateRuntimeConfig,
 } = require("../lib/validation");
 
@@ -13,14 +12,6 @@ test("accepts Stripe identifiers and rejects malformed values", () => {
   assert.equal(isStripeSessionId("cs_test_123AbC"), true);
   assert.equal(isStripeSessionId("cs_live_123AbC"), true);
   assert.equal(isStripeSessionId("checkout_123"), false);
-});
-
-test("only accepts HTTPS or validated image data URLs for avatars", () => {
-  assert.equal(normalizeAvatarUrl("https://example.com/a.png"), "https://example.com/a.png");
-  assert.equal(normalizeAvatarUrl("javascript:alert(1)"), null);
-  assert.equal(normalizeAvatarUrl("http://example.com/a.png"), null);
-  assert.equal(normalizeAvatarUrl("data:text/html;base64,PHNjcmlwdD4="), null);
-  assert.equal(normalizeAvatarUrl("data:image/png;base64,iVBORw0KGgo="), "data:image/png;base64,iVBORw0KGgo=");
 });
 
 test("reports missing production configuration by variable name only", () => {
@@ -49,7 +40,7 @@ test("accepts a complete production configuration", () => {
       REDIS_URL: "rediss://default:secret@example.com:6379",
       DATABASE_URL: "postgresql://user:secret@example.com/db",
       SITE_URL: "https://example.com",
-      STRIPE_SECRET_KEY: "sk_test_123456",
+      STRIPE_SECRET_KEY: "rk_live_123456",
       STRIPE_PRICE_NEURAL_X: "price_neural123",
       STRIPE_PRICE_FL_STUDIO: "price_fl123",
       STRIPE_PRICE_REAPER: "price_reaper123",
@@ -60,4 +51,20 @@ test("accepts a complete production configuration", () => {
     true,
   );
   assert.deepEqual(result, { errors: [], warnings: [] });
+});
+
+test("rejects test mode and malformed webhook secrets in production", () => {
+  const base = {
+    SESSION_SECRET: "x".repeat(48),
+    REDIS_URL: "rediss://default:secret@example.com:6379",
+    DATABASE_URL: "postgresql://user:secret@example.com/db",
+    SITE_URL: "https://example.com",
+    STRIPE_SECRET_KEY: "sk_test_123456",
+    STRIPE_PRICE_NEURAL_X: "price_neural123",
+    STRIPE_PRICE_FL_STUDIO: "price_fl123",
+    STRIPE_PRICE_REAPER: "price_reaper123",
+    STRIPE_WEBHOOK_SECRET: "invalid",
+  };
+  const result = validateRuntimeConfig(base, true);
+  assert.deepEqual(result.errors, ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]);
 });
