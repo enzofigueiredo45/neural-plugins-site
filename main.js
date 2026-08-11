@@ -1,9 +1,11 @@
 const CART_KEY = "neuralx_cart";
+const ATTRIBUTION_KEY = "neuralx_attribution";
+const ATTRIBUTION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
 const PRODUCTS = Object.freeze({
   "neural-x": {
     id: "neural-x",
     name: "Coleção Neural DSP",
-    price: 19.9,
+    price: 29.9,
     image: "/assets/neural-dsp/archetype-john-mayer-x.png",
   },
   "fl-studio": {
@@ -46,6 +48,49 @@ const safeUrl = (value, fallback = "") => {
   } catch {}
   return fallback;
 };
+
+function initAnalytics() {
+  window.va = window.va || function analyticsQueue() {
+    (window.vaq = window.vaq || []).push(arguments);
+  };
+  if (document.querySelector('script[src="/_vercel/insights/script.js"]')) return;
+  const script = document.createElement("script");
+  script.defer = true;
+  script.src = "/_vercel/insights/script.js";
+  document.head.append(script);
+}
+
+function captureAttribution() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const previous = JSON.parse(localStorage.getItem(ATTRIBUTION_KEY) || "{}");
+    const campaign = {};
+    ATTRIBUTION_FIELDS.forEach((field) => {
+      const value = params.get(field)?.trim().slice(0, 120);
+      if (value) campaign[field] = value;
+    });
+    const referrer = document.referrer && !document.referrer.startsWith(window.location.origin)
+      ? document.referrer.slice(0, 400)
+      : previous.referrer;
+    const next = {
+      ...previous,
+      ...campaign,
+      referrer: referrer || undefined,
+      landing_page: previous.landing_page || `${window.location.pathname}${window.location.search}`.slice(0, 400),
+      first_seen_at: previous.first_seen_at || new Date().toISOString(),
+    };
+    localStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(next));
+  } catch {}
+}
+
+function readAttribution() {
+  try {
+    const value = JSON.parse(localStorage.getItem(ATTRIBUTION_KEY) || "{}");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
 
 const readJsonResponse = async (response) => {
   const contentType = response.headers.get("content-type") || "";
@@ -291,7 +336,10 @@ function initCart() {
       if (label) label.textContent = "Abrindo checkout…";
       if (clearButton) clearButton.disabled = true;
       if (status) status.textContent = "Conectando com a Stripe.";
-      const { response, data } = await postJson("/api/create-checkout-session", { cart });
+      const { response, data } = await postJson("/api/create-checkout-session", {
+        cart,
+        attribution: readAttribution(),
+      });
       if (!response.ok || !data.url) throw new Error(data.error || "checkout_error");
       window.va?.("event", { name: "checkout_iniciado", data: { items: cart.length } });
       window.location.assign(data.url);
@@ -674,6 +722,10 @@ function initCheckoutSuccess() {
       if (data.paymentStatus === "paid") {
         writeCart([]);
         updateCartCount();
+        window.va?.("event", {
+          name: "compra_confirmada",
+          data: { value: Number(data.amountTotal || 0) / 100, currency: data.currency || "brl" },
+        });
         icon.textContent = "✓";
         title.textContent = "Pagamento confirmado.";
         const items = data.products?.map((item) => item.name).filter(Boolean).join(", ");
@@ -702,6 +754,8 @@ function applyQueryPrefill() {
   }
 }
 
+initAnalytics();
+captureAttribution();
 initNavigation();
 initPasswordToggles();
 initProductButtons();

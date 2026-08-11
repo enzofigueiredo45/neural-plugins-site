@@ -461,7 +461,9 @@ const stripeClient = stripeSecret
 function getProductCatalog() {
   return {
     "neural-x": {
-      price: process.env.STRIPE_PRICE_NEURAL_X,
+      price: stripeSecret.startsWith("sk_live_")
+        ? "price_1U3ON0DXni1KAKnrcJSzNBXN"
+        : process.env.STRIPE_PRICE_NEURAL_X,
       name: "Coleção Neural DSP",
       image: "/assets/neural-dsp/archetype-john-mayer-x.png",
     },
@@ -476,6 +478,25 @@ function getProductCatalog() {
       image: "/assets/product-reaper.jpg",
     },
   };
+}
+
+function normalizeAttribution(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const limits = {
+    utm_source: 120,
+    utm_medium: 120,
+    utm_campaign: 120,
+    utm_content: 120,
+    utm_term: 120,
+    referrer: 400,
+    landing_page: 400,
+    first_seen_at: 40,
+  };
+  return Object.fromEntries(
+    Object.entries(limits)
+      .map(([key, limit]) => [key, String(value[key] || "").trim().slice(0, limit)])
+      .filter(([, fieldValue]) => fieldValue),
+  );
 }
 
 function getProductByPrice(priceId) {
@@ -1108,6 +1129,7 @@ app.post(
 
     const catalog = getProductCatalog();
     const cart = Array.isArray(req.body?.cart) ? req.body.cart : [];
+    const attribution = normalizeAttribution(req.body?.attribution);
     const cartIds = cart.map((item) => item?.id);
     const invalidCartShape =
       cart.length < 1 ||
@@ -1166,6 +1188,7 @@ app.post(
             cart: JSON.stringify(
               cart.map(({ id, quantity }) => ({ id, quantity })),
             ),
+            ...attribution,
           },
         },
         { idempotencyKey: `checkout-${idempotencyKey}` },
