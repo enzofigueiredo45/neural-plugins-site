@@ -29,7 +29,7 @@ Variáveis mínimas:
 - `STRIPE_PRICE_NEURAL_X`, `STRIPE_PRICE_FL_STUDIO`, `STRIPE_PRICE_REAPER`
 - `STRIPE_WEBHOOK_SECRET` para registrar pedidos pagos de forma idempotente
 
-Na Vercel, faça um novo deploy de produção sempre que alterar variáveis de ambiente; deployments já existentes continuam usando o conjunto anterior.
+Na Vercel, faça um novo deploy de produção sempre que alterar variáveis de ambiente; deployments já existentes continuam usando o conjunto anterior. Mantenha a chave live somente em Production e uma chave test separada somente em Preview.
 
 Veja `CONFIGURACOES_PUBLICACAO.md` para a lista completa de pendências antes de vender em produção.
 
