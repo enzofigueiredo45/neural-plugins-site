@@ -3,13 +3,13 @@ const PRODUCTS = Object.freeze({
   "neural-x": {
     id: "neural-x",
     name: "Neural X Collection",
-    price: 29.9,
+    price: 19.9,
     image: "/assets/product-neural-x.svg",
   },
   "fl-studio": {
     id: "fl-studio",
     name: "FL Studio",
-    price: 29.9,
+    price: 19.9,
     image: "/assets/product-fl-studio.svg",
   },
   reaper: {
