@@ -255,6 +255,8 @@ app.use("/api", (req, res, next) => {
   const origin = req.get("Origin");
   if (!origin) return next();
   const allowedOrigins = new Set([new URL(canonicalUrl).origin]);
+  if (process.env.VERCEL_ENV === "preview" && req.get("host"))
+    allowedOrigins.add(`https://${req.get("host")}`);
   if (!isProduction) {
     allowedOrigins.add(`http://localhost:${PORT}`);
     allowedOrigins.add(`http://127.0.0.1:${PORT}`);
