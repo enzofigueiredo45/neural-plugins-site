@@ -29,6 +29,8 @@ Variáveis mínimas:
 - `STRIPE_PRICE_NEURAL_X`, `STRIPE_PRICE_FL_STUDIO`, `STRIPE_PRICE_REAPER`
 - `STRIPE_WEBHOOK_SECRET` para registrar pedidos pagos de forma idempotente
 
+Na Vercel, faça um novo deploy de produção sempre que alterar variáveis de ambiente; deployments já existentes continuam usando o conjunto anterior.
+
 Veja `CONFIGURACOES_PUBLICACAO.md` para a lista completa de pendências antes de vender em produção.
 
 ## Stripe
