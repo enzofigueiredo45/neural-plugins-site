@@ -462,8 +462,8 @@ function getProductCatalog() {
   return {
     "neural-x": {
       price: process.env.STRIPE_PRICE_NEURAL_X,
-      name: "Neural X Collection",
-      image: "/assets/product-neural-x.svg",
+      name: "Coleção Neural DSP",
+      image: "/assets/neural-dsp/archetype-john-mayer-x.png",
     },
     "fl-studio": {
       price: process.env.STRIPE_PRICE_FL_STUDIO,

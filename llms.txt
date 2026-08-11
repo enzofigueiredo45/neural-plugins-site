@@ -4,7 +4,7 @@ Neural X é uma loja de produtos digitais para produção musical com carrinho, 
 
 Páginas principais:
 - /: vitrine de produtos digitais.
-- /produto-neural-x.html: Neural X Collection.
+- /produto-neural-x.html: Coleção Neural DSP com 23 plugins para guitarra, baixo e voz.
 - /produto-fl-studio.html: FL Studio.
 - /produto-reaper.html: REAPER.
 - /privacy.html e /terms.html: políticas públicas.

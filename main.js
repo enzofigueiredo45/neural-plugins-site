@@ -2,9 +2,9 @@ const CART_KEY = "neuralx_cart";
 const PRODUCTS = Object.freeze({
   "neural-x": {
     id: "neural-x",
-    name: "Neural X Collection",
+    name: "Coleção Neural DSP",
     price: 19.9,
-    image: "/assets/product-neural-x.svg",
+    image: "/assets/neural-dsp/archetype-john-mayer-x.png",
   },
   "fl-studio": {
     id: "fl-studio",
