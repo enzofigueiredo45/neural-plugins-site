@@ -9,7 +9,7 @@ Não existe configuração que garanta primeiro lugar no Google, Bing ou IA, mas
 Configure no painel da hospedagem (Vercel, Render, Railway etc.) em **Environment Variables**. Não coloque no HTML, CSS, `main.js` ou Git.
 
 ```env
-STRIPE_SECRET_KEY=sk_live_ou_sk_test_da_sua_conta
+STRIPE_SECRET_KEY=rk_live_restrita_da_sua_conta
 STRIPE_PRICE_NEURAL_X=price_do_produto_pacote_neural_x
 STRIPE_PRICE_FL_STUDIO=price_do_produto_fl_studio
 STRIPE_PRICE_REAPER=price_do_produto_reaper
@@ -28,7 +28,6 @@ NODE_ENV=production
 SESSION_SECRET=um_valor_aleatorio_longo_com_32_ou_mais_caracteres
 REDIS_URL=redis://usuario:senha@host:porta
 DATABASE_URL=postgres://usuario:senha@host:porta/banco
-DEMO_ACCOUNTS_ENABLED=false
 ```
 
 `SESSION_SECRET` assina cookies de sessão. `REDIS_URL` guarda sessão e bloqueio de tentativas. `DATABASE_URL` deve apontar para Postgres em produção; em desenvolvimento, sem `DATABASE_URL`, o servidor usa SQLite local em `data.sqlite` e cria as tabelas automaticamente.
@@ -79,5 +78,5 @@ Para Bing, crie conta em https://www.bing.com/webmasters, valide o domínio e en
 - CNPJ/razão social ou responsável publicado em contato/termos.
 - Política clara de reembolso, suporte e entrega digital.
 - Comprovação de licença/autorização para vender os produtos listados.
-- Webhook Stripe para liberar pedido só após pagamento confirmado.
+- Segredo do webhook Stripe configurado na Vercel para confirmar também os pagamentos assíncronos.
 - Conteúdo original: descrições completas, FAQs, tutoriais, screenshots reais e comparação de produtos.

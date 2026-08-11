@@ -1,15 +1,16 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex,follow" />
-    <title>Compra aprovada | Neural X</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#08090b"><meta name="robots" content="noindex,follow">
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Confirmação do pagamento | Neural X</title><link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <header class="site-header"><a class="brand" href="./index.html"><span>Neural</span> X</a><nav><a href="./index.html#produtos">Produtos</a><a href="./client-login.html">Login cliente</a></nav></header>
-    <main class="section checkout"><section class="checkout-box" data-checkout-success data-state="pending"><p class="eyebrow">Confirmação segura</p><h1 id="successTitle">Confirmando pagamento…</h1><p id="successMessage">Aguarde enquanto consultamos a Stripe.</p><a class="button primary" href="./client-login.html">Acessar área do cliente</a></section></main>
+    <header class="site-header"><div class="header-inner"><a class="brand" href="./index.html"><span class="brand-mark">NX</span><span class="brand-name">Neural X</span></a><div class="header-actions"><a class="header-link" href="./contact.html">Suporte</a><a class="header-cart" href="./client-login.html"><span>Minha conta</span></a></div></div></header>
+    <main class="container status-page"><section class="status-card" data-checkout-success data-state="pending"><div class="status-icon" id="successIcon" aria-hidden="true">…</div><p class="eyebrow">Confirmação segura</p><h1 id="successTitle">Confirmando pagamento.</h1><p id="successMessage">Aguarde enquanto consultamos a Stripe.</p><div class="button-row"><a class="button primary" href="./client-login.html">Acessar minha conta</a><a class="button secondary" href="./contact.html">Falar com suporte</a></div></section></main>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

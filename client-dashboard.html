@@ -1,100 +1,49 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
-    <meta name="robots" content="noindex,follow" />
-    <meta name="theme-color" content="#020305" />
-    <title>Área do Cliente | Neural X</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#08090b"><meta name="robots" content="noindex,nofollow">
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Minha conta | Neural X</title><link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="./index.html"><span>Neural</span> X</a>
-      <nav aria-label="Navegação principal">
-        <a href="./index.html#produtos">Produtos</a>
-        <a href="./cart.html"
-          >Carrinho <span id="cartCount" class="cart-count">0</span></a
-        >
-        <a href="./contact.html">Suporte</a>
-      </nav>
-    </header>
-
-    <main class="dashboard-page">
-      <section class="dashboard-hero" aria-labelledby="dashboard-title">
-        <div>
-          <p class="eyebrow">Minha biblioteca</p>
-          <h1 id="dashboard-title">Olá, <span id="welcomeName">cliente</span>.</h1>
-          <p class="lead">Seus produtos, downloads e dados da conta em um só lugar.</p>
-        </div>
-        <button class="button ghost danger" id="logout" type="button">Sair da conta</button>
-      </section>
-
+    <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+    <header class="site-header"><div class="header-inner"><a class="brand" href="./index.html"><span class="brand-mark">NX</span><span class="brand-name">Neural X</span></a><nav class="main-nav" aria-label="Navegação principal" id="mainNav" data-mobile-nav><a href="./index.html#produtos">Loja</a><a href="./contact.html">Abrir chamado</a></nav><div class="header-actions"><a class="header-cart" href="./cart.html"><span class="header-cart-label">Carrinho</span><span class="cart-count" data-cart-count>0</span></a><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav" aria-label="Abrir menu"><span></span></button></div></div></header>
+    <main class="container dashboard-page" id="conteudo">
+      <section class="dashboard-hero" aria-labelledby="dashboard-title"><div><p class="eyebrow">Minha conta</p><h1 id="dashboard-title">Olá, <span id="welcomeName">cliente</span>.</h1><p class="lead">Sua biblioteca, suporte e segurança em um só lugar.</p></div><button class="button ghost danger" id="logout" type="button">Sair da conta</button></section>
       <section class="account-summary" aria-label="Resumo da conta">
-        <article class="summary-card">
-          <span class="summary-icon" aria-hidden="true">↓</span>
-          <div><strong id="productCount">—</strong><small>produtos disponíveis</small></div>
-        </article>
-        <article class="summary-card">
-          <span class="summary-icon" aria-hidden="true">✓</span>
-          <div><strong>Conta ativa</strong><small>acesso protegido</small></div>
-        </article>
-        <a class="summary-card summary-link" href="./contact.html">
-          <span class="summary-icon" aria-hidden="true">?</span>
-          <div><strong>Precisa de ajuda?</strong><small>fale com o suporte →</small></div>
-        </a>
+        <article class="summary-card"><span class="summary-icon" aria-hidden="true">↓</span><div><strong id="productCount">—</strong><small>produtos na biblioteca</small></div></article>
+        <article class="summary-card"><span class="summary-icon" aria-hidden="true">✓</span><div><strong id="securityStatus">Verificando</strong><small>segurança da conta</small></div></article>
+        <article class="summary-card"><span class="summary-icon" aria-hidden="true">?</span><div><strong id="ticketCount">—</strong><small>chamados de suporte</small></div></article>
       </section>
 
       <section class="dashboard-grid">
-        <aside class="account-panel">
-        <form class="checkout-box profile-form" id="profileForm">
-          <div class="profile-heading">
-            <div class="avatar" id="avatarPreview" aria-hidden="true">NX</div>
-            <div><p class="eyebrow">Sua conta</p><h2>Perfil</h2></div>
-          </div>
-          <div class="field-group">
-            <label for="profileName">Nome</label>
-            <input
-              id="profileName"
-              name="name"
-              type="text"
-              autocomplete="name"
-              placeholder="Seu nome"
-            />
-          </div>
-          <div class="field-group">
-            <label for="profileEmail">E-mail</label>
-            <input id="profileEmail" name="email" type="email" disabled />
-          </div>
-          <div class="field-group">
-            <label for="profileAvatarFile">Foto de perfil <span>(opcional)</span></label>
-            <input id="profileAvatarFile" name="avatar" type="file" accept="image/png,image/jpeg,image/webp" />
-            <input id="profileAvatar" name="avatarUrl" type="hidden" />
-            <small class="field-hint">PNG, JPG ou WebP de até 256 KB.</small>
-          </div>
-          <p
-            id="profileMessage"
-            class="form-message"
-            role="status"
-            aria-live="polite"
-          ></p>
-          <button class="button primary" type="submit">Salvar perfil</button>
-        </form>
-        </aside>
+        <div class="dashboard-stack">
+          <form class="form-card profile-form" id="profileForm">
+            <div class="profile-heading"><div class="avatar" id="avatarPreview" aria-hidden="true">NX</div><div><p class="eyebrow">Dados pessoais</p><h2>Perfil</h2></div></div>
+            <div class="field-group"><label for="profileName">Nome</label><input id="profileName" name="name" type="text" required autocomplete="name" maxlength="80" placeholder="Seu nome"></div>
+            <div class="field-group"><label for="profileEmail">E-mail</label><input id="profileEmail" name="email" type="email" disabled></div>
+            <p id="profileMessage" class="form-message" role="status" aria-live="polite"></p><button class="button primary" type="submit">Salvar perfil</button>
+          </form>
 
-        <section
-          class="checkout-box orders-panel"
-          aria-labelledby="orders-title"
-        >
-          <div class="panel-heading"><div><p class="eyebrow">Biblioteca</p><h2 id="orders-title">Seus produtos</h2></div><a href="./index.html#produtos">Ver loja →</a></div>
-          <div id="ordersList" class="orders-list" aria-live="polite"><div class="loading-state">Carregando sua biblioteca…</div></div>
-        </section>
+          <section class="form-card security-panel" aria-labelledby="security-title">
+            <div class="panel-heading"><div><p class="eyebrow">Proteção da conta</p><h2 id="security-title">Segurança</h2></div></div>
+            <p class="form-intro" id="mfaDescription">Adicione uma segunda etapa de verificação ao login.</p>
+            <button class="button secondary" id="mfaSetup" type="button">Ativar verificação em duas etapas</button>
+            <div class="mfa-enrollment" id="mfaEnrollment" hidden><img class="mfa-qr" id="mfaQr" src="./assets/favicon.svg" alt="QR code para configurar aplicativo autenticador"><small>Escaneie o QR code no seu aplicativo autenticador e confirme o código.</small><div class="field-group"><label for="mfaVerifyToken">Código de 6 dígitos</label><input id="mfaVerifyToken" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}"></div><button class="button primary" id="mfaVerify" type="button">Confirmar ativação</button></div>
+            <p id="mfaMessage" class="form-message" role="status" aria-live="polite"></p>
+            <form class="form-grid" id="passwordForm"><h3>Alterar senha</h3><div class="field-group"><label for="currentPassword">Senha atual</label><input id="currentPassword" name="currentPassword" type="password" required autocomplete="current-password" maxlength="128"></div><div class="field-group"><label for="newPassword">Nova senha</label><input id="newPassword" name="newPassword" type="password" required autocomplete="new-password" minlength="12" maxlength="128"></div><p id="passwordMessage" class="form-message" role="status" aria-live="polite"></p><button class="button secondary" type="submit">Atualizar senha</button></form>
+          </section>
+        </div>
+
+        <div class="dashboard-stack">
+          <section class="form-card orders-panel" aria-labelledby="orders-title"><div class="panel-heading"><div><p class="eyebrow">Biblioteca</p><h2 id="orders-title">Seus produtos</h2></div><a class="inline-link" href="./index.html#produtos">Ver loja</a></div><div id="ordersList" class="orders-list" aria-live="polite"><div class="loading-state">Carregando sua biblioteca…</div></div></section>
+          <section class="form-card tickets-panel" aria-labelledby="tickets-title"><div class="panel-heading"><div><p class="eyebrow">Atendimento</p><h2 id="tickets-title">Seus chamados</h2></div><a class="inline-link" href="./contact.html">Novo chamado</a></div><div id="ticketList" class="ticket-list" aria-live="polite"><div class="loading-state">Carregando chamados…</div></div></section>
+        </div>
       </section>
     </main>
-
-    <script type="module" src="./main.js"></script>
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div><script type="module" src="./main.js"></script>
   </body>
 </html>

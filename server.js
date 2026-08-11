@@ -6,8 +6,14 @@ const session = require("express-session");
 const { default: RedisStore } = require("connect-redis");
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcrypt");
-const multer = require("multer");
-const { createHash, randomUUID, timingSafeEqual } = require("crypto");
+const {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  randomUUID,
+  timingSafeEqual,
+} = require("crypto");
 const cookieParser = require("cookie-parser");
 const { createClient } = require("redis");
 const speakeasy = require("speakeasy");
@@ -15,12 +21,12 @@ const qrcode = require("qrcode");
 const {
   isStripePriceId,
   isStripeSessionId,
-  normalizeAvatarUrl,
   validateRuntimeConfig,
 } = require("./lib/validation");
 
 const PORT = process.env.PORT || 4173;
 const isProduction = process.env.NODE_ENV === "production";
+const sessionCookieName = "neuralx.sid";
 const runtimeConfig = validateRuntimeConfig(process.env, isProduction);
 const canonicalUrl = (
   process.env.SITE_URL || `http://localhost:${PORT}`
@@ -83,7 +89,6 @@ async function ensureDatabaseReady() {
   lastDatabaseAttempt = Date.now();
   databaseReadyPromise = db
     .initSqlite()
-    .then(() => seedDemoData())
     .then(() => {
       databaseReady = true;
       return true;
@@ -150,16 +155,17 @@ app.use((req, res, next) => {
 app.use(
   helmet({
     crossOriginEmbedderPolicy: false,
+    frameguard: { action: "deny" },
+    hsts: { maxAge: 63_072_000, includeSubDomains: true, preload: true },
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          "'unsafe-inline'",
           "https://www.google.com",
           "https://www.gstatic.com",
         ],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        styleSrc: ["'self'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: [
@@ -170,6 +176,9 @@ app.use(
         frameSrc: ["https://www.google.com", "https://recaptcha.google.com"],
         frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'", "https://*.stripe.com"],
+        upgradeInsecureRequests: isProduction ? [] : null,
       },
     },
   }),
@@ -184,16 +193,18 @@ app.post(
 
 // body parsing
 app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(cookieParser());
 
 const sessionMiddleware = session({
+  name: sessionCookieName,
   store: redisClient ? new RedisStore({ client: redisClient }) : undefined,
   secret:
     process.env.SESSION_SECRET ||
     (isProduction ? randomUUID() : "dev-only-change-this-secret"),
   resave: false,
   saveUninitialized: false,
+  proxy: isProduction,
   cookie: {
     httpOnly: true,
     secure: isProduction,
@@ -230,10 +241,45 @@ app.use(
   }),
 );
 
+// Stripe webhooks are registered above and use signature verification. Every
+// other cross-site state change is rejected before CSRF validation.
+app.use("/api", (req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  if (String(req.get("Sec-Fetch-Site") || "").toLowerCase() === "cross-site")
+    return res.status(403).json({
+      ok: false,
+      error: "origin_not_allowed",
+      requestId: req.requestId,
+    });
+
+  const origin = req.get("Origin");
+  if (!origin) return next();
+  const allowedOrigins = new Set([new URL(canonicalUrl).origin]);
+  if (process.env.VERCEL_ENV === "preview" && req.get("host"))
+    allowedOrigins.add(`https://${req.get("host")}`);
+  if (!isProduction) {
+    allowedOrigins.add(`http://localhost:${PORT}`);
+    allowedOrigins.add(`http://127.0.0.1:${PORT}`);
+  }
+  if (!allowedOrigins.has(origin))
+    return res.status(403).json({
+      ok: false,
+      error: "origin_not_allowed",
+      requestId: req.requestId,
+    });
+  return next();
+});
+
 // CSRF protection for state-changing API requests.
 app.use((req, res, next) => {
   const safeMethod = ["GET", "HEAD", "OPTIONS"].includes(req.method);
   if (safeMethod) return next();
+  if (!req.session)
+    return res.status(503).json({
+      ok: false,
+      error: "session_not_ready",
+      requestId: req.requestId,
+    });
 
   const provided = String(req.get("X-CSRF-Token") || "");
   const expected = String(req.session.csrfToken || "");
@@ -278,16 +324,23 @@ const registrationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
-// uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 256 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.mimetype))
-      return cb(new Error("Only PNG, JPEG and WebP images are allowed"));
-    cb(null, true);
-  },
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const supportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const accountLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 app.get("/robots.txt", (req, res) => {
@@ -297,7 +350,11 @@ app.get("/robots.txt", (req, res) => {
       [
         "User-agent: *",
         "Allow: /",
+        "Disallow: /cart.html",
         "Disallow: /client-dashboard.html",
+        "Disallow: /client-login.html",
+        "Disallow: /client-register.html",
+        "Disallow: /success.html",
         "Disallow: /api/",
         "",
         `Sitemap: ${canonicalUrl}/sitemap.xml`,
@@ -323,12 +380,13 @@ app.get("/sitemap.xml", (req, res) => {
 // Publish only intentional web assets. Serving the repository root would also
 // expose backend source, package metadata and operational documentation.
 app.use("/assets", express.static(path.join(root, "assets"), { dotfiles: "deny" }));
-app.get(["/main.js", "/styles.css", "/llms.txt"], (req, res) =>
+app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res) =>
   res.sendFile(path.join(root, req.path.slice(1))),
 );
 const publicPages = new Set([
-  "index.html", "cart.html", "client-dashboard.html", "client-login.html",
-  "contact.html", "privacy.html", "produto-fl-studio.html",
+  "404.html", "index.html", "cart.html", "client-dashboard.html",
+  "client-login.html", "client-register.html", "contact.html", "privacy.html",
+  "produto-fl-studio.html",
   "produto-neural-x.html", "produto-reaper.html", "success.html", "terms.html",
 ]);
 app.get(["/", "/*.html"], (req, res, next) => {
@@ -389,38 +447,6 @@ async function clearFailed(email) {
   } catch {}
 }
 
-async function seedDemoData() {
-  const demosEnabled = String(process.env.DEMO_ACCOUNTS_ENABLED || "") === "true";
-  if (isProduction || !demosEnabled) return;
-  const demoEmail = "demo@neuralx.com";
-  const exists = await getUserByEmail(demoEmail);
-  if (!exists) {
-    const hash = await bcrypt.hash("neuralx123", 10);
-    await createUser(demoEmail, hash, "client", "Cliente Neural X");
-  }
-  const order = await db.getOne(
-    db.usePostgres
-      ? "SELECT id FROM orders WHERE buyer_email = $1 LIMIT 1"
-      : "SELECT id FROM orders WHERE buyer_email = ? LIMIT 1",
-    [demoEmail],
-  );
-  if (!order) {
-    await db.run(
-      db.usePostgres
-        ? "INSERT INTO orders (buyer_email, product, status, price, image, download_url) VALUES ($1, $2, $3, $4, $5, $6)"
-        : "INSERT INTO orders (buyer_email, product, status, price, image, download_url) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        demoEmail,
-        "Pacote Neural X",
-        "Disponível",
-        29.9,
-        "/assets/neural-collection.svg",
-        "/produto-neural-x.html",
-      ],
-    );
-  }
-}
-
 function getStripeSecret() {
   return process.env.STRIPE_SECRET_KEY || "";
 }
@@ -436,18 +462,18 @@ function getProductCatalog() {
   return {
     "neural-x": {
       price: process.env.STRIPE_PRICE_NEURAL_X,
-      name: "Pacote Neural X",
-      image: "/assets/neural-collection.svg",
+      name: "Neural X Collection",
+      image: "/assets/product-neural-x.svg",
     },
     "fl-studio": {
       price: process.env.STRIPE_PRICE_FL_STUDIO,
       name: "FL Studio",
-      image: "",
+      image: "/assets/product-fl-studio.svg",
     },
     reaper: {
       price: process.env.STRIPE_PRICE_REAPER,
       name: "REAPER",
-      image: "",
+      image: "/assets/product-reaper.svg",
     },
   };
 }
@@ -455,6 +481,79 @@ function getProductCatalog() {
 function getProductByPrice(priceId) {
   return Object.values(getProductCatalog()).find(
     (product) => product.price === priceId,
+  );
+}
+
+let stripeCatalogCheck = { checkedAt: 0, valid: false };
+let stripeCatalogPromise = null;
+async function validateStripeCatalog() {
+  if (!stripeClient) return false;
+  if (Date.now() - stripeCatalogCheck.checkedAt < 15 * 60 * 1000)
+    return stripeCatalogCheck.valid;
+  if (stripeCatalogPromise) return stripeCatalogPromise;
+
+  stripeCatalogPromise = Promise.all(
+    Object.entries(getProductCatalog()).map(async ([id, product]) => {
+      if (!isStripePriceId(product.price)) return { id, valid: false };
+      const price = await stripeClient.prices.retrieve(product.price);
+      const keyIsLive = /^(?:sk|rk)_live_/.test(stripeSecret);
+      return {
+        id,
+        valid:
+          price.active === true &&
+          price.type === "one_time" &&
+          price.currency === "brl" &&
+          price.livemode === keyIsLive,
+      };
+    }),
+  )
+    .then((checks) => {
+      const invalidProducts = checks
+        .filter((check) => !check.valid)
+        .map((check) => check.id);
+      stripeCatalogCheck = {
+        checkedAt: Date.now(),
+        valid: invalidProducts.length === 0,
+      };
+      if (invalidProducts.length)
+        console.error("stripe_catalog_invalid", { invalidProducts });
+      return stripeCatalogCheck.valid;
+    })
+    .catch((error) => {
+      stripeCatalogCheck = { checkedAt: Date.now(), valid: false };
+      logError("stripe_catalog_validation_error", error);
+      return false;
+    })
+    .finally(() => {
+      stripeCatalogPromise = null;
+    });
+  return stripeCatalogPromise;
+}
+
+const supportCategories = new Map([
+  ["pre_sale", "Dúvida antes da compra"],
+  ["payment", "Pagamento"],
+  ["order", "Pedido ou entrega"],
+  ["access", "Acesso à conta"],
+  ["compatibility", "Compatibilidade"],
+  ["privacy", "Privacidade e dados"],
+  ["other", "Outro assunto"],
+]);
+
+function isValidEmail(value) {
+  const email = String(value || "").trim().toLowerCase();
+  return email.length > 0 && email.length <= 254 && /^\S+@\S+\.\S+$/.test(email);
+}
+
+function isStrongPassword(value) {
+  const password = String(value || "");
+  return (
+    password.length >= 12 &&
+    password.length <= 128 &&
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
   );
 }
 
@@ -484,31 +583,41 @@ async function verifyCaptcha(token, expectedAction) {
 }
 
 // helper db functions
-async function getUserByEmail(email) {
+async function getUserSummaryByEmail(email) {
   if (!email) return null;
-  const row = await db.getOne(
+  return db.getOne(
     db.usePostgres
-      ? "SELECT * FROM users WHERE email = $1"
-      : "SELECT * FROM users WHERE email = ?",
+      ? "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = $1 LIMIT 1"
+      : "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = ? LIMIT 1",
     [email],
   );
-  return row;
+}
+
+async function getUserAuthByEmail(email) {
+  if (!email) return null;
+  return db.getOne(
+    db.usePostgres
+      ? "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret FROM users WHERE email = $1 LIMIT 1"
+      : "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret FROM users WHERE email = ? LIMIT 1",
+    [email],
+  );
 }
 async function createUser(
   email,
   hash,
   role = "client",
   name = "Cliente Neural X",
+  acceptedTerms = false,
 ) {
   if (db.usePostgres) {
     return db.run(
-      "INSERT INTO users (email, password_hash, role, name) VALUES ($1, $2, $3, $4) RETURNING *",
-      [email, hash, role, name],
+      "INSERT INTO users (email, password_hash, role, name, terms_accepted_at) VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN CURRENT_TIMESTAMP ELSE NULL END) RETURNING id, email, role, name",
+      [email, hash, role, name, acceptedTerms],
     );
   }
   return db.run(
-    "INSERT INTO users (email, password_hash, role, name) VALUES (?, ?, ?, ?)",
-    [email, hash, role, name],
+    "INSERT INTO users (email, password_hash, role, name, terms_accepted_at) VALUES (?, ?, ?, ?, CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END)",
+    [email, hash, role, name, acceptedTerms ? 1 : 0],
   );
 }
 
@@ -524,13 +633,42 @@ function saveSession(req) {
   );
 }
 
-async function fulfillCheckoutSession(sessionId) {
-  if (!stripeClient || !db || !(await ensureDatabaseReady()))
-    throw new Error("Fulfillment dependencies are not ready");
+function getMfaEncryptionKey() {
+  return createHash("sha256")
+    .update(`neural-x:mfa:${process.env.SESSION_SECRET || "development"}`)
+    .digest();
+}
 
-  const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
-    expand: ["line_items"],
-  });
+function encryptMfaSecret(secret) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", getMfaEncryptionKey(), iv);
+  const encrypted = Buffer.concat([
+    cipher.update(String(secret), "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return `v1.${iv.toString("base64url")}.${tag.toString("base64url")}.${encrypted.toString("base64url")}`;
+}
+
+function decryptMfaSecret(value) {
+  const stored = String(value || "");
+  if (!stored.startsWith("v1.")) return stored;
+  const [, ivValue, tagValue, encryptedValue] = stored.split(".");
+  if (!ivValue || !tagValue || !encryptedValue)
+    throw new Error("Invalid encrypted MFA secret");
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    getMfaEncryptionKey(),
+    Buffer.from(ivValue, "base64url"),
+  );
+  decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedValue, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
+async function persistPaidCheckout(checkout) {
   if (checkout.payment_status !== "paid") return false;
 
   const buyerEmail = String(
@@ -565,6 +703,15 @@ async function fulfillCheckoutSession(sessionId) {
     );
   }
   return true;
+}
+
+async function fulfillCheckoutSession(sessionId) {
+  if (!stripeClient || !db || !(await ensureDatabaseReady()))
+    throw new Error("Fulfillment dependencies are not ready");
+  const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
+    expand: ["line_items"],
+  });
+  return persistPaidCheckout(checkout);
 }
 
 async function handleStripeWebhook(req, res, next) {
@@ -619,24 +766,34 @@ app.post(
   registrationLimiter,
   asyncHandler(requireDatabase),
   asyncHandler(async (req, res) => {
-    const { password, captcha } = req.body || {};
+    const { password, captcha, acceptTerms } = req.body || {};
     const email = String(req.body?.email || "").trim().toLowerCase();
-    if (!email || !password)
+    const name = String(req.body?.name || "").trim();
+    if (!email || !password || !name || acceptTerms !== true)
       return res.status(400).json({ ok: false, error: "missing_fields" });
-    if (
-      email.length > 254 ||
-      !/^\S+@\S+\.\S+$/.test(email) ||
-      String(password).length < 12 ||
-      String(password).length > 128
-    )
+    if (!isValidEmail(email) || name.length < 2 || name.length > 80)
       return res
         .status(400)
         .json({ ok: false, error: "invalid_credentials_format" });
+    if (!isStrongPassword(password))
+      return res.status(400).json({ ok: false, error: "weak_password" });
     if (!(await verifyCaptcha(captcha, "register")))
       return res.status(400).json({ ok: false, error: "captcha_failed" });
-    if (await getUserByEmail(email))
+    if (await getUserSummaryByEmail(email))
       return res.status(409).json({ ok: false, error: "email_taken" });
-    await createUser(email, await bcrypt.hash(password, 12));
+    try {
+      await createUser(
+        email,
+        await bcrypt.hash(String(password), 12),
+        "client",
+        name,
+        true,
+      );
+    } catch (error) {
+      if (error?.code === "23505" || error?.code === "SQLITE_CONSTRAINT")
+        return res.status(409).json({ ok: false, error: "email_taken" });
+      throw error;
+    }
     return res.status(201).json({ ok: true });
   }),
 );
@@ -653,18 +810,14 @@ app.post(
       return res.status(404).json({ ok: false, error: "portal_disabled" });
     if (!email || !password)
       return res.status(400).json({ ok: false, error: "missing_fields" });
-    if (
-      email.length > 254 ||
-      !/^\S+@\S+\.\S+$/.test(email) ||
-      String(password).length > 128
-    )
+    if (!isValidEmail(email) || String(password).length > 128)
       return res.status(401).json({ ok: false, error: "invalid_credentials" });
     if (!(await verifyCaptcha(captcha, "login")))
       return res.status(400).json({ ok: false, error: "captcha_failed" });
     if (await isLocked(email))
       return res.status(429).json({ ok: false, error: "account_locked" });
 
-    const user = await getUserByEmail(email);
+    const user = await getUserAuthByEmail(email);
     const matches = user
       ? await bcrypt.compare(String(password), user.password_hash)
       : false;
@@ -675,12 +828,17 @@ app.post(
     if (user.mfa_enabled) {
       if (!mfa_token)
         return res.status(400).json({ ok: false, error: "mfa_required" });
-      const verified = speakeasy.totp.verify({
-        secret: user.mfa_secret,
-        encoding: "base32",
-        token: String(mfa_token),
-        window: 1,
-      });
+      let verified = false;
+      try {
+        verified = speakeasy.totp.verify({
+          secret: decryptMfaSecret(user.mfa_secret),
+          encoding: "base32",
+          token: String(mfa_token),
+          window: 1,
+        });
+      } catch (error) {
+        logError("mfa_secret_error", error, req.requestId);
+      }
       if (!verified) {
         await recordFailedLogin(email);
         return res.status(401).json({ ok: false, error: "mfa_failed" });
@@ -688,6 +846,12 @@ app.post(
     }
 
     await clearFailed(email);
+    await db.run(
+      db.usePostgres
+        ? "UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1"
+        : "UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [user.id],
+    );
     await new Promise((resolve, reject) =>
       req.session.regenerate((err) => (err ? reject(err) : resolve())),
     );
@@ -704,11 +868,14 @@ app.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const email = req.session.user.email;
+    const user = await getUserSummaryByEmail(email);
+    if (user?.mfa_enabled)
+      return res.status(409).json({ ok: false, error: "mfa_already_enabled" });
     const secret = speakeasy.generateSecret({ name: `NeuralX (${email})` });
     const qr = await qrcode.toDataURL(secret.otpauth_url);
-    req.session.mfaTemp = { secret: secret.base32 };
+    req.session.mfaTemp = { secret: secret.base32, issuedAt: Date.now() };
     await saveSession(req);
-    return res.json({ ok: true, qr, secret: secret.base32 });
+    return res.json({ ok: true, qr });
   }),
 );
 
@@ -717,8 +884,13 @@ app.post(
   asyncHandler(requireDatabase),
   requireAuth,
   asyncHandler(async (req, res) => {
-    if (!req.session.mfaTemp)
+    if (
+      !req.session.mfaTemp ||
+      Date.now() - Number(req.session.mfaTemp.issuedAt || 0) > 10 * 60 * 1000
+    ) {
+      delete req.session.mfaTemp;
       return res.status(401).json({ ok: false, error: "unauthorized" });
+    }
     const token = String(req.body?.token || "");
     if (!/^\d{6}$/.test(token))
       return res.status(400).json({ ok: false, error: "mfa_failed" });
@@ -727,9 +899,9 @@ app.post(
       return res.status(400).json({ ok: false, error: "mfa_failed" });
     await db.run(
       db.usePostgres
-        ? "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE email = $2"
-        : "UPDATE users SET mfa_enabled = 1, mfa_secret = ? WHERE email = ?",
-      [secret, req.session.user.email],
+        ? "UPDATE users SET mfa_enabled = true, mfa_secret = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2"
+        : "UPDATE users SET mfa_enabled = 1, mfa_secret = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
+      [encryptMfaSecret(secret), req.session.user.email],
     );
     delete req.session.mfaTemp;
     await saveSession(req);
@@ -740,7 +912,12 @@ app.post(
 app.post("/api/logout", (req, res, next) => {
   req.session.destroy((err) => {
     if (err) return next(err);
-    res.clearCookie("connect.sid");
+    res.clearCookie(sessionCookieName, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+      path: "/",
+    });
     return res.json({ ok: true });
   });
 });
@@ -750,14 +927,14 @@ app.get(
   asyncHandler(requireDatabase),
   requireAuth,
   asyncHandler(async (req, res) => {
-    const user = await getUserByEmail(req.session.user.email);
+    const user = await getUserSummaryByEmail(req.session.user.email);
     return res.json({
       ok: true,
       user: {
         email: req.session.user.email,
         role: req.session.user.role,
         name: user?.name || "Cliente Neural X",
-        avatarUrl: user?.avatar_url || "",
+        mfaEnabled: Boolean(user?.mfa_enabled),
       },
     });
   }),
@@ -768,16 +945,14 @@ app.post(
   asyncHandler(requireDatabase),
   requireAuth,
   asyncHandler(async (req, res) => {
-    const name = String(req.body?.name || "").trim().slice(0, 80);
-    const avatarUrl = normalizeAvatarUrl(req.body?.avatarUrl);
-    if (!name) return res.status(400).json({ ok: false, error: "missing_name" });
-    if (avatarUrl === null)
-      return res.status(400).json({ ok: false, error: "invalid_avatar_url" });
+    const name = String(req.body?.name || "").trim();
+    if (name.length < 2 || name.length > 80)
+      return res.status(400).json({ ok: false, error: "missing_name" });
     await db.run(
       db.usePostgres
-        ? "UPDATE users SET name = $1, avatar_url = $2 WHERE email = $3"
-        : "UPDATE users SET name = ?, avatar_url = ? WHERE email = ?",
-      [name, avatarUrl, req.session.user.email],
+        ? "UPDATE users SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2"
+        : "UPDATE users SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
+      [name, req.session.user.email],
     );
     return res.json({
       ok: true,
@@ -785,9 +960,109 @@ app.post(
         email: req.session.user.email,
         role: req.session.user.role,
         name,
-        avatarUrl,
       },
     });
+  }),
+);
+
+app.post(
+  "/api/account/password",
+  accountLimiter,
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const currentPassword = String(req.body?.currentPassword || "");
+    const newPassword = String(req.body?.newPassword || "");
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ ok: false, error: "missing_fields" });
+    if (!isStrongPassword(newPassword))
+      return res.status(400).json({ ok: false, error: "weak_password" });
+    if (currentPassword === newPassword)
+      return res.status(400).json({ ok: false, error: "password_unchanged" });
+
+    const user = await getUserAuthByEmail(req.session.user.email);
+    const matches = user
+      ? await bcrypt.compare(currentPassword, user.password_hash)
+      : false;
+    if (!matches)
+      return res.status(401).json({ ok: false, error: "invalid_current_password" });
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    await db.run(
+      db.usePostgres
+        ? "UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
+        : "UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [hash, user.id],
+    );
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
+    req.session.user = { id: user.id, email: user.email, role: user.role };
+    req.session.csrfToken = randomUUID();
+    await saveSession(req);
+    return res.json({ ok: true, csrfToken: req.session.csrfToken });
+  }),
+);
+
+app.post(
+  "/api/support",
+  supportLimiter,
+  asyncHandler(requireDatabase),
+  asyncHandler(async (req, res) => {
+    const name = String(req.body?.name || "").trim();
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const category = String(req.body?.category || "");
+    const orderReference = String(req.body?.orderReference || "").trim();
+    const message = String(req.body?.message || "").trim();
+    const privacyConsent = req.body?.privacyConsent === true;
+
+    if (
+      name.length < 2 ||
+      name.length > 80 ||
+      !isValidEmail(email) ||
+      !supportCategories.has(category) ||
+      orderReference.length > 100 ||
+      message.length < 20 ||
+      message.length > 2_000 ||
+      !privacyConsent
+    )
+      return res.status(400).json({ ok: false, error: "invalid_support_request" });
+    if (!(await verifyCaptcha(req.body?.captcha, "support")))
+      return res.status(400).json({ ok: false, error: "captcha_failed" });
+
+    const values = [
+      email,
+      name,
+      category,
+      supportCategories.get(category),
+      orderReference || null,
+      message,
+    ];
+    const ticket = await db.run(
+      db.usePostgres
+        ? "INSERT INTO support_tickets (requester_email, requester_name, category, subject, order_reference, message) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
+        : "INSERT INTO support_tickets (requester_email, requester_name, category, subject, order_reference, message) VALUES (?, ?, ?, ?, ?, ?)",
+      values,
+    );
+    return res.status(201).json({
+      ok: true,
+      ticketId: String(ticket?.id || ticket?.lastID || ""),
+    });
+  }),
+);
+
+app.get(
+  "/api/support-tickets",
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const rows = await db.query(
+      db.usePostgres
+        ? "SELECT id, subject, status, created_at FROM support_tickets WHERE requester_email = $1 ORDER BY created_at DESC LIMIT 50"
+        : "SELECT id, subject, status, created_at FROM support_tickets WHERE requester_email = ? ORDER BY created_at DESC LIMIT 50",
+      [req.session.user.email],
+    );
+    return res.json(rows);
   }),
 );
 
@@ -798,8 +1073,8 @@ app.get(
   asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
-        ? "SELECT id, product, status, price, quantity, image, download_url FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC"
-        : "SELECT id, product, status, price, quantity, image, download_url FROM orders WHERE buyer_email = ? ORDER BY created_at DESC",
+        ? "SELECT id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC LIMIT 100"
+        : "SELECT id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = ? ORDER BY created_at DESC LIMIT 100",
       [req.session.user.email],
     );
     return res.json(rows);
@@ -807,42 +1082,8 @@ app.get(
 );
 
 app.post(
-  "/api/uploads",
-  asyncHandler(requireDatabase),
-  requireAuth,
-  upload.single("file"),
-  (req, res) => {
-    if (!req.file) return res.status(400).json({ ok: false, error: "no_file" });
-    const signatures = [
-      {
-        mime: "image/png",
-        test: (buffer) =>
-          buffer.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex")),
-      },
-      {
-        mime: "image/jpeg",
-        test: (buffer) =>
-          buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
-      },
-      {
-        mime: "image/webp",
-        test: (buffer) =>
-          buffer.subarray(0, 4).toString() === "RIFF" &&
-          buffer.subarray(8, 12).toString() === "WEBP",
-      },
-    ];
-    const detected = signatures.find(({ test }) => test(req.file.buffer));
-    if (!detected)
-      return res.status(400).json({ ok: false, error: "invalid_image" });
-    return res.json({
-      ok: true,
-      url: `data:${detected.mime};base64,${req.file.buffer.toString("base64")}`,
-    });
-  },
-);
-
-app.post(
   "/api/create-checkout-session",
+  checkoutLimiter,
   asyncHandler(async (req, res) => {
     if (
       !stripeClient ||
@@ -856,6 +1097,12 @@ app.post(
       return res.status(503).json({
         ok: false,
         error: "stripe_not_configured",
+        requestId: req.requestId,
+      });
+    if (!(await validateStripeCatalog()))
+      return res.status(503).json({
+        ok: false,
+        error: "stripe_catalog_invalid",
         requestId: req.requestId,
       });
 
@@ -903,8 +1150,9 @@ app.post(
     try {
       const checkout = await stripeClient.checkout.sessions.create(
         {
-          payment_method_types: ["card"],
           mode: "payment",
+          locale: "pt-BR",
+          integration_identifier: "neural_x_qmvkzpta",
           line_items: lineItems,
           customer_email: req.session.user?.email || undefined,
           client_reference_id: req.session.user?.id
@@ -952,12 +1200,26 @@ app.get(
       const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
         expand: ["line_items"],
       });
+      let fulfillment = "not_paid";
+      if (checkout.payment_status === "paid") {
+        try {
+          if (!db || !(await ensureDatabaseReady()))
+            throw new Error("Fulfillment database is not ready");
+          fulfillment = (await persistPaidCheckout(checkout))
+            ? "recorded"
+            : "pending";
+        } catch (error) {
+          fulfillment = "pending";
+          logError("checkout_return_fulfillment_error", error, req.requestId);
+        }
+      }
       return res.json({
         ok: true,
         status: checkout.status,
         paymentStatus: checkout.payment_status,
         amountTotal: checkout.amount_total,
         currency: checkout.currency,
+        fulfillment,
         products: (checkout.line_items?.data || []).map((item) => ({
           name: item.description,
           quantity: item.quantity,
@@ -973,9 +1235,12 @@ app.get(
 app.get(
   "/api/health",
   asyncHandler(async (req, res) => {
-    const [databaseInitialized, redisConnected] = await Promise.all([
+    const [databaseInitialized, redisConnected, stripeCatalogHealthy] = await Promise.all([
       ensureDatabaseReady(),
       ensureRedisReady(),
+      stripeClient && runtimeConfig.errors.length === 0
+        ? validateStripeCatalog()
+        : Promise.resolve(false),
     ]);
     let databaseHealthy = false;
     let redisHealthy = false;
@@ -997,13 +1262,14 @@ app.get(
     const ok =
       databaseHealthy &&
       (!isProduction || redisHealthy) &&
+      (!isProduction || stripeCatalogHealthy) &&
       runtimeConfig.errors.length === 0;
     return res.status(ok ? 200 : 503).json({
       ok,
       services: {
         database: databaseHealthy ? "ok" : "unavailable",
         redis: redisHealthy ? "ok" : isProduction ? "unavailable" : "optional",
-        stripe: stripeClient ? "configured" : "unavailable",
+        stripe: stripeCatalogHealthy ? "ok" : "unavailable",
       },
       configuration: {
         valid: runtimeConfig.errors.length === 0,
@@ -1023,22 +1289,16 @@ app.use((req, res) => {
       error: "not_found",
       requestId: req.requestId,
     });
-  return res.status(404).type("text/plain").send("Not found");
+  return res.status(404).sendFile(path.join(root, "404.html"));
 });
 
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
   logError("request_error", error, req.requestId);
-  if (error instanceof multer.MulterError || error?.type === "entity.too.large")
+  if (error?.type === "entity.too.large")
     return res.status(413).json({
       ok: false,
       error: "payload_too_large",
-      requestId: req.requestId,
-    });
-  if (error?.message === "Only PNG, JPEG and WebP images are allowed")
-    return res.status(400).json({
-      ok: false,
-      error: "invalid_image_type",
       requestId: req.requestId,
     });
   return res.status(500).json({

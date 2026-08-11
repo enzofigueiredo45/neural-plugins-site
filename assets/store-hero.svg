@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">Interface de produção musical Neural X</title>
+  <desc id="desc">Composição abstrata com amplificador virtual, pedais, medidores e formas de onda.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#171a1f"/><stop offset="1" stop-color="#050607"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#d8ff3e" stop-opacity=".38"/><stop offset="1" stop-color="#d8ff3e" stop-opacity="0"/></radialGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="24" stdDeviation="28" flood-opacity=".55"/></filter>
+  </defs>
+  <rect width="1200" height="900" rx="48" fill="url(#bg)"/>
+  <circle cx="900" cy="180" r="310" fill="url(#glow)"/>
+  <g opacity=".12" stroke="#fff"><path d="M0 120h1200M0 240h1200M0 360h1200M0 480h1200M0 600h1200M0 720h1200"/><path d="M150 0v900M300 0v900M450 0v900M600 0v900M750 0v900M900 0v900M1050 0v900"/></g>
+  <g filter="url(#shadow)">
+    <rect x="115" y="155" width="970" height="545" rx="30" fill="#101216" stroke="#43484f" stroke-width="3"/>
+    <rect x="150" y="195" width="900" height="90" rx="16" fill="#08090b"/>
+    <text x="185" y="250" fill="#d8ff3e" font-family="Arial,sans-serif" font-size="28" font-weight="700" letter-spacing="8">NEURAL X / SIGNAL LAB</text>
+    <g fill="#25292f" stroke="#666c75" stroke-width="2">
+      <circle cx="220" cy="375" r="48"/><circle cx="350" cy="375" r="48"/><circle cx="480" cy="375" r="48"/><circle cx="610" cy="375" r="48"/>
+    </g>
+    <g stroke="#d8ff3e" stroke-width="7" stroke-linecap="round"><path d="M220 375l22-25"/><path d="M350 375l-10-30"/><path d="M480 375l27-18"/><path d="M610 375l6-32"/></g>
+    <g fill="#f5f7f2" font-family="Arial,sans-serif" font-size="17" text-anchor="middle"><text x="220" y="452">INPUT</text><text x="350" y="452">DRIVE</text><text x="480" y="452">TONE</text><text x="610" y="452">OUTPUT</text></g>
+    <rect x="720" y="330" width="280" height="145" rx="18" fill="#08090b" stroke="#333840"/>
+    <path d="M750 408c28-80 42 78 72-2s43 74 74 0 43 76 73 0" fill="none" stroke="#d8ff3e" stroke-width="5"/>
+    <rect x="150" y="535" width="900" height="125" rx="18" fill="#08090b"/>
+    <g fill="#d8ff3e"><rect x="190" y="570" width="105" height="52" rx="9"/><rect x="318" y="570" width="105" height="52" rx="9" opacity=".65"/><rect x="446" y="570" width="105" height="52" rx="9" opacity=".35"/></g>
+    <g fill="#25292f"><circle cx="830" cy="595" r="34"/><circle cx="930" cy="595" r="34"/></g>
+  </g>
+  <g transform="translate(785 650) rotate(-7)" filter="url(#shadow)">
+    <rect width="225" height="175" rx="24" fill="#d8ff3e"/>
+    <circle cx="112" cy="70" r="32" fill="#0a0b0d"/>
+    <circle cx="112" cy="128" r="12" fill="#0a0b0d"/>
+    <text x="112" y="30" fill="#0a0b0d" font-family="Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" letter-spacing="4">DRIVE</text>
+  </g>
+</svg>

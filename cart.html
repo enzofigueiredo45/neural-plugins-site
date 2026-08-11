@@ -1,61 +1,26 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
-    <meta name="robots" content="noindex,follow" />
-    <meta name="theme-color" content="#020305" />
-    <title>Carrinho | Neural X</title>
-    <link rel="preconnect" href="https://checkout.stripe.com" crossorigin />
-    <link rel="dns-prefetch" href="https://checkout.stripe.com" />
-    <link rel="stylesheet" href="./styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#08090b">
+    <meta name="robots" content="noindex,follow">
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://checkout.stripe.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Meu carrinho | Neural X</title>
+    <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="./index.html"><span>Neural</span> X</a>
-      <nav aria-label="Navegação principal">
-        <a href="./index.html#produtos">Produtos</a>
-        <a href="./client-login.html">Login cliente</a>
-        <a href="./contact.html">Suporte</a>
-      </nav>
-    </header>
-
-    <main class="section cart-page cart-layout">
-      <section class="cart-panel" aria-labelledby="cart-title">
-        <div>
-          <p class="eyebrow">Carrinho</p>
-          <h1 id="cart-title">Sua compra</h1>
-          <p class="lead">
-            Revise seus produtos digitais antes de seguir para o checkout
-            seguro.
-          </p>
-        </div>
-
-        <ul class="cart-list cart-items" id="cartList" aria-live="polite"></ul>
-      </section>
-
-      <aside class="checkout-box cart-summary" aria-label="Resumo da compra">
-        <p class="eyebrow">Resumo</p>
-        <div class="cart-total">
-          <span>Total</span><strong id="cartTotal">R$ 0,00</strong>
-        </div>
-        <button class="button primary" id="checkoutButton" type="button">
-          <span class="checkout-button-label">Finalizar compra</span>
-        </button>
-        <p class="checkout-status" id="checkoutStatus" role="status" aria-live="polite"></p>
-        <button class="button secondary" id="clearCart" type="button">
-          Limpar carrinho
-        </button>
-        <small>Pagamento processado em ambiente seguro pela Stripe. Seus dados de cartão não passam pela Neural X.</small>
-        <a class="support-link" href="./contact.html"
-          >Precisa de ajuda? Fale com o suporte.</a
-        >
-      </aside>
+    <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+    <header class="site-header"><div class="header-inner"><a class="brand" href="./index.html"><span class="brand-mark">NX</span><span class="brand-name">Neural X</span></a><nav class="main-nav" aria-label="Navegação principal" id="mainNav" data-mobile-nav><a href="./index.html#produtos">Continuar comprando</a><a href="./contact.html">Suporte</a></nav><div class="header-actions"><a class="header-link" href="./client-login.html">Minha conta</a><a class="header-cart" href="./cart.html" aria-current="page"><span class="header-cart-label">Carrinho</span><span class="cart-count" data-cart-count>0</span></a><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav" aria-label="Abrir menu"><span></span></button></div></div></header>
+    <main class="container cart-page" id="conteudo">
+      <div class="cart-layout">
+        <section class="cart-panel" aria-labelledby="cart-title"><p class="eyebrow">Seu carrinho</p><h1 id="cart-title">Revise sua compra.</h1><p class="lead">Ajuste as quantidades e confira os produtos antes de seguir para o checkout.</p><ul class="cart-list" id="cartList" aria-live="polite"></ul></section>
+        <aside class="checkout-box cart-summary" aria-label="Resumo da compra"><p class="eyebrow">Resumo</p><div class="cart-total"><span>Total</span><strong id="cartTotal">R$ 0,00</strong></div><button class="button primary" id="checkoutButton" type="button"><span class="checkout-button-label">Finalizar na Stripe</span></button><p class="checkout-status" id="checkoutStatus" role="status" aria-live="polite"></p><button class="button secondary" id="clearCart" type="button">Limpar carrinho</button><p class="secure-note">Pagamento processado pela Stripe. A Neural X não armazena os dados completos do cartão.</p><a class="support-link" href="./contact.html">Precisa de ajuda?</a></aside>
+      </div>
     </main>
-
-    <script type="module" src="./main.js"></script>
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div><script type="module" src="./main.js"></script>
   </body>
 </html>

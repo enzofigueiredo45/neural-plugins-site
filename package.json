@@ -20,7 +20,6 @@
     "express-rate-limit": "^6.8.0",
     "express-session": "^1.17.3",
     "helmet": "^6.0.1",
-    "multer": "^2.0.2",
     "pg": "^8.11.0",
     "qrcode": "^1.5.1",
     "redis": "^4.6.7",
