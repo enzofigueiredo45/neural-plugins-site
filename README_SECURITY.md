@@ -4,11 +4,12 @@ This branch implements a number of security-related features and infra changes.
 
 Environment variables (recommended):
 - SESSION_SECRET (required in production)
-- REDIS_URL (defaults to redis://localhost:6379)
-- DATABASE_URL (optional; if set, Postgres will be used)
+- REDIS_URL (required in production; defaults to redis://localhost:6379 only for local development)
+- DATABASE_URL (Postgres, required in production)
 - NODE_ENV=production to enable secure cookies
-- STRIPE_SECRET (optional) for Stripe server endpoints
-- RECAPTCHA_SECRET (optional) for CAPTCHA verification
+- STRIPE_SECRET_KEY and the three STRIPE_PRICE_* values (required for checkout)
+- STRIPE_WEBHOOK_SECRET (recommended to persist paid orders)
+- RECAPTCHA_SECRET and RECAPTCHA_SITE_KEY (optional, but they must be configured together)
 
 Run locally (with Docker):
 1. docker compose up -d

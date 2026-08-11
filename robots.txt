@@ -3,4 +3,4 @@ Allow: /
 Disallow: /client-dashboard.html
 Disallow: /api/
 
-Sitemap: https://neural-x.vercel.app/sitemap.xml
+Sitemap: https://neural-plugins-site.vercel.app/sitemap.xml

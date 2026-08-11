@@ -13,6 +13,7 @@ STRIPE_SECRET_KEY=sk_live_ou_sk_test_da_sua_conta
 STRIPE_PRICE_NEURAL_X=price_do_produto_pacote_neural_x
 STRIPE_PRICE_FL_STUDIO=price_do_produto_fl_studio
 STRIPE_PRICE_REAPER=price_do_produto_reaper
+STRIPE_WEBHOOK_SECRET=whsec_do_endpoint_stripe
 SITE_URL=https://seu-dominio.com
 ```
 
@@ -38,9 +39,10 @@ Configure no provedor do Google reCAPTCHA e salve no ambiente:
 
 ```env
 RECAPTCHA_SECRET=sua_chave_secreta_recaptcha
+RECAPTCHA_SITE_KEY=sua_chave_publica_recaptcha
 ```
 
-A validação é feita no backend em `verifyCaptcha()`.
+A chave pública carrega o reCAPTCHA v3 no login e a validação é feita no backend em `verifyCaptcha()`. Configure as duas chaves juntas.
 
 ### 4. Google Search Console
 
