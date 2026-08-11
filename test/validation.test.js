@@ -68,3 +68,24 @@ test("rejects test mode and malformed webhook secrets in production", () => {
   const result = validateRuntimeConfig(base, true);
   assert.deepEqual(result.errors, ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]);
 });
+
+test("allows an isolated Stripe test key on Vercel previews", () => {
+  const result = validateRuntimeConfig(
+    {
+      VERCEL_ENV: "preview",
+      SESSION_SECRET: "x".repeat(48),
+      REDIS_URL: "rediss://default:secret@example.com:6379",
+      DATABASE_URL: "postgresql://user:secret@example.com/db",
+      SITE_URL: "https://example.com",
+      STRIPE_SECRET_KEY: "rk_test_123456",
+      STRIPE_PRICE_NEURAL_X: "price_neural123",
+      STRIPE_PRICE_FL_STUDIO: "price_fl123",
+      STRIPE_PRICE_REAPER: "price_reaper123",
+      STRIPE_WEBHOOK_SECRET: "whsec_123",
+      RECAPTCHA_SECRET: "captcha-secret",
+      RECAPTCHA_SITE_KEY: "captcha-site-key",
+    },
+    true,
+  );
+  assert.deepEqual(result, { errors: [], warnings: [] });
+});
