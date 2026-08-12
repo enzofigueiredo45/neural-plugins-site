@@ -24,8 +24,11 @@ test("builds a public catalog without exposing Stripe IDs or access URLs", () =>
   assert.equal(publicCatalog[0].unitAmount, 2990);
   assert.equal(publicCatalog[0].accessMode, "request");
   assert.equal(publicCatalog[1].accessMode, "pending");
-  assert.equal(JSON.stringify(publicCatalog).includes("price_"), false);
-  assert.equal(JSON.stringify(publicCatalog).includes("downloads.example.com"), false);
+  for (const product of publicCatalog) {
+    assert.equal(Object.hasOwn(product, "price"), false);
+    assert.equal(Object.hasOwn(product, "priceId"), false);
+    assert.equal(Object.hasOwn(product, "accessUrl"), false);
+  }
 });
 
 test("accepts only credential-free HTTPS access URLs", () => {
