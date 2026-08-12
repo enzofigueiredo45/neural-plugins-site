@@ -23,6 +23,12 @@ const {
   isStripeSessionId,
   validateRuntimeConfig,
 } = require("./lib/validation");
+const {
+  getProductCatalog,
+  parseCheckoutCartMetadata,
+  resolveLineItemProduct,
+  toPublicCatalog,
+} = require("./lib/catalog");
 
 const PORT = process.env.PORT || 4173;
 const isProduction = process.env.NODE_ENV === "production";
@@ -214,6 +220,7 @@ const sessionMiddleware = session({
 });
 const statelessApiPaths = new Set([
   "/api/health",
+  "/api/catalog",
   "/api/public-config",
   "/api/checkout-session",
 ]);
@@ -331,6 +338,12 @@ const checkoutLimiter = rateLimit({
   legacyHeaders: false,
 });
 const supportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const leadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
   standardHeaders: true,
@@ -458,28 +471,6 @@ const stripeClient = stripeSecret
   ? require("stripe")(stripeSecret, { maxNetworkRetries: 2, timeout: 10_000 })
   : null;
 
-function getProductCatalog() {
-  return {
-    "neural-x": {
-      price: stripeSecret.startsWith("sk_live_")
-        ? "price_1U3ON0DXni1KAKnrcJSzNBXN"
-        : process.env.STRIPE_PRICE_NEURAL_X,
-      name: "Coleção Neural DSP",
-      image: "/assets/neural-dsp/archetype-john-mayer-x.png",
-    },
-    "fl-studio": {
-      price: process.env.STRIPE_PRICE_FL_STUDIO,
-      name: "FL Studio",
-      image: "/assets/product-fl-studio.jpg",
-    },
-    reaper: {
-      price: process.env.STRIPE_PRICE_REAPER,
-      name: "REAPER",
-      image: "/assets/product-reaper.jpg",
-    },
-  };
-}
-
 function normalizeAttribution(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const limits = {
@@ -499,17 +490,12 @@ function normalizeAttribution(value) {
   );
 }
 
-function getProductByPrice(priceId) {
-  return Object.values(getProductCatalog()).find(
-    (product) => product.price === priceId,
-  );
-}
-
 let stripeCatalogCheck = { checkedAt: 0, valid: false };
 let stripeCatalogPromise = null;
 async function validateStripeCatalog() {
   if (!stripeClient) return false;
-  if (Date.now() - stripeCatalogCheck.checkedAt < 15 * 60 * 1000)
+  const cacheTtl = stripeCatalogCheck.valid ? 15 * 60 * 1000 : 30 * 1000;
+  if (Date.now() - stripeCatalogCheck.checkedAt < cacheTtl)
     return stripeCatalogCheck.valid;
   if (stripeCatalogPromise) return stripeCatalogPromise;
 
@@ -524,6 +510,7 @@ async function validateStripeCatalog() {
           price.active === true &&
           price.type === "one_time" &&
           price.currency === "brl" &&
+          price.unit_amount === product.unitAmount &&
           price.livemode === keyIsLive,
       };
     }),
@@ -559,6 +546,12 @@ const supportCategories = new Map([
   ["compatibility", "Compatibilidade"],
   ["privacy", "Privacidade e dados"],
   ["other", "Outro assunto"],
+]);
+const leadInterests = new Map([
+  ["guitar", { id: "neural-x", url: "/produto-neural-x.html" }],
+  ["beats", { id: "fl-studio", url: "/produto-fl-studio.html" }],
+  ["recording", { id: "reaper", url: "/produto-reaper.html" }],
+  ["compare", { id: "compare", url: "/#produtos" }],
 ]);
 
 function isValidEmail(value) {
@@ -689,8 +682,21 @@ function decryptMfaSecret(value) {
   ]).toString("utf8");
 }
 
+function getOrderAccessStatus(product) {
+  if (product.accessMode === "automatic") return "Acesso liberado";
+  if (product.accessMode === "request")
+    return "Pagamento confirmado · solicite acesso no Drive";
+  return "Pagamento confirmado · liberação pendente";
+}
+
 async function persistPaidCheckout(checkout) {
-  if (checkout.payment_status !== "paid") return false;
+  if (checkout.payment_status !== "paid")
+    return {
+      recorded: false,
+      accessReady: false,
+      accessRequestRequired: false,
+      productIds: [],
+    };
 
   const buyerEmail = String(
     checkout.customer_details?.email || checkout.customer_email || "",
@@ -699,38 +705,74 @@ async function persistPaidCheckout(checkout) {
     .toLowerCase();
   if (!buyerEmail) throw new Error("Paid checkout session has no customer email");
 
-  for (const item of checkout.line_items?.data || []) {
+  const catalog = getProductCatalog();
+  const lineItems = checkout.line_items?.data || [];
+  const metadataCart = parseCheckoutCartMetadata(
+    checkout.metadata?.cart,
+    catalog,
+  );
+  if (!lineItems.length) throw new Error("Paid checkout session has no line items");
+
+  const resolvedItems = lineItems.map((item, index) => {
     const priceId = typeof item.price === "string" ? item.price : item.price?.id;
-    const product = getProductByPrice(priceId);
-    if (!product) continue;
+    const metadataItem = metadataCart[index];
+    const product = resolveLineItemProduct(item, catalog, metadataItem);
+    if (!product)
+      throw new Error(`Unrecognized paid checkout item at index ${index}`);
     const quantity = Math.max(Number.parseInt(item.quantity, 10) || 1, 1);
+    if (
+      metadataItem &&
+      (metadataItem.id !== product.id || metadataItem.quantity !== quantity)
+    )
+      throw new Error(`Checkout item metadata mismatch at index ${index}`);
+    return { item, priceId, product, quantity };
+  });
+
+  for (const { item, priceId, product, quantity } of resolvedItems) {
     const amount = Number(item.amount_total || 0) / 100;
+    const status = getOrderAccessStatus(product);
     const values = [
       buyerEmail,
+      product.id,
       product.name,
-      "Pagamento confirmado",
+      status,
       amount,
       quantity,
       product.image,
-      null,
+      product.accessUrl,
       checkout.id,
       priceId,
     ];
     await db.run(
       db.usePostgres
-        ? "INSERT INTO orders (buyer_email, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING"
-        : "INSERT OR IGNORE INTO orders (buyer_email, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES (?,?,?,?,?,?,?,?,?)",
+        ? "INSERT INTO orders (buyer_email, product_id, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING"
+        : "INSERT OR IGNORE INTO orders (buyer_email, product_id, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
       values,
     );
+    await db.run(
+      db.usePostgres
+        ? "UPDATE orders SET product_id = $1, status = $2, download_url = COALESCE(download_url, $3) WHERE stripe_session_id = $4 AND stripe_price_id = $5"
+        : "UPDATE orders SET product_id = ?, status = ?, download_url = COALESCE(download_url, ?) WHERE stripe_session_id = ? AND stripe_price_id = ?",
+      [product.id, status, product.accessUrl, checkout.id, priceId],
+    );
   }
-  return true;
+  return {
+    recorded: true,
+    accessReady: resolvedItems.every(
+      ({ product }) => product.accessMode === "automatic",
+    ),
+    accessRequestRequired: resolvedItems.some(
+      ({ product }) => product.accessMode === "request",
+    ),
+    productIds: resolvedItems.map(({ product }) => product.id),
+  };
 }
 
 async function fulfillCheckoutSession(sessionId) {
   if (!stripeClient || !db || !(await ensureDatabaseReady()))
     throw new Error("Fulfillment dependencies are not ready");
   const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
-    expand: ["line_items"],
+    expand: ["line_items.data.price.product"],
   });
   return persistPaidCheckout(checkout);
 }
@@ -772,6 +814,14 @@ async function handleStripeWebhook(req, res, next) {
 app.get("/api/public-config", (req, res) =>
   res.json({ recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || "" }),
 );
+
+app.get("/api/catalog", (req, res) => {
+  res.setHeader(
+    "Cache-Control",
+    "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  );
+  return res.json({ products: toPublicCatalog(getProductCatalog()) });
+});
 
 app.get(
   "/api/csrf-token",
@@ -1026,6 +1076,56 @@ app.post(
 );
 
 app.post(
+  "/api/leads",
+  leadLimiter,
+  asyncHandler(requireDatabase),
+  asyncHandler(async (req, res) => {
+    const name = String(req.body?.name || "").trim();
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const interest = String(req.body?.interest || "");
+    const marketingConsent = req.body?.marketingConsent === true;
+    if (
+      name.length < 2 ||
+      name.length > 80 ||
+      !isValidEmail(email) ||
+      !leadInterests.has(interest) ||
+      !marketingConsent
+    )
+      return res.status(400).json({ ok: false, error: "invalid_lead" });
+    if (!(await verifyCaptcha(req.body?.captcha, "lead")))
+      return res.status(400).json({ ok: false, error: "captcha_failed" });
+
+    const attribution = normalizeAttribution(req.body?.attribution);
+    const values = [
+      email,
+      name,
+      interest,
+      attribution.utm_source || null,
+      attribution.utm_medium || null,
+      attribution.utm_campaign || null,
+      attribution.utm_content || null,
+      attribution.utm_term || null,
+      attribution.landing_page || null,
+      attribution.referrer || null,
+    ];
+    await db.run(
+      db.usePostgres
+        ? `INSERT INTO leads (email, name, interest, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, interest = EXCLUDED.interest, status = 'Novo', marketing_consent_at = CURRENT_TIMESTAMP, utm_source = EXCLUDED.utm_source, utm_medium = EXCLUDED.utm_medium, utm_campaign = EXCLUDED.utm_campaign, utm_content = EXCLUDED.utm_content, utm_term = EXCLUDED.utm_term, landing_page = EXCLUDED.landing_page, referrer = EXCLUDED.referrer, updated_at = CURRENT_TIMESTAMP`
+        : `INSERT INTO leads (email, name, interest, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
+           VALUES (?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(email) DO UPDATE SET name = excluded.name, interest = excluded.interest, status = 'Novo', marketing_consent_at = CURRENT_TIMESTAMP, utm_source = excluded.utm_source, utm_medium = excluded.utm_medium, utm_campaign = excluded.utm_campaign, utm_content = excluded.utm_content, utm_term = excluded.utm_term, landing_page = excluded.landing_page, referrer = excluded.referrer, updated_at = CURRENT_TIMESTAMP`,
+      values,
+    );
+    return res.status(201).json({
+      ok: true,
+      recommendation: leadInterests.get(interest),
+    });
+  }),
+);
+
+app.post(
   "/api/support",
   supportLimiter,
   asyncHandler(requireDatabase),
@@ -1094,11 +1194,33 @@ app.get(
   asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
-        ? "SELECT id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC LIMIT 100"
-        : "SELECT id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = ? ORDER BY created_at DESC LIMIT 100",
+        ? "SELECT id, product_id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC LIMIT 100"
+        : "SELECT id, product_id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = ? ORDER BY created_at DESC LIMIT 100",
       [req.session.user.email],
     );
-    return res.json(rows);
+    const catalog = getProductCatalog();
+    return res.json(
+      rows.map((order) => {
+        const currentProduct = catalog[order.product_id];
+        const currentAccessUrl = currentProduct?.accessUrl || null;
+        const downloadUrl = order.download_url || currentAccessUrl;
+        const accessMode = currentProduct
+          ? currentProduct.accessMode === "pending" && order.download_url
+            ? "automatic"
+            : currentProduct.accessMode
+          : order.download_url
+            ? "automatic"
+            : "pending";
+        return {
+          ...order,
+          status: currentProduct
+            ? getOrderAccessStatus({ ...currentProduct, accessMode })
+            : order.status,
+          access_mode: accessMode,
+          download_url: downloadUrl,
+        };
+      }),
+    );
   }),
 );
 
@@ -1165,6 +1287,12 @@ app.post(
       });
 
     const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
+    const accessReady = cart.every(
+      (item) => catalog[item.id]?.accessMode === "automatic",
+    );
+    const accessRequestRequired = cart.some(
+      (item) => catalog[item.id]?.accessMode === "request",
+    );
     const idempotencyKey = createHash("sha256")
       .update(`${req.sessionID}:${JSON.stringify(lineItems)}:${bucket}`)
       .digest("hex");
@@ -1175,6 +1303,7 @@ app.post(
           mode: "payment",
           locale: "pt-BR",
           integration_identifier: "neural_x_qmvkzpta",
+          payment_method_types: ["card"],
           line_items: lineItems,
           customer_email: req.session.user?.email || undefined,
           client_reference_id: req.session.user?.id
@@ -1183,8 +1312,18 @@ app.post(
           success_url: `${canonicalUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${canonicalUrl}/cart.html?checkout=cancelled`,
           after_expiration: { recovery: { enabled: true } },
+          custom_text: {
+            submit: {
+              message: accessReady
+                ? "Use um e-mail que você acessa: ele identifica seu pedido e libera o produto na sua biblioteca Neural X."
+                : accessRequestRequired
+                  ? "Use um e-mail que você acessa: após o pagamento, solicite o acesso no Drive pela sua biblioteca Neural X. A aprovação é manual."
+                  : "Use um e-mail que você acessa: o pagamento confirma o pedido, e a liberação será acompanhada na sua biblioteca Neural X.",
+            },
+          },
           metadata: {
             source: "neural-x-site",
+            catalog_version: "2026-08-12",
             cart: JSON.stringify(
               cart.map(({ id, quantity }) => ({ id, quantity })),
             ),
@@ -1221,21 +1360,33 @@ app.get(
       return res.status(400).json({ ok: false, error: "invalid_session_id" });
     try {
       const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
-        expand: ["line_items"],
+        expand: ["line_items.data.price.product"],
       });
+      if (checkout.metadata?.source !== "neural-x-site")
+        return res.status(404).json({ ok: false, error: "session_not_found" });
       let fulfillment = "not_paid";
       if (checkout.payment_status === "paid") {
         try {
           if (!db || !(await ensureDatabaseReady()))
             throw new Error("Fulfillment database is not ready");
-          fulfillment = (await persistPaidCheckout(checkout))
-            ? "recorded"
-            : "pending";
+          const fulfillmentResult = await persistPaidCheckout(checkout);
+          fulfillment = fulfillmentResult.accessReady
+            ? "ready"
+            : fulfillmentResult.accessRequestRequired
+              ? "request_required"
+            : fulfillmentResult.recorded
+              ? "recorded_pending_access"
+              : "pending";
         } catch (error) {
           fulfillment = "pending";
           logError("checkout_return_fulfillment_error", error, req.requestId);
         }
       }
+      const responseCatalog = getProductCatalog();
+      const responseMetadataCart = parseCheckoutCartMetadata(
+        checkout.metadata?.cart,
+        responseCatalog,
+      );
       return res.json({
         ok: true,
         status: checkout.status,
@@ -1243,10 +1394,18 @@ app.get(
         amountTotal: checkout.amount_total,
         currency: checkout.currency,
         fulfillment,
-        products: (checkout.line_items?.data || []).map((item) => ({
-          name: item.description,
-          quantity: item.quantity,
-        })),
+        products: (checkout.line_items?.data || []).map((item, index) => {
+          const product = resolveLineItemProduct(
+            item,
+            responseCatalog,
+            responseMetadataCart[index],
+          );
+          return {
+            id: product?.id || "",
+            name: product?.name || item.description,
+            quantity: item.quantity,
+          };
+        }),
       });
     } catch (error) {
       logError("stripe_session_lookup_error", error, req.requestId);
