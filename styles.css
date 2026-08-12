@@ -792,6 +792,25 @@ a:focus-visible {
     var(--ink-3);
 }
 
+.recommendation-card {
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.recommendation-card:hover,
+.recommendation-card:focus-visible {
+  border-color: var(--line-strong);
+  transform: translateY(-4px);
+}
+
+.recommendation-card span {
+  margin-top: 1.4rem;
+  color: var(--acid);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
 .faq-list {
   max-width: 60rem;
   margin-inline: auto;
@@ -1133,6 +1152,33 @@ details p {
   line-height: 1.65;
 }
 
+.lead-capture {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(22rem, 0.75fr);
+  gap: clamp(2rem, 7vw, 7rem);
+  align-items: center;
+}
+
+.lead-capture-copy h2 {
+  max-width: 11ch;
+}
+
+.lead-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.lead-form > .eyebrow {
+  margin-bottom: 0.2rem;
+}
+
+.lead-privacy-note {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 /* Forms and auth */
 .auth-page {
   min-height: calc(100svh - 7rem);
@@ -1461,6 +1507,17 @@ input:disabled {
   font-size: 0.76rem;
   line-height: 1.5;
   text-align: center;
+}
+
+.fulfillment-note {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(216, 255, 62, 0.2);
+  border-radius: 0.85rem;
+  background: rgba(216, 255, 62, 0.055);
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  line-height: 1.55;
 }
 
 .secure-note {
@@ -1873,7 +1930,8 @@ input[type="file"]::file-selector-button {
   .product-hero,
   .auth-shell,
   .contact-layout,
-  .content-split {
+  .content-split,
+  .lead-capture {
     grid-template-columns: 1fr;
   }
 
