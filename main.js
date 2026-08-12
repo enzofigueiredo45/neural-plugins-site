@@ -1,23 +1,27 @@
 const CART_KEY = "neuralx_cart";
 const ATTRIBUTION_KEY = "neuralx_attribution";
+const PURCHASE_TRACKING_KEY = "neuralx_tracked_purchases";
 const ATTRIBUTION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
 const PRODUCTS = Object.freeze({
   "neural-x": {
     id: "neural-x",
     name: "Coleção Neural DSP",
     price: 29.9,
+    accessMode: "pending",
     image: "/assets/neural-dsp/archetype-john-mayer-x.png",
   },
   "fl-studio": {
     id: "fl-studio",
     name: "FL Studio",
     price: 19.9,
+    accessMode: "pending",
     image: "/assets/product-fl-studio.jpg",
   },
   reaper: {
     id: "reaper",
     name: "REAPER",
     price: 19.9,
+    accessMode: "pending",
     image: "/assets/product-reaper.jpg",
   },
 });
@@ -53,12 +57,42 @@ function initAnalytics() {
   window.va = window.va || function analyticsQueue() {
     (window.vaq = window.vaq || []).push(arguments);
   };
+  window.va("beforeSend", (event) => {
+    try {
+      const url = new URL(event.url);
+      url.search = "";
+      url.hash = "";
+      return { ...event, url: url.href };
+    } catch {
+      return event;
+    }
+  });
   if (document.querySelector('script[src="/_vercel/insights/script.js"]')) return;
   const script = document.createElement("script");
   script.defer = true;
   script.src = "/_vercel/insights/script.js";
   document.head.append(script);
 }
+
+function trackEvent(name, data = {}) {
+  try {
+    const safeData = Object.fromEntries(
+      Object.entries(data)
+        .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
+        .map(([key, value]) => [key.slice(0, 64), typeof value === "string" ? value.slice(0, 255) : value]),
+    );
+    window.va?.("event", { name: String(name).slice(0, 64), data: safeData });
+  } catch {}
+}
+
+const externalReferrerPath = (value) => {
+  try {
+    const url = new URL(value);
+    return url.origin === window.location.origin ? "" : `${url.origin}${url.pathname}`.slice(0, 400);
+  } catch {
+    return "";
+  }
+};
 
 function captureAttribution() {
   try {
@@ -69,14 +103,12 @@ function captureAttribution() {
       const value = params.get(field)?.trim().slice(0, 120);
       if (value) campaign[field] = value;
     });
-    const referrer = document.referrer && !document.referrer.startsWith(window.location.origin)
-      ? document.referrer.slice(0, 400)
-      : previous.referrer;
+    const referrer = externalReferrerPath(document.referrer) || previous.referrer;
     const next = {
       ...previous,
       ...campaign,
       referrer: referrer || undefined,
-      landing_page: previous.landing_page || `${window.location.pathname}${window.location.search}`.slice(0, 400),
+      landing_page: previous.landing_page || window.location.pathname.slice(0, 400),
       first_seen_at: previous.first_seen_at || new Date().toISOString(),
     };
     localStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(next));
@@ -97,6 +129,41 @@ const readJsonResponse = async (response) => {
   if (!contentType.includes("application/json")) return {};
   return response.json().catch(() => ({}));
 };
+
+let catalogRequest;
+function syncPublicCatalog() {
+  catalogRequest ||= fetch("/api/catalog")
+    .then(async (response) => {
+      if (!response.ok) return;
+      const data = await readJsonResponse(response);
+      for (const item of data.products || []) {
+        const product = PRODUCTS[item?.id];
+        const unitAmount = Number(item?.unitAmount);
+        if (!product || !Number.isInteger(unitAmount) || unitAmount < 1) continue;
+        product.price = unitAmount / 100;
+        product.accessMode = ["automatic", "request"].includes(item.accessMode)
+          ? item.accessMode
+          : "pending";
+        document.querySelectorAll(`[data-product-price="${product.id}"]`).forEach((node) => {
+          node.textContent = money(product.price);
+        });
+      }
+      document.dispatchEvent(new CustomEvent("neuralx:catalog-ready"));
+    })
+    .catch(() => {});
+  return catalogRequest;
+}
+
+function cartMetrics(cart = readCart()) {
+  return {
+    currency: "BRL",
+    item_count: cart.reduce((total, item) => total + item.quantity, 0),
+    product_ids: cart.map((item) => item.id).join(","),
+    value: Number(
+      cart.reduce((total, item) => total + PRODUCTS[item.id].price * item.quantity, 0).toFixed(2),
+    ),
+  };
+}
 
 function normalizeCart(value) {
   if (!Array.isArray(value)) return [];
@@ -199,7 +266,13 @@ function addToCart(productId) {
   writeCart(cart);
   updateCartCount();
   showToast(`${product.name} foi adicionado ao carrinho.`);
-  window.va?.("event", { name: "carrinho_adicionado", data: { product: product.name } });
+  trackEvent("add_to_cart", {
+    product_id: product.id,
+    product_name: product.name,
+    value: product.price,
+    currency: "BRL",
+    quantity: existing?.quantity || 1,
+  });
 }
 
 function initProductButtons() {
@@ -212,6 +285,39 @@ function initProductButtons() {
       window.setTimeout(() => {
         button.textContent = original;
       }, 1400);
+    });
+  });
+}
+
+function initFunnelInteractions() {
+  const productId = document.body.dataset.productId;
+  const product = PRODUCTS[productId];
+  if (product) {
+    trackEvent("view_item", {
+      product_id: product.id,
+      product_name: product.name,
+      value: product.price,
+      currency: "BRL",
+    });
+  }
+  document.addEventListener("click", (event) => {
+    const offer = event.target.closest("[data-offer-select]");
+    if (offer && PRODUCTS[offer.dataset.offerSelect]) {
+      trackEvent("select_offer", {
+        product_id: offer.dataset.offerSelect,
+        placement: offer.dataset.placement || "page",
+      });
+    }
+    const access = event.target.closest("[data-product-access]");
+    if (access)
+      trackEvent("access_product", { product_id: access.dataset.productAccess });
+  });
+  document.querySelectorAll("details").forEach((details) => {
+    details.addEventListener("toggle", () => {
+      if (!details.open) return;
+      trackEvent("faq_open", {
+        question: details.querySelector("summary")?.textContent?.trim() || "",
+      });
     });
   });
 }
@@ -282,6 +388,7 @@ function initCart() {
   const checkoutButton = document.querySelector("#checkoutButton");
   const clearButton = document.querySelector("#clearCart");
   const status = document.querySelector("#checkoutStatus");
+  const fulfillmentNote = document.querySelector("#fulfillmentNote");
   void fetchCsrf();
 
   const render = () => {
@@ -299,6 +406,19 @@ function initCart() {
     );
     if (checkoutButton) checkoutButton.disabled = cart.length === 0;
     if (clearButton) clearButton.disabled = cart.length === 0;
+    if (fulfillmentNote) {
+      const requestRequired = cart.some(
+        (item) => PRODUCTS[item.id].accessMode === "request",
+      );
+      const pending = cart.some(
+        (item) => PRODUCTS[item.id].accessMode === "pending",
+      );
+      fulfillmentNote.textContent = requestRequired
+        ? "Após o pagamento, abra sua biblioteca e solicite acesso no Drive. A aprovação é manual e o e-mail do solicitante será conferido com o pedido."
+        : pending
+          ? "Após a aprovação, o pedido fica vinculado ao e-mail do checkout. A liberação é acompanhada na área do cliente e pode exigir atendimento."
+          : "Após a aprovação, o acesso é vinculado ao e-mail do checkout e aparece na área do cliente.";
+    }
   };
 
   cartList.addEventListener("click", (event) => {
@@ -309,6 +429,7 @@ function initCart() {
     const cart = readCart();
     const item = cart.find((entry) => entry.id === id);
     if (!item) return;
+    const action = actionButton.dataset.cartAction;
     if (actionButton.dataset.cartAction === "increase") item.quantity = Math.min(item.quantity + 1, 10);
     if (actionButton.dataset.cartAction === "decrease") item.quantity -= 1;
     const next = actionButton.dataset.cartAction === "remove" || item.quantity < 1
@@ -317,13 +438,20 @@ function initCart() {
     writeCart(next);
     updateCartCount();
     render();
+    trackEvent(action === "increase" ? "add_to_cart" : "remove_from_cart", {
+      product_id: id,
+      action,
+      ...cartMetrics(next),
+    });
   });
 
   clearButton?.addEventListener("click", () => {
+    const previous = readCart();
     writeCart([]);
     updateCartCount();
     render();
     showToast("Carrinho limpo.");
+    trackEvent("remove_from_cart", { action: "clear", ...cartMetrics(previous) });
   });
 
   checkoutButton?.addEventListener("click", async () => {
@@ -331,6 +459,7 @@ function initCart() {
     if (!cart.length) return;
     const label = checkoutButton.querySelector(".checkout-button-label");
     try {
+      trackEvent("begin_checkout", cartMetrics(cart));
       checkoutButton.disabled = true;
       checkoutButton.classList.add("is-loading");
       if (label) label.textContent = "Abrindo checkout…";
@@ -341,7 +470,7 @@ function initCart() {
         attribution: readAttribution(),
       });
       if (!response.ok || !data.url) throw new Error(data.error || "checkout_error");
-      window.va?.("event", { name: "checkout_iniciado", data: { items: cart.length } });
+      trackEvent("checkout_created", cartMetrics(cart));
       window.location.assign(data.url);
     } catch (error) {
       const message = checkoutErrorMessages[error.message] || "Não foi possível abrir o checkout agora. Tente novamente.";
@@ -358,6 +487,8 @@ function initCart() {
     status.textContent = "Pagamento cancelado. Seu carrinho continua salvo.";
   }
   render();
+  trackEvent("view_cart", cartMetrics());
+  document.addEventListener("neuralx:catalog-ready", render, { once: true });
 }
 
 const authMessages = {
@@ -518,6 +649,61 @@ function initSupportForm() {
   });
 }
 
+function initLeadForm() {
+  const form = document.querySelector("#leadForm");
+  if (!form) return;
+  const message = document.querySelector("#leadMessage");
+  const submit = form.querySelector('button[type="submit"]');
+  void fetchCsrf();
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    message.replaceChildren();
+    message.dataset.state = "";
+    if (!form.reportValidity()) return;
+    const fields = form.elements;
+    const interest = fields.namedItem("interest").value;
+    try {
+      submit.disabled = true;
+      submit.textContent = "Preparando recomendação…";
+      const captcha = await getRecaptchaToken("lead");
+      const { response, data } = await postJson("/api/leads", {
+        name: fields.namedItem("name").value.trim(),
+        email: fields.namedItem("email").value.trim(),
+        interest,
+        marketingConsent: fields.namedItem("marketingConsent").checked,
+        attribution: readAttribution(),
+        captcha,
+      });
+      if (!response.ok) throw new Error(data.error || "lead_error");
+      const recommendationUrl = safeUrl(
+        data.recommendation?.url,
+        new URL("./index.html#produtos", window.location.href).href,
+      );
+      const link = document.createElement("a");
+      link.className = "inline-link";
+      link.href = recommendationUrl;
+      link.textContent = "Ver recomendação agora";
+      message.append("Interesse registrado. ", link, ".");
+      message.dataset.state = "success";
+      trackEvent("generate_lead", {
+        interest,
+        recommended_product: data.recommendation?.id || "compare",
+      });
+      form.reset();
+    } catch (error) {
+      message.textContent = error.message === "invalid_lead"
+        ? "Confira seu nome, e-mail, objetivo e aceite de comunicação."
+        : error.message === "captcha_failed"
+          ? authMessages.captcha_failed
+          : "Não foi possível registrar seu interesse agora. Tente novamente.";
+      message.dataset.state = "error";
+    } finally {
+      submit.disabled = false;
+      submit.textContent = "Ver minha recomendação";
+    }
+  });
+}
+
 function initials(nameOrEmail) {
   return (
     String(nameOrEmail || "NX")
@@ -584,7 +770,10 @@ function initDashboard() {
               const image = safeUrl(order.image, new URL(fallback, window.location.href).href);
               const download = safeUrl(order.download_url);
               const date = order.created_at ? new Date(order.created_at).toLocaleDateString("pt-BR") : "";
-              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}">Acessar produto</a>` : "<small>O acesso será exibido após a liberação do pedido.</small>"}</div></article>`;
+              const accessLabel = order.access_mode === "request"
+                ? "Solicitar acesso no Drive"
+                : "Acessar produto";
+              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Use uma conta Google identificável. O acesso será aprovado manualmente após a conferência do pedido.</small>" : ""}` : '<small>Pagamento registrado. A liberação ainda está pendente; <a class="inline-link" href="./contact.html?assunto=pedido">acompanhe com o suporte</a>.</small>'}</div></article>`;
             })
             .join("")
         : '<div class="empty-state">Nenhuma compra vinculada a este e-mail. Se você já pagou, confirme se sua conta usa o mesmo endereço do checkout.</div>';
@@ -701,6 +890,21 @@ function initDashboard() {
   });
 }
 
+function trackPurchaseOnce(sessionId, data) {
+  try {
+    const tracked = JSON.parse(localStorage.getItem(PURCHASE_TRACKING_KEY) || "[]");
+    const sessions = Array.isArray(tracked) ? tracked.filter((value) => typeof value === "string") : [];
+    if (sessions.includes(sessionId)) return;
+    trackEvent("purchase", data);
+    localStorage.setItem(
+      PURCHASE_TRACKING_KEY,
+      JSON.stringify([...sessions.slice(-19), sessionId]),
+    );
+  } catch {
+    trackEvent("purchase", data);
+  }
+}
+
 function initCheckoutSuccess() {
   const card = document.querySelector("[data-checkout-success]");
   if (!card) return;
@@ -722,18 +926,33 @@ function initCheckoutSuccess() {
       if (data.paymentStatus === "paid") {
         writeCart([]);
         updateCartCount();
-        window.va?.("event", {
-          name: "compra_confirmada",
-          data: { value: Number(data.amountTotal || 0) / 100, currency: data.currency || "brl" },
+        trackPurchaseOnce(sessionId, {
+          value: Number(data.amountTotal || 0) / 100,
+          currency: String(data.currency || "brl").toUpperCase(),
+          item_count: (data.products || []).reduce(
+            (total, item) => total + (Number(item.quantity) || 1),
+            0,
+          ),
+          product_ids: (data.products || [])
+            .map((item) => item.id)
+            .filter(Boolean)
+            .join(","),
+          fulfillment: data.fulfillment || "unknown",
         });
         icon.textContent = "✓";
         title.textContent = "Pagamento confirmado.";
         const items = data.products?.map((item) => item.name).filter(Boolean).join(", ");
-        message.textContent = data.fulfillment === "recorded"
-          ? items
-            ? `${items} foi vinculado ao e-mail usado no checkout.`
-            : "Seu pedido foi vinculado ao e-mail usado no checkout."
-          : "Seu pagamento foi aprovado e o pedido está sendo liberado. Se ele não aparecer na conta em alguns minutos, abra um chamado.";
+        if (data.fulfillment === "ready") {
+          message.textContent = items
+            ? `${items} já está vinculado ao e-mail usado no checkout. Entre ou crie sua conta com o mesmo endereço para acessar.`
+            : "Seu acesso já foi liberado para o e-mail usado no checkout.";
+        } else if (data.fulfillment === "request_required") {
+          message.textContent = "Seu pedido foi registrado. Entre ou crie sua conta com o e-mail da compra, abra a biblioteca e clique em “Solicitar acesso no Drive”. A aprovação é manual após a conferência do pedido.";
+        } else if (data.fulfillment === "recorded_pending_access") {
+          message.textContent = "Seu pedido foi registrado, mas a liberação do acesso ainda está pendente. Use o mesmo e-mail do pagamento na área do cliente e acompanhe com o suporte.";
+        } else {
+          message.textContent = "Seu pagamento foi aprovado e a confirmação do pedido está em andamento. Se ele não aparecer na conta em alguns minutos, abra um chamado.";
+        }
         card.dataset.state = "success";
       } else {
         icon.textContent = "…";
@@ -756,13 +975,16 @@ function applyQueryPrefill() {
 
 initAnalytics();
 captureAttribution();
+void syncPublicCatalog();
 initNavigation();
 initPasswordToggles();
 initProductButtons();
+initFunnelInteractions();
 initCart();
 initLogin();
 initRegistration();
 initSupportForm();
+initLeadForm();
 initDashboard();
 initCheckoutSuccess();
 applyQueryPrefill();

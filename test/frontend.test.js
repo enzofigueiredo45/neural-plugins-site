@@ -65,3 +65,52 @@ test("browser-delivered files contain no Stripe or webhook secrets", () => {
     assert.doesNotMatch(content, /whsec_[A-Za-z0-9]{12,}/, file);
   }
 });
+
+test("storefront exposes measurable offers without using HTML prices as checkout authority", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const cart = fs.readFileSync(path.join(root, "cart.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  for (const productId of ["neural-x", "fl-studio", "reaper"]) {
+    assert.match(index, new RegExp(`data-product-price="${productId}"`));
+    assert.match(index, new RegExp(`data-offer-select="${productId}"`));
+  }
+  assert.match(cart, /id="fulfillmentNote"/);
+  assert.match(main, /fetch\("\/api\/catalog"\)/);
+  for (const eventName of [
+    "view_item",
+    "select_offer",
+    "add_to_cart",
+    "begin_checkout",
+    "checkout_created",
+    "purchase",
+    "generate_lead",
+  ]) {
+    assert.match(main, new RegExp(`"${eventName}"`));
+  }
+});
+
+test("lead capture is explicit, consented and connected to the privacy policy", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const privacy = fs.readFileSync(path.join(root, "privacy.html"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const database = fs.readFileSync(path.join(root, "lib/db.js"), "utf8");
+  assert.match(index, /id="leadForm"/);
+  assert.match(index, /name="marketingConsent"[^>]*required/);
+  assert.match(index, /href="\.\/privacy\.html"/);
+  assert.match(server, /"\/api\/leads"/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS leads/);
+  assert.match(privacy, /cancelar o consentimento/);
+});
+
+test("product pages identify the stable store product", () => {
+  const pages = {
+    "produto-neural-x.html": "neural-x",
+    "produto-fl-studio.html": "fl-studio",
+    "produto-reaper.html": "reaper",
+  };
+  for (const [file, productId] of Object.entries(pages)) {
+    const html = fs.readFileSync(path.join(root, file), "utf8");
+    assert.match(html, new RegExp(`<body data-product-id="${productId}">`));
+    assert.match(html, new RegExp(`data-product-price="${productId}"`));
+  }
+});

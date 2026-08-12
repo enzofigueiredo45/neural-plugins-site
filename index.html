@@ -55,7 +55,7 @@
           {
             "@type": "FAQPage",
             "mainEntity": [
-              { "@type": "Question", "name": "Como recebo meu produto?", "acceptedAnswer": { "@type": "Answer", "text": "Após a confirmação do pagamento pela Stripe, o pedido é vinculado ao e-mail usado no checkout e pode ser acompanhado na área do cliente." } },
+              { "@type": "Question", "name": "Como recebo meu produto?", "acceptedAnswer": { "@type": "Answer", "text": "Após a confirmação do pagamento pela Stripe, o pedido é vinculado ao e-mail usado no checkout. A liberação pode ser automática ou acompanhada pelo suporte e fica visível na área do cliente." } },
               { "@type": "Question", "name": "O pagamento é seguro?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O pagamento é processado pela Stripe e os dados completos do cartão não são armazenados pela Neural X." } },
               { "@type": "Question", "name": "Como acesso minhas compras?", "acceptedAnswer": { "@type": "Answer", "text": "Crie uma conta usando o mesmo e-mail informado no pagamento e entre na área do cliente." } }
             ]
@@ -64,9 +64,9 @@
       }
     </script>
   </head>
-  <body>
+  <body data-page="store">
     <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-    <div class="promo-bar">Entrega digital · checkout protegido pela Stripe · suporte pós-compra</div>
+    <div class="promo-bar">Produtos digitais · checkout protegido pela Stripe · suporte pós-compra</div>
     <header class="site-header">
       <div class="header-inner">
         <a class="brand" href="./index.html" aria-label="Neural X — início">
@@ -92,10 +92,10 @@
       <section class="container hero">
         <div class="hero-copy">
           <p class="eyebrow">Plugins · DAWs · produção musical</p>
-          <h1>Seu som.<em>Sem limites.</em></h1>
-          <p class="lead">Os 23 plugins Neural DSP em destaque, além de ferramentas para produzir, gravar e finalizar sua música com checkout seguro.</p>
+          <h1>Crie mais.<em>Escolha melhor.</em></h1>
+          <p class="lead">Timbres para guitarra, produção de beats ou gravação multipista: compare três caminhos e compre somente depois de conferir conteúdo, compatibilidade e forma de acesso.</p>
           <div class="button-row">
-            <a class="button primary" href="./produto-neural-x.html">Ver os 23 plugins · R$ 29,90 <span aria-hidden="true">↘</span></a>
+            <a class="button primary" href="./produto-neural-x.html" data-offer-select="neural-x" data-placement="hero">Ver os 23 plugins · <span data-product-price="neural-x">R$ 29,90</span> <span aria-hidden="true">↘</span></a>
             <a class="button secondary" href="#produtos">Explorar a loja</a>
           </div>
         </div>
@@ -110,9 +110,9 @@
       </section>
 
       <section class="trust-row" aria-label="Benefícios da Neural X">
-        <div class="trust-item"><span class="trust-icon" aria-hidden="true">↓</span><div><strong>Entrega digital</strong><small>Acesso vinculado ao e-mail da compra.</small></div></div>
+        <div class="trust-item"><span class="trust-icon" aria-hidden="true">@</span><div><strong>Pedido identificado</strong><small>Use um e-mail acessível no checkout.</small></div></div>
         <div class="trust-item"><span class="trust-icon" aria-hidden="true">✓</span><div><strong>Checkout Stripe</strong><small>Pagamento em ambiente protegido.</small></div></div>
-        <div class="trust-item"><span class="trust-icon" aria-hidden="true">∞</span><div><strong>Área do cliente</strong><small>Pedidos e acessos organizados.</small></div></div>
+        <div class="trust-item"><span class="trust-icon" aria-hidden="true">∞</span><div><strong>Área do cliente</strong><small>Status do pedido e acesso em um só lugar.</small></div></div>
         <div class="trust-item"><span class="trust-icon" aria-hidden="true">?</span><div><strong>Suporte</strong><small>Canal dedicado para sua compra.</small></div></div>
       </section>
 
@@ -125,7 +125,7 @@
           </div>
           <div class="product-grid">
             <article class="product-card">
-              <a class="product-media bundle-product-media" href="./produto-neural-x.html" aria-label="Ver a Coleção Neural DSP com 23 plugins">
+              <a class="product-media bundle-product-media" href="./produto-neural-x.html" aria-label="Ver a Coleção Neural DSP com 23 plugins" data-offer-select="neural-x" data-placement="catalog_image">
                 <span class="bundle-thumb-grid" aria-hidden="true">
                   <img src="./assets/neural-dsp/archetype-john-mayer-x.png" width="900" height="508" alt="" loading="lazy">
                   <img src="./assets/neural-dsp/archetype-gojira-x.png" width="900" height="508" alt="" loading="lazy">
@@ -140,14 +140,14 @@
                 <p class="product-copy">Os 23 plugins do catálogo apresentados com suas artes reais: Archetypes, amps, baixo, efeitos e Mantra.</p>
                 <ul class="tag-list"><li>23 plugins</li><li>Archetypes</li><li>Suites</li></ul>
                 <div class="product-footer">
-                  <div class="product-price"><strong>R$ 29,90</strong><small>pagamento único</small></div>
-                  <div class="product-actions"><a class="button secondary" href="./produto-neural-x.html">Ver os 23</a><button class="button primary add-cart" type="button" data-id="neural-x" data-name="Coleção Neural DSP" data-price="29.90">Adicionar</button></div>
+                  <div class="product-price"><strong data-product-price="neural-x">R$ 29,90</strong><small>pagamento único</small></div>
+                  <div class="product-actions"><a class="button secondary" href="./produto-neural-x.html" data-offer-select="neural-x" data-placement="catalog_card">Ver os 23</a><button class="button primary add-cart" type="button" data-id="neural-x">Adicionar</button></div>
                 </div>
               </div>
             </article>
 
             <article class="product-card">
-              <a class="product-media" href="./produto-fl-studio.html" aria-label="Ver FL Studio">
+              <a class="product-media" href="./produto-fl-studio.html" aria-label="Ver FL Studio" data-offer-select="fl-studio" data-placement="catalog_image">
                 <img src="./assets/product-fl-studio.jpg" width="1512" height="982" alt="Interface real do FL Studio com browser, piano roll e instrumento aberto" loading="lazy">
               </a>
               <div class="product-body">
@@ -156,14 +156,14 @@
                 <p class="product-copy">Crie beats, arranjos e mixagens em um ambiente visual pensado para manter suas ideias em movimento.</p>
                 <ul class="tag-list"><li>Beatmaking</li><li>MIDI</li><li>Mixagem</li></ul>
                 <div class="product-footer">
-                  <div class="product-price"><strong>R$ 19,90</strong><small>pagamento único</small></div>
-                  <div class="product-actions"><a class="button secondary" href="./produto-fl-studio.html">Ver detalhes</a><button class="button primary add-cart" type="button" data-id="fl-studio" data-name="FL Studio" data-price="19.90">Adicionar</button></div>
+                  <div class="product-price"><strong data-product-price="fl-studio">R$ 19,90</strong><small>pagamento único</small></div>
+                  <div class="product-actions"><a class="button secondary" href="./produto-fl-studio.html" data-offer-select="fl-studio" data-placement="catalog_card">Ver detalhes</a><button class="button primary add-cart" type="button" data-id="fl-studio">Adicionar</button></div>
                 </div>
               </div>
             </article>
 
             <article class="product-card">
-              <a class="product-media" href="./produto-reaper.html" aria-label="Ver REAPER">
+              <a class="product-media" href="./produto-reaper.html" aria-label="Ver REAPER" data-offer-select="reaper" data-placement="catalog_image">
                 <img src="./assets/product-reaper.jpg" width="1002" height="450" alt="Interface real do REAPER com arranjo multipista e mixer" loading="lazy">
               </a>
               <div class="product-body">
@@ -172,8 +172,8 @@
                 <p class="product-copy">Gravação multipista, edição precisa e mixagem em um ambiente leve, flexível e personalizável.</p>
                 <ul class="tag-list"><li>Multipista</li><li>Leve</li><li>Flexível</li></ul>
                 <div class="product-footer">
-                  <div class="product-price"><strong>R$ 19,90</strong><small>pagamento único</small></div>
-                  <div class="product-actions"><a class="button secondary" href="./produto-reaper.html">Ver detalhes</a><button class="button primary add-cart" type="button" data-id="reaper" data-name="REAPER" data-price="19.90">Adicionar</button></div>
+                  <div class="product-price"><strong data-product-price="reaper">R$ 19,90</strong><small>pagamento único</small></div>
+                  <div class="product-actions"><a class="button secondary" href="./produto-reaper.html" data-offer-select="reaper" data-placement="catalog_card">Ver detalhes</a><button class="button primary add-cart" type="button" data-id="reaper">Adicionar</button></div>
                 </div>
               </div>
             </article>
@@ -191,19 +191,40 @@
           <div class="step-grid">
             <article class="step-card"><span class="step-number">01</span><h3>Escolha</h3><p>Compare os detalhes, compatibilidade e recursos de cada produto.</p></article>
             <article class="step-card"><span class="step-number">02</span><h3>Pague</h3><p>Finalize em um checkout da Stripe. A Neural X não armazena os dados completos do cartão.</p></article>
-            <article class="step-card"><span class="step-number">03</span><h3>Acesse</h3><p>Use o e-mail da compra para acompanhar o pedido na sua área do cliente.</p></article>
+            <article class="step-card"><span class="step-number">03</span><h3>Acompanhe</h3><p>Use o e-mail da compra para ver o status e o acesso na área do cliente. Se a liberação for assistida, o suporte orienta o próximo passo.</p></article>
           </div>
         </div>
       </section>
 
       <section class="section" aria-labelledby="publico-title">
         <div class="container">
-          <div class="section-heading"><p class="eyebrow">Para sua rotina criativa</p><h2 id="publico-title">Uma loja feita para músicos.</h2></div>
+          <div class="section-heading"><p class="eyebrow">Comece pelo objetivo</p><h2 id="publico-title">Qual é o próximo trabalho?</h2><p>Escolha pela tarefa que você quer resolver agora. Cada página mostra o conteúdo e os pontos que precisam ser confirmados antes do pagamento.</p></div>
           <div class="audience-grid">
-            <article class="audience-card"><p class="eyebrow">01</p><h3>Guitarristas</h3><p>Explore timbres, efeitos e cadeias de sinal para gravação, estudo e criação.</p></article>
-            <article class="audience-card"><p class="eyebrow">02</p><h3>Produtores</h3><p>Organize beats, arranjos e mixagens com ferramentas focadas no fluxo criativo.</p></article>
-            <article class="audience-card"><p class="eyebrow">03</p><h3>Home studios</h3><p>Monte um ambiente versátil para capturar ideias e finalizar projetos no computador.</p></article>
+            <a class="audience-card recommendation-card" href="./produto-neural-x.html" data-offer-select="neural-x" data-placement="goal_selector"><p class="eyebrow">Timbres e efeitos</p><h3>Gravar guitarra, baixo ou voz</h3><p>Compare os 23 títulos apresentados na Coleção Neural DSP.</p><span>Ver coleção →</span></a>
+            <a class="audience-card recommendation-card" href="./produto-fl-studio.html" data-offer-select="fl-studio" data-placement="goal_selector"><p class="eyebrow">Beats e composição</p><h3>Transformar ideias em arranjos</h3><p>Conheça o fluxo visual do FL Studio e confirme a edição oferecida.</p><span>Ver FL Studio →</span></a>
+            <a class="audience-card recommendation-card" href="./produto-reaper.html" data-offer-select="reaper" data-placement="goal_selector"><p class="eyebrow">Gravação e mix</p><h3>Trabalhar com sessões multipista</h3><p>Veja o REAPER para edição, roteamento e um fluxo personalizável.</p><span>Ver REAPER →</span></a>
           </div>
+        </div>
+      </section>
+
+      <section class="section" id="recomendacao" aria-labelledby="recomendacao-title">
+        <div class="container lead-capture">
+          <div class="lead-capture-copy">
+            <p class="eyebrow">Recomendação sem adivinhação</p>
+            <h2 id="recomendacao-title">Ainda não sabe qual escolher?</h2>
+            <p class="lead">Conte o tipo de trabalho que você quer fazer. Mostramos a opção mais próxima do seu objetivo e guardamos seu interesse para enviar conteúdos e ofertas relacionados.</p>
+            <ul class="check-list"><li>Resultado imediato, sem esperar atendimento.</li><li>Comunicação baseada no seu interesse.</li><li>Você pode cancelar quando quiser.</li></ul>
+          </div>
+          <form class="form-card lead-form" id="leadForm" novalidate>
+            <p class="eyebrow">Encontre sua ferramenta</p>
+            <div class="field-group"><label for="leadName">Primeiro nome</label><input id="leadName" name="name" type="text" autocomplete="given-name" minlength="2" maxlength="80" required placeholder="Como podemos chamar você?"></div>
+            <div class="field-group"><label for="leadEmail">Seu melhor e-mail</label><input id="leadEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com"></div>
+            <div class="field-group"><label for="leadInterest">O que você quer fazer agora?</label><select id="leadInterest" name="interest" required><option value="">Escolha um objetivo</option><option value="guitar">Gravar guitarra, baixo ou voz</option><option value="beats">Criar beats e arranjos</option><option value="recording">Gravar e mixar sessões multipista</option><option value="compare">Comparar as três opções</option></select></div>
+            <label class="consent"><input name="marketingConsent" type="checkbox" required><span>Quero receber recomendações, conteúdos e ofertas da Neural X. Li a <a href="./privacy.html">política de privacidade</a>.</span></label>
+            <p class="form-message" id="leadMessage" role="status" aria-live="polite"></p>
+            <button class="button primary" type="submit">Ver minha recomendação</button>
+            <small class="lead-privacy-note">Sem listas compradas ou mensagens de terceiros.</small>
+          </form>
         </div>
       </section>
 
@@ -211,7 +232,7 @@
         <div class="container">
           <div class="section-heading centered"><p class="eyebrow">Antes de comprar</p><h2 id="faq-title">Dúvidas frequentes.</h2></div>
           <div class="faq-list">
-            <details><summary>Como recebo meu produto?</summary><p>Depois que a Stripe confirmar o pagamento, o pedido é vinculado ao e-mail informado no checkout. Crie sua conta com esse mesmo e-mail para acompanhar o acesso.</p></details>
+            <details><summary>Como recebo meu produto?</summary><p>Depois que a Stripe confirmar o pagamento, o pedido é vinculado ao e-mail informado no checkout. A liberação pode ser automática ou acompanhada pelo suporte; use o mesmo e-mail na área do cliente para ver o status.</p></details>
             <details><summary>O pagamento é seguro?</summary><p>O checkout é processado pela Stripe. Os dados completos do cartão não passam nem ficam armazenados nos servidores da Neural X.</p></details>
             <details><summary>Funciona no meu computador?</summary><p>Consulte a compatibilidade e os requisitos na página de cada produto antes da compra. Em caso de dúvida, fale com o suporte.</p></details>
             <details><summary>Como entro na área do cliente?</summary><p>Use “Criar conta” e cadastre o mesmo e-mail utilizado no pagamento. Depois, seus pedidos aparecem na biblioteca assim que forem confirmados.</p></details>
