@@ -45,6 +45,19 @@ test("distinguishes automatic, requested and pending access", () => {
   assert.equal(normalizeAccessMode("request", null), "pending");
 });
 
+test("uses the verified Neural X price in live mode without affecting previews", () => {
+  const liveCatalog = getProductCatalog({
+    ...env,
+    STRIPE_SECRET_KEY: "rk_live_restricted",
+  });
+  const previewCatalog = getProductCatalog({
+    ...env,
+    STRIPE_SECRET_KEY: "sk_test_preview",
+  });
+  assert.equal(liveCatalog["neural-x"].price, "price_1U3ON0DXni1KAKnrcJSzNBXN");
+  assert.equal(previewCatalog["neural-x"].price, env.STRIPE_PRICE_NEURAL_X);
+});
+
 test("validates checkout cart metadata", () => {
   const catalog = getProductCatalog(env);
   assert.deepEqual(
