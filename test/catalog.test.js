@@ -24,6 +24,10 @@ test("builds a public catalog without exposing Stripe IDs or access URLs", () =>
   assert.equal(publicCatalog[0].unitAmount, 2990);
   assert.equal(publicCatalog[0].accessMode, "request");
   assert.equal(publicCatalog[1].accessMode, "pending");
+  assert.equal(publicCatalog[1].name, "FL Studio 2026");
+  assert.equal(publicCatalog[1].edition, "2026");
+  assert.equal(publicCatalog[2].name, "REAPER 2026");
+  assert.equal(publicCatalog[2].edition, "2026");
   for (const product of publicCatalog) {
     assert.equal(Object.hasOwn(product, "price"), false);
     assert.equal(Object.hasOwn(product, "priceId"), false);
