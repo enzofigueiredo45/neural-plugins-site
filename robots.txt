@@ -3,6 +3,8 @@ Allow: /
 Disallow: /client-dashboard.html
 Disallow: /client-login.html
 Disallow: /client-register.html
+Disallow: /admin.html
+Disallow: /admin-login.html
 Disallow: /cart.html
 Disallow: /success.html
 Disallow: /api/

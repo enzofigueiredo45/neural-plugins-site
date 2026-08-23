@@ -1612,6 +1612,13 @@ input:disabled {
   margin-bottom: 0;
 }
 
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
 .account-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1662,6 +1669,211 @@ input:disabled {
 .dashboard-stack {
   display: grid;
   gap: 1rem;
+}
+
+/* Admin */
+.admin-page {
+  padding-block: clamp(2rem, 5vw, 4rem);
+}
+
+.admin-hero,
+.admin-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-hero {
+  margin-bottom: 1.5rem;
+}
+
+.admin-hero h1,
+.admin-section-heading h2,
+.admin-hero p,
+.admin-section-heading p {
+  margin-bottom: 0;
+}
+
+.admin-hero h1 {
+  font-size: clamp(2.6rem, 7vw, 6rem);
+}
+
+.admin-gate,
+.admin-card,
+.admin-panel {
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.admin-gate {
+  padding: clamp(1.3rem, 4vw, 2rem);
+}
+
+.admin-gate p {
+  color: var(--muted);
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.55rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.admin-tabs button {
+  flex: 0 0 auto;
+  padding: 0.72rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-tabs button[aria-current="page"] {
+  border-color: var(--acid);
+  background: var(--acid);
+  color: var(--ink);
+}
+
+.admin-panel {
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.admin-panel[data-admin-panel="overview"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.admin-metric {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(216, 255, 62, 0.04);
+}
+
+.admin-metric small,
+.admin-metric strong {
+  display: block;
+}
+
+.admin-metric small {
+  min-height: 2.4em;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.admin-metric strong {
+  margin-top: 0.35rem;
+  font-size: clamp(1.2rem, 2.4vw, 2rem);
+  letter-spacing: -0.04em;
+}
+
+.admin-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-card {
+  min-width: 0;
+  padding: 1.2rem;
+}
+
+.admin-card .panel-heading h2,
+.admin-section-heading h2 {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+}
+
+.admin-section-heading {
+  margin-bottom: 1rem;
+}
+
+.admin-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: min(100%, 32rem);
+}
+
+.admin-filter input {
+  min-width: 12rem;
+}
+
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 0.8rem;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 46rem;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.8rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table th {
+  color: var(--muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-table td > strong,
+.admin-table td > small {
+  display: block;
+}
+
+.admin-table td > small {
+  max-width: 18rem;
+  margin-top: 0.25rem;
+  color: var(--muted);
+}
+
+.admin-table input,
+.admin-table select {
+  min-width: 10rem;
+  padding: 0.55rem;
+  font-size: 0.72rem;
+}
+
+.admin-table input[type="url"] {
+  min-width: 15rem;
+}
+
+.admin-message {
+  display: block;
+  max-width: 24rem;
+  max-height: 6.5rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--muted-strong);
 }
 
 .profile-form,
@@ -2095,6 +2307,19 @@ input[type="file"]::file-selector-button {
     grid-template-columns: 1fr;
   }
 
+  .admin-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .account-summary {
     grid-template-columns: 1fr;
   }
@@ -2125,6 +2350,24 @@ input[type="file"]::file-selector-button {
 
   .brand-name {
     display: none;
+  }
+
+  .admin-hero,
+  .admin-filter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-filter,
+  .admin-filter input,
+  .admin-filter .button,
+  .dashboard-actions,
+  .dashboard-actions .button {
+    width: 100%;
   }
 
   .header-cart {

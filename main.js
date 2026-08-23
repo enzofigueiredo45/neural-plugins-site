@@ -572,7 +572,7 @@ function initLogin() {
         return;
       }
       if (!response.ok) throw new Error(data.error || "login_error");
-      window.location.assign("./client-dashboard.html");
+      window.location.assign(data.role === "admin" ? "./admin.html" : "./client-dashboard.html");
     } catch (error) {
       message.textContent = authMessages[error.message] || "Não foi possível entrar agora. Tente novamente.";
       message.dataset.state = "error";
@@ -778,7 +778,9 @@ function initDashboard() {
       const response = await fetch("/api/me", { credentials: "include" });
       if (!response.ok) throw new Error("unauthorized");
       const data = await readJsonResponse(response);
-      if (data.user?.role !== "client") throw new Error("invalid_role");
+      if (!["client", "admin"].includes(data.user?.role)) throw new Error("invalid_role");
+      const adminPanelLink = document.querySelector("#adminPanelLink");
+      if (adminPanelLink) adminPanelLink.hidden = data.user.role !== "admin";
       profileName.value = data.user.name || "";
       profileEmail.value = data.user.email || "";
       welcomeName.textContent = (data.user.name || data.user.email).split(/\s+|@/)[0];

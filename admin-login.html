@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#08090b"><meta name="color-scheme" content="dark">
+    <meta name="robots" content="noindex,nofollow">
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>Acesso administrativo | Neural X</title><link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+    <header class="site-header"><div class="header-inner"><a class="brand" href="./index.html"><span class="brand-mark">NX</span><span class="brand-name">Neural X</span></a><nav class="main-nav" aria-label="Navegação principal" id="mainNav" data-mobile-nav><a href="./index.html">Voltar à loja</a><a href="./contact.html">Suporte</a></nav><button class="menu-toggle" type="button" aria-expanded="false" aria-controls="mainNav" aria-label="Abrir menu"><span></span></button></div></header>
+    <main class="container auth-page" id="conteudo">
+      <section class="auth-shell" aria-labelledby="login-title">
+        <div class="auth-copy"><p class="eyebrow">Operação Neural X</p><h1 id="login-title">Painel protegido.</h1><p class="lead">O acesso exige uma conta administrativa e verificação em duas etapas.</p><div class="auth-benefits"><div class="auth-benefit"><strong>Acesso mínimo</strong>Somente contas com função de administrador.</div><div class="auth-benefit"><strong>MFA obrigatório</strong>Operações protegidas por uma segunda etapa.</div><div class="auth-benefit"><strong>Auditoria</strong>Alterações operacionais ficam registradas.</div></div></div>
+        <form class="form-card form-grid" id="loginForm" data-role="admin" autocomplete="on" novalidate>
+          <div><p class="eyebrow">Administração</p><h2>Entrar</h2><p class="form-intro">Use as credenciais da conta administrativa.</p></div>
+          <div class="field-group"><label for="email">E-mail</label><input id="email" name="email" type="email" required autocomplete="email" inputmode="email" maxlength="254"></div>
+          <div class="field-group"><label for="password">Senha</label><div class="password-wrap"><input id="password" name="password" type="password" required autocomplete="current-password" maxlength="128"><button class="password-toggle" type="button" data-password-toggle="password" aria-label="Mostrar senha">Mostrar</button></div></div>
+          <div class="field-group mfa-field" id="mfaField" hidden><label for="mfaToken">Código de verificação</label><input id="mfaToken" name="mfa_token" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="000000"><small class="field-hint">Código de 6 dígitos do aplicativo autenticador.</small></div>
+          <p id="loginMessage" class="form-message" role="status" aria-live="polite"></p>
+          <button class="button primary" type="submit">Entrar na conta</button>
+          <p class="form-footer">Conta comum? <a class="inline-link" href="./client-login.html">Área do cliente</a></p>
+        </form>
+      </section>
+    </main>
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div><script type="module" src="./main.js"></script>
+  </body>
+</html>
