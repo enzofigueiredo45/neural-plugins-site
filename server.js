@@ -1380,15 +1380,17 @@ app.post(
           custom_text: {
             submit: {
               message: accessReady
-                ? "Use um e-mail que você acessa: ele identifica seu pedido e libera o produto na sua biblioteca Neural X."
+                ? "Licença digital vinculada ao computador de ativação. Use um e-mail que você acessa: ele identifica seu pedido e libera o produto na sua biblioteca Neural X."
                 : accessRequestRequired
-                  ? "Use um e-mail que você acessa: após o pagamento, solicite o acesso no Drive pela sua biblioteca Neural X. A aprovação é manual."
-                  : "Use um e-mail que você acessa: o pagamento confirma o pedido, e a liberação será acompanhada na sua biblioteca Neural X.",
+                  ? "Licença digital vinculada ao computador de ativação. Use um e-mail que você acessa: após o pagamento, solicite o acesso no Drive pela sua biblioteca Neural X. A aprovação é manual."
+                  : "Licença digital vinculada ao computador de ativação. Use um e-mail que você acessa: o pagamento confirma o pedido, e a liberação será acompanhada na sua biblioteca Neural X.",
             },
           },
           metadata: {
             source: "neural-x-site",
             catalog_version: "2026-08-23",
+            license_type: "digital",
+            device_binding: "computer",
             cart: JSON.stringify(
               cart.map(({ id, quantity }) => ({ id, quantity })),
             ),
