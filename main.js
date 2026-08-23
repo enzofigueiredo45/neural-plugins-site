@@ -6,6 +6,7 @@ const PRODUCTS = Object.freeze({
   "neural-x": {
     id: "neural-x",
     name: "Coleção Neural DSP",
+    licenseType: "Licença digital vinculada ao computador",
     price: 29.9,
     accessMode: "pending",
     image: "/assets/neural-dsp/archetype-john-mayer-x.png",
@@ -14,6 +15,7 @@ const PRODUCTS = Object.freeze({
     id: "fl-studio",
     name: "FL Studio 2026",
     edition: "2026",
+    licenseType: "Licença digital vinculada ao computador",
     price: 19.9,
     accessMode: "pending",
     image: "/assets/product-fl-studio.jpg",
@@ -22,6 +24,7 @@ const PRODUCTS = Object.freeze({
     id: "reaper",
     name: "REAPER 2026",
     edition: "2026",
+    licenseType: "Licença digital vinculada ao computador",
     price: 19.9,
     accessMode: "pending",
     image: "/assets/product-reaper.jpg",
@@ -144,6 +147,7 @@ function syncPublicCatalog() {
         if (!product || !Number.isInteger(unitAmount) || unitAmount < 1) continue;
         product.price = unitAmount / 100;
         product.edition = item.edition || product.edition || null;
+        product.licenseType = item.licenseType || product.licenseType;
         product.accessMode = ["automatic", "request"].includes(item.accessMode)
           ? item.accessMode
           : "pending";
@@ -433,7 +437,7 @@ function initCart() {
       ? cart
           .map(({ id, quantity }) => {
             const product = PRODUCTS[id];
-            return `<li class="cart-item" data-cart-item="${escapeHtml(id)}"><div class="cart-item-copy"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(money(product.price))} por unidade</small><button class="remove-item" type="button" data-cart-action="remove">Remover</button></div><div class="quantity-control" aria-label="Quantidade de ${escapeHtml(product.name)}"><button type="button" data-cart-action="decrease" aria-label="Diminuir quantidade">−</button><output>${quantity}</output><button type="button" data-cart-action="increase" aria-label="Aumentar quantidade">+</button></div><strong>${escapeHtml(money(product.price * quantity))}</strong></li>`;
+            return `<li class="cart-item" data-cart-item="${escapeHtml(id)}"><div class="cart-item-copy"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(money(product.price))} por unidade</small><small>${escapeHtml(product.licenseType)}</small><button class="remove-item" type="button" data-cart-action="remove">Remover</button></div><div class="quantity-control" aria-label="Quantidade de ${escapeHtml(product.name)}"><button type="button" data-cart-action="decrease" aria-label="Diminuir quantidade">−</button><output>${quantity}</output><button type="button" data-cart-action="increase" aria-label="Aumentar quantidade">+</button></div><strong>${escapeHtml(money(product.price * quantity))}</strong></li>`;
           })
           .join("")
       : `<li class="empty-cart"><div class="cart-item-copy"><strong>Seu carrinho está vazio.</strong><small>Escolha uma ferramenta para começar.</small></div><a class="button primary" href="./index.html#produtos">Ver produtos</a></li>`;
