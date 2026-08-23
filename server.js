@@ -25,7 +25,6 @@ const {
 } = require("./lib/validation");
 const {
   getProductCatalog,
-  normalizeAccessUrl,
   parseCheckoutCartMetadata,
   resolveLineItemProduct,
   toPublicCatalog,
@@ -51,13 +50,33 @@ if (runtimeConfig.warnings.length)
   });
 
 const indexablePages = [
-  { path: "/", priority: "1.0" },
-  { path: "/produto-neural-x.html", priority: "0.9" },
-  { path: "/produto-fl-studio.html", priority: "0.8" },
-  { path: "/produto-reaper.html", priority: "0.8" },
-  { path: "/contact.html", priority: "0.6" },
-  { path: "/privacy.html", priority: "0.4" },
-  { path: "/terms.html", priority: "0.4" },
+  { path: "/", priority: "1.0", changefreq: "weekly" },
+  {
+    path: "/produto-neural-x.html",
+    priority: "0.9",
+    changefreq: "weekly",
+    images: [
+      "/assets/neural-dsp/archetype-john-mayer-x.png",
+      "/assets/neural-dsp/archetype-gojira-x.png",
+      "/assets/neural-dsp/parallax-x.png",
+      "/assets/neural-dsp/mantra.png",
+    ],
+  },
+  {
+    path: "/produto-fl-studio.html",
+    priority: "0.8",
+    changefreq: "weekly",
+    images: ["/assets/product-fl-studio.jpg"],
+  },
+  {
+    path: "/produto-reaper.html",
+    priority: "0.8",
+    changefreq: "weekly",
+    images: ["/assets/product-reaper.jpg"],
+  },
+  { path: "/contact.html", priority: "0.6", changefreq: "monthly" },
+  { path: "/privacy.html", priority: "0.4", changefreq: "yearly" },
+  { path: "/terms.html", priority: "0.4", changefreq: "yearly" },
 ];
 
 function xmlEscape(value) {
@@ -360,12 +379,6 @@ const accountLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-const adminMutationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 app.get("/robots.txt", (req, res) => {
   res
@@ -378,8 +391,6 @@ app.get("/robots.txt", (req, res) => {
         "Disallow: /client-dashboard.html",
         "Disallow: /client-login.html",
         "Disallow: /client-register.html",
-        "Disallow: /admin.html",
-        "Disallow: /admin-login.html",
         "Disallow: /success.html",
         "Disallow: /api/",
         "",
@@ -393,25 +404,26 @@ app.get("/sitemap.xml", (req, res) => {
   const urls = indexablePages
     .map(
       (page) =>
-        `  <url><loc>${xmlEscape(canonicalUrl + page.path)}</loc><lastmod>${lastmod}</lastmod><priority>${page.priority}</priority></url>`,
+        `  <url><loc>${xmlEscape(canonicalUrl + page.path)}</loc><lastmod>${lastmod}</lastmod><changefreq>${page.changefreq}</changefreq><priority>${page.priority}</priority>${(page.images || []).map((image) => `<image:image><image:loc>${xmlEscape(canonicalUrl + image)}</image:loc></image:image>`).join("")}</url>`,
     )
     .join("\n");
   res
     .type("application/xml")
     .send(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`,
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls}\n</urlset>`,
     );
 });
 
 // Publish only intentional web assets. Serving the repository root would also
 // expose backend source, package metadata and operational documentation.
 app.use("/assets", express.static(path.join(root, "assets"), { dotfiles: "deny" }));
-app.get(["/main.js", "/admin.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res) =>
+app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res) =>
   res.sendFile(path.join(root, req.path.slice(1))),
 );
 const publicPages = new Set([
-  "404.html", "index.html", "admin.html", "admin-login.html", "cart.html", "client-dashboard.html",
+  "404.html", "index.html", "cart.html", "client-dashboard.html",
   "client-login.html", "client-register.html", "contact.html", "privacy.html",
+  "googleab9c8b948f79ec49.html",
   "produto-fl-studio.html",
   "produto-neural-x.html", "produto-reaper.html", "success.html", "terms.html",
 ]);
@@ -652,45 +664,6 @@ function requireAuth(req, res, next) {
   if (!req.session.user)
     return res.status(401).json({ ok: false, error: "unauthorized" });
   return next();
-}
-
-async function requireAdmin(req, res, next) {
-  if (!req.session.user)
-    return res.status(401).json({ ok: false, error: "unauthorized" });
-  const user = await getUserSummaryByEmail(req.session.user.email);
-  if (!user || user.role !== "admin")
-    return res.status(403).json({ ok: false, error: "admin_forbidden" });
-  if (!user.mfa_enabled)
-    return res.status(403).json({ ok: false, error: "mfa_required" });
-  req.admin = user;
-  return next();
-}
-
-function sqlPlaceholder(index) {
-  return db.usePostgres ? `$${index}` : "?";
-}
-
-function positiveInteger(value) {
-  const parsed = Number.parseInt(String(value || ""), 10);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-async function recordAdminAudit(req, action, entityType, entityId, details = {}) {
-  const values = [
-    req.admin.id,
-    req.admin.email,
-    action,
-    entityType,
-    entityId ? String(entityId) : null,
-    JSON.stringify(details).slice(0, 10_000),
-    req.requestId,
-  ];
-  await db.run(
-    db.usePostgres
-      ? "INSERT INTO admin_audit_log (admin_user_id, admin_email, action, entity_type, entity_id, details_json, request_id) VALUES ($1, $2, $3, $4, $5, $6, $7)"
-      : "INSERT INTO admin_audit_log (admin_user_id, admin_email, action, entity_type, entity_id, details_json, request_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    values,
-  );
 }
 
 function saveSession(req) {
@@ -937,7 +910,7 @@ app.post(
     const role = req.params.role;
     const { password, captcha, mfa_token } = req.body || {};
     const email = String(req.body?.email || "").trim().toLowerCase();
-    if (!["client", "admin"].includes(role))
+    if (role !== "client")
       return res.status(404).json({ ok: false, error: "portal_disabled" });
     if (!email || !password)
       return res.status(400).json({ ok: false, error: "missing_fields" });
@@ -1335,297 +1308,6 @@ app.get(
         };
       }),
     );
-  }),
-);
-
-function adminListQuery({ table, columns, searchColumns, search, status }) {
-  const values = [];
-  const clauses = [];
-  if (search) {
-    const searchValue = `%${String(search).trim().toLowerCase().slice(0, 120)}%`;
-    clauses.push(
-      `(${searchColumns
-        .map((column) => {
-          values.push(searchValue);
-          return `LOWER(COALESCE(${column}, '')) LIKE ${sqlPlaceholder(values.length)}`;
-        })
-        .join(" OR ")})`,
-    );
-  }
-  if (status) {
-    values.push(String(status).trim().slice(0, 80));
-    clauses.push(`status = ${sqlPlaceholder(values.length)}`);
-  }
-  const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
-  return {
-    text: `SELECT ${columns} FROM ${table}${where} ORDER BY created_at DESC LIMIT 100`,
-    values,
-  };
-}
-
-app.get(
-  "/api/admin/overview",
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  asyncHandler(async (req, res) => {
-    const [users, orders, tickets, leads, recentOrders, recentTickets] =
-      await Promise.all([
-        db.getOne("SELECT COUNT(*) AS total FROM users"),
-        db.getOne(
-          "SELECT COUNT(*) AS total, COALESCE(SUM(COALESCE(price, 0) * COALESCE(quantity, 1)), 0) AS revenue FROM orders",
-        ),
-        db.getOne(
-          "SELECT COUNT(*) AS total, SUM(CASE WHEN status NOT IN ('Resolvido', 'Fechado') THEN 1 ELSE 0 END) AS open FROM support_tickets",
-        ),
-        db.getOne(
-          "SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'Novo' THEN 1 ELSE 0 END) AS new_count FROM leads",
-        ),
-        db.query(
-          "SELECT id, buyer_email, product, status, price, quantity, created_at FROM orders ORDER BY created_at DESC LIMIT 5",
-        ),
-        db.query(
-          "SELECT id, requester_name, requester_email, subject, status, created_at FROM support_tickets ORDER BY created_at DESC LIMIT 5",
-        ),
-      ]);
-    return res.json({
-      ok: true,
-      metrics: {
-        users: Number(users?.total || 0),
-        orders: Number(orders?.total || 0),
-        revenue: Number(orders?.revenue || 0),
-        tickets: Number(tickets?.total || 0),
-        openTickets: Number(tickets?.open || 0),
-        leads: Number(leads?.total || 0),
-        newLeads: Number(leads?.new_count || 0),
-      },
-      recentOrders,
-      recentTickets,
-    });
-  }),
-);
-
-app.get(
-  "/api/admin/orders",
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  asyncHandler(async (req, res) => {
-    const query = adminListQuery({
-      table: "orders",
-      columns:
-        "id, buyer_email, product_id, product, status, price, quantity, image, download_url, created_at",
-      searchColumns: [
-        "CAST(id AS TEXT)",
-        "buyer_email",
-        "product",
-        "product_id",
-      ],
-      search: req.query.search,
-      status: req.query.status,
-    });
-    return res.json({ ok: true, items: await db.query(query.text, query.values) });
-  }),
-);
-
-app.get(
-  "/api/admin/users",
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  asyncHandler(async (req, res) => {
-    const search = String(req.query.search || "").trim().toLowerCase().slice(0, 120);
-    const values = search ? [`%${search}%`, `%${search}%`] : [];
-    const where = search
-      ? ` WHERE LOWER(COALESCE(u.email, '')) LIKE ${sqlPlaceholder(1)} OR LOWER(COALESCE(u.name, '')) LIKE ${sqlPlaceholder(2)}`
-      : "";
-    const items = await db.query(
-      `SELECT u.id, u.email, u.name, u.role, u.mfa_enabled, u.last_login_at, u.created_at, COUNT(o.id) AS order_count FROM users u LEFT JOIN orders o ON LOWER(o.buyer_email) = LOWER(u.email)${where} GROUP BY u.id, u.email, u.name, u.role, u.mfa_enabled, u.last_login_at, u.created_at ORDER BY u.created_at DESC LIMIT 100`,
-      values,
-    );
-    return res.json({ ok: true, items });
-  }),
-);
-
-app.get(
-  "/api/admin/tickets",
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  asyncHandler(async (req, res) => {
-    const query = adminListQuery({
-      table: "support_tickets",
-      columns:
-        "id, requester_email, requester_name, category, subject, order_reference, message, status, created_at, updated_at",
-      searchColumns: [
-        "CAST(id AS TEXT)",
-        "requester_email",
-        "requester_name",
-        "subject",
-        "order_reference",
-      ],
-      search: req.query.search,
-      status: req.query.status,
-    });
-    return res.json({ ok: true, items: await db.query(query.text, query.values) });
-  }),
-);
-
-app.get(
-  "/api/admin/leads",
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  asyncHandler(async (req, res) => {
-    const query = adminListQuery({
-      table: "leads",
-      columns:
-        "id, email, name, interest, status, utm_source, utm_medium, utm_campaign, landing_page, created_at, updated_at",
-      searchColumns: ["email", "name", "interest", "utm_campaign"],
-      search: req.query.search,
-      status: req.query.status,
-    });
-    return res.json({ ok: true, items: await db.query(query.text, query.values) });
-  }),
-);
-
-app.get(
-  "/api/admin/audit",
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  asyncHandler(async (req, res) => {
-    const items = await db.query(
-      "SELECT id, admin_email, action, entity_type, entity_id, details_json, request_id, created_at FROM admin_audit_log ORDER BY created_at DESC LIMIT 100",
-    );
-    return res.json({ ok: true, items });
-  }),
-);
-
-const orderStatuses = new Set([
-  "Pagamento confirmado",
-  "Pagamento confirmado · solicite acesso no Drive",
-  "Pagamento confirmado · liberação pendente",
-  "Acesso liberado",
-  "Acesso solicitado",
-  "Liberação pendente",
-  "Reembolsado",
-  "Cancelado",
-]);
-const ticketStatuses = new Set([
-  "Aberto",
-  "Em andamento",
-  "Aguardando cliente",
-  "Resolvido",
-  "Fechado",
-]);
-const leadStatuses = new Set([
-  "Novo",
-  "Em contato",
-  "Qualificado",
-  "Convertido",
-  "Arquivado",
-]);
-
-app.patch(
-  "/api/admin/orders/:id",
-  adminMutationLimiter,
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  asyncHandler(async (req, res) => {
-    const id = positiveInteger(req.params.id);
-    if (!id) return res.status(400).json({ ok: false, error: "invalid_id" });
-    const existing = await db.getOne(
-      `SELECT id, status, download_url FROM orders WHERE id = ${sqlPlaceholder(1)}`,
-      [id],
-    );
-    if (!existing)
-      return res.status(404).json({ ok: false, error: "not_found" });
-
-    const updates = [];
-    const values = [];
-    if (Object.prototype.hasOwnProperty.call(req.body || {}, "status")) {
-      const status = String(req.body.status || "").trim();
-      if (!orderStatuses.has(status))
-        return res.status(400).json({ ok: false, error: "invalid_status" });
-      values.push(status);
-      updates.push(`status = ${sqlPlaceholder(values.length)}`);
-    }
-    if (Object.prototype.hasOwnProperty.call(req.body || {}, "download_url")) {
-      const rawUrl = String(req.body.download_url || "").trim();
-      const downloadUrl = rawUrl ? normalizeAccessUrl(rawUrl) : null;
-      if (rawUrl && !downloadUrl)
-        return res.status(400).json({ ok: false, error: "invalid_access_url" });
-      values.push(downloadUrl);
-      updates.push(`download_url = ${sqlPlaceholder(values.length)}`);
-    }
-    if (!updates.length)
-      return res.status(400).json({ ok: false, error: "missing_fields" });
-    values.push(id);
-    await db.run(
-      `UPDATE orders SET ${updates.join(", ")} WHERE id = ${sqlPlaceholder(values.length)}`,
-      values,
-    );
-    const item = await db.getOne(
-      `SELECT id, buyer_email, product_id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE id = ${sqlPlaceholder(1)}`,
-      [id],
-    );
-    await recordAdminAudit(req, "order.updated", "order", id, {
-      before: existing,
-      after: { status: item.status, download_url: item.download_url },
-    });
-    return res.json({ ok: true, item });
-  }),
-);
-
-function statusUpdateRoute({ table, entityType, allowedStatuses, select }) {
-  return asyncHandler(async (req, res) => {
-    const id = positiveInteger(req.params.id);
-    const status = String(req.body?.status || "").trim();
-    if (!id) return res.status(400).json({ ok: false, error: "invalid_id" });
-    if (!allowedStatuses.has(status))
-      return res.status(400).json({ ok: false, error: "invalid_status" });
-    const existing = await db.getOne(
-      `SELECT id, status FROM ${table} WHERE id = ${sqlPlaceholder(1)}`,
-      [id],
-    );
-    if (!existing)
-      return res.status(404).json({ ok: false, error: "not_found" });
-    await db.run(
-      `UPDATE ${table} SET status = ${sqlPlaceholder(1)}, updated_at = CURRENT_TIMESTAMP WHERE id = ${sqlPlaceholder(2)}`,
-      [status, id],
-    );
-    const item = await db.getOne(
-      `SELECT ${select} FROM ${table} WHERE id = ${sqlPlaceholder(1)}`,
-      [id],
-    );
-    await recordAdminAudit(req, `${entityType}.status_updated`, entityType, id, {
-      before: existing.status,
-      after: status,
-    });
-    return res.json({ ok: true, item });
-  });
-}
-
-app.patch(
-  "/api/admin/tickets/:id",
-  adminMutationLimiter,
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  statusUpdateRoute({
-    table: "support_tickets",
-    entityType: "ticket",
-    allowedStatuses: ticketStatuses,
-    select:
-      "id, requester_email, requester_name, category, subject, order_reference, message, status, created_at, updated_at",
-  }),
-);
-
-app.patch(
-  "/api/admin/leads/:id",
-  adminMutationLimiter,
-  asyncHandler(requireDatabase),
-  asyncHandler(requireAdmin),
-  statusUpdateRoute({
-    table: "leads",
-    entityType: "lead",
-    allowedStatuses: leadStatuses,
-    select:
-      "id, email, name, interest, status, utm_source, utm_medium, utm_campaign, landing_page, created_at, updated_at",
   }),
 );
 

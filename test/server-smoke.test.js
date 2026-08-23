@@ -78,15 +78,3 @@ test("authenticated clients can safely disable MFA", () => {
   assert.match(server, /bcrypt\.compare\(currentPassword/);
   assert.match(server, /speakeasy\.totp\.verify/);
 });
-
-test("administrative APIs require role, MFA and record mutations", () => {
-  const server = fs.readFileSync("server.js", "utf8");
-  const database = fs.readFileSync("lib/db.js", "utf8");
-  assert.match(server, /async function requireAdmin/);
-  assert.match(server, /user\.role !== "admin"/);
-  assert.match(server, /!user\.mfa_enabled/);
-  assert.match(server, /"\/api\/admin\/overview"/);
-  assert.match(server, /"\/api\/admin\/orders\/:id"/);
-  assert.match(server, /recordAdminAudit/);
-  assert.match(database, /CREATE TABLE IF NOT EXISTS admin_audit_log/);
-});
