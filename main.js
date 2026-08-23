@@ -778,9 +778,15 @@ function initDashboard() {
       securityStatus.textContent = data.user.mfaEnabled ? "MFA ativado" : "MFA disponível";
       const mfaButton = document.querySelector("#mfaSetup");
       const mfaDescription = document.querySelector("#mfaDescription");
+      const mfaDisable = document.querySelector("#mfaDisable");
       if (data.user.mfaEnabled) {
         mfaButton.hidden = true;
+        mfaDisable.hidden = false;
         mfaDescription.textContent = "A verificação em duas etapas está ativa nesta conta.";
+      } else {
+        mfaButton.hidden = false;
+        mfaDisable.hidden = true;
+        mfaDescription.textContent = "Adicione uma segunda etapa de verificação ao login.";
       }
       setAvatar(data.user);
       return data.user;
@@ -879,10 +885,45 @@ function initDashboard() {
       message.dataset.state = "success";
       document.querySelector("#mfaEnrollment").hidden = true;
       document.querySelector("#mfaSetup").hidden = true;
+      document.querySelector("#mfaDisable").hidden = false;
       securityStatus.textContent = "MFA ativado";
     } catch {
       message.textContent = "Código inválido. Confira o autenticador e tente novamente.";
       message.dataset.state = "error";
+    }
+  });
+
+  document.querySelector("#mfaDisable")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const message = document.querySelector("#mfaMessage");
+    const submit = form.querySelector('button[type="submit"]');
+    if (!form.reportValidity()) return;
+    try {
+      submit.disabled = true;
+      const { response, data } = await postJson("/api/mfa/disable", {
+        currentPassword: form.currentPassword.value,
+        token: form.token.value.trim(),
+      });
+      if (!response.ok) throw new Error(data.error || "mfa_disable_failed");
+      if (data.csrfToken) csrfRequest = Promise.resolve(data.csrfToken);
+      form.reset();
+      form.hidden = true;
+      document.querySelector("#mfaSetup").hidden = false;
+      document.querySelector("#mfaDescription").textContent =
+        "Adicione uma segunda etapa de verificação ao login.";
+      securityStatus.textContent = "MFA disponível";
+      message.textContent = "Verificação em duas etapas desativada.";
+      message.dataset.state = "success";
+    } catch (error) {
+      message.textContent = error.message === "invalid_current_password"
+        ? "A senha atual está incorreta."
+        : error.message === "mfa_failed"
+          ? "O código do autenticador é inválido."
+          : "Não foi possível desativar a verificação em duas etapas.";
+      message.dataset.state = "error";
+    } finally {
+      submit.disabled = false;
     }
   });
 

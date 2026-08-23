@@ -65,7 +65,16 @@ test("production server stays diagnosable when configuration is missing", async 
   assert.equal((await csrfResponse.json()).error, "session_not_configured");
 });
 
-test("checkout declares the payment method that is active in production", () => {
+test("checkout uses Stripe dynamic payment methods", () => {
   const server = fs.readFileSync("server.js", "utf8");
-  assert.match(server, /payment_method_types:\s*\["card"\]/);
+  assert.doesNotMatch(server, /payment_method_types\s*:/);
+  assert.match(server, /integration_identifier:\s*"neural_x_qmvkzpta"/);
+});
+
+test("authenticated clients can safely disable MFA", () => {
+  const server = fs.readFileSync("server.js", "utf8");
+  assert.match(server, /"\/api\/mfa\/disable"/);
+  assert.match(server, /mfa_enabled = false, mfa_secret = NULL/);
+  assert.match(server, /bcrypt\.compare\(currentPassword/);
+  assert.match(server, /speakeasy\.totp\.verify/);
 });

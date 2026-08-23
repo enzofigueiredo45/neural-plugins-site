@@ -84,6 +84,10 @@ function logError(scope, error, requestId) {
   });
 }
 
+function logEvent(event, details = {}) {
+  console.log("application_event", { event, ...details });
+}
+
 let databaseReady = false;
 let databaseReadyPromise = null;
 let lastDatabaseAttempt = 0;
@@ -803,7 +807,15 @@ async function handleStripeWebhook(req, res, next) {
         event.type,
       )
     ) {
-      await fulfillCheckoutSession(event.data.object.id);
+      const fulfillment = await fulfillCheckoutSession(event.data.object.id);
+      logEvent("checkout_fulfilled", {
+        requestId: req.requestId,
+        stripeEventId: event.id,
+        checkoutSessionId: event.data.object.id,
+        productIds: fulfillment.productIds,
+        accessReady: fulfillment.accessReady,
+        accessRequestRequired: fulfillment.accessRequestRequired,
+      });
     }
     return res.json({ received: true });
   } catch (error) {
@@ -977,6 +989,54 @@ app.post(
     delete req.session.mfaTemp;
     await saveSession(req);
     return res.json({ ok: true });
+  }),
+);
+
+app.post(
+  "/api/mfa/disable",
+  accountLimiter,
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const currentPassword = String(req.body?.currentPassword || "");
+    const token = String(req.body?.token || "");
+    if (!currentPassword || !/^\d{6}$/.test(token))
+      return res.status(400).json({ ok: false, error: "missing_fields" });
+
+    const user = await getUserAuthByEmail(req.session.user.email);
+    if (!user?.mfa_enabled)
+      return res.status(409).json({ ok: false, error: "mfa_not_enabled" });
+    if (!(await bcrypt.compare(currentPassword, user.password_hash)))
+      return res.status(401).json({ ok: false, error: "invalid_current_password" });
+
+    let verified = false;
+    try {
+      verified = speakeasy.totp.verify({
+        secret: decryptMfaSecret(user.mfa_secret),
+        encoding: "base32",
+        token,
+        window: 1,
+      });
+    } catch (error) {
+      logError("mfa_secret_error", error, req.requestId);
+    }
+    if (!verified)
+      return res.status(401).json({ ok: false, error: "mfa_failed" });
+
+    await db.run(
+      db.usePostgres
+        ? "UPDATE users SET mfa_enabled = false, mfa_secret = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1"
+        : "UPDATE users SET mfa_enabled = 0, mfa_secret = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      [user.id],
+    );
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve())),
+    );
+    req.session.user = { id: user.id, email: user.email, role: user.role };
+    req.session.csrfToken = randomUUID();
+    await saveSession(req);
+    logEvent("mfa_disabled", { requestId: req.requestId, userId: user.id });
+    return res.json({ ok: true, csrfToken: req.session.csrfToken });
   }),
 );
 
@@ -1165,9 +1225,15 @@ app.post(
         : "INSERT INTO support_tickets (requester_email, requester_name, category, subject, order_reference, message) VALUES (?, ?, ?, ?, ?, ?)",
       values,
     );
+    const ticketId = String(ticket?.id || ticket?.lastID || "");
+    logEvent("support_ticket_created", {
+      requestId: req.requestId,
+      ticketId,
+      category,
+    });
     return res.status(201).json({
       ok: true,
-      ticketId: String(ticket?.id || ticket?.lastID || ""),
+      ticketId,
     });
   }),
 );
@@ -1303,7 +1369,6 @@ app.post(
           mode: "payment",
           locale: "pt-BR",
           integration_identifier: "neural_x_qmvkzpta",
-          payment_method_types: ["card"],
           line_items: lineItems,
           customer_email: req.session.user?.email || undefined,
           client_reference_id: req.session.user?.id
@@ -1332,6 +1397,12 @@ app.post(
         },
         { idempotencyKey: `checkout-${idempotencyKey}` },
       );
+      logEvent("checkout_created", {
+        requestId: req.requestId,
+        checkoutSessionId: checkout.id,
+        productIds: cart.map((item) => item.id),
+        itemCount: cart.reduce((total, item) => total + item.quantity, 0),
+      });
       return res.json({ ok: true, url: checkout.url });
     } catch (error) {
       logError("stripe_checkout_error", error, req.requestId);

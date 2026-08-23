@@ -126,3 +126,12 @@ test("Neural DSP page includes an accessible measured video demo", () => {
   for (const eventName of ["video_start", "video_half", "video_complete"])
     assert.match(main, new RegExp(`"${eventName}"`));
 });
+
+test("client dashboard includes a protected MFA disable flow", () => {
+  const dashboard = fs.readFileSync(path.join(root, "client-dashboard.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(dashboard, /id="mfaDisable"[^>]*hidden/);
+  assert.match(dashboard, /id="mfaDisablePassword"/);
+  assert.match(dashboard, /id="mfaDisableToken"/);
+  assert.match(main, /postJson\("\/api\/mfa\/disable"/);
+});
