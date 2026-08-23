@@ -322,6 +322,39 @@ function initFunnelInteractions() {
   });
 }
 
+function initProductVideo() {
+  document.querySelectorAll("[data-product-video]").forEach((video) => {
+    const productId = video.dataset.productVideo || "unknown";
+    let started = false;
+    let halfway = false;
+    let completed = false;
+
+    video.addEventListener("play", () => {
+      if (started) return;
+      started = true;
+      trackEvent("video_start", { product_id: productId });
+    });
+
+    video.addEventListener("timeupdate", () => {
+      if (
+        halfway ||
+        !Number.isFinite(video.duration) ||
+        video.duration <= 0 ||
+        video.currentTime / video.duration < 0.5
+      )
+        return;
+      halfway = true;
+      trackEvent("video_half", { product_id: productId, progress: 50 });
+    });
+
+    video.addEventListener("ended", () => {
+      if (completed) return;
+      completed = true;
+      trackEvent("video_complete", { product_id: productId, progress: 100 });
+    });
+  });
+}
+
 let csrfRequest;
 async function fetchCsrf() {
   if (csrfRequest) return csrfRequest;
@@ -980,6 +1013,7 @@ initNavigation();
 initPasswordToggles();
 initProductButtons();
 initFunnelInteractions();
+initProductVideo();
 initCart();
 initLogin();
 initRegistration();

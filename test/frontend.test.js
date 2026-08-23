@@ -114,3 +114,15 @@ test("product pages identify the stable store product", () => {
     assert.match(html, new RegExp(`data-product-price="${productId}"`));
   }
 });
+
+test("Neural DSP page includes an accessible measured video demo", () => {
+  const page = fs.readFileSync(path.join(root, "produto-neural-x.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(page, /<video[^>]+controls[^>]+playsinline/);
+  assert.match(page, /data-product-video="neural-x"/);
+  assert.match(page, /neural-dsp-comparacao-clean-neural-x\.mp4/);
+  assert.match(page, /neural-dsp-comparacao-clean-neural-x-poster\.jpg/);
+  assert.match(page, /O vídeo demonstra 3 dos 23 plugins/);
+  for (const eventName of ["video_start", "video_half", "video_complete"])
+    assert.match(main, new RegExp(`"${eventName}"`));
+});
