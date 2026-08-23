@@ -24,6 +24,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - run: npm run generate:sitemap
       - run: npm run check
       - run: npm run security

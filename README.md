@@ -49,7 +49,7 @@ Cada pedido pago é registrado mesmo se a URL de acesso ainda não estiver confi
 
 ## SEO e confiança
 
-O projeto inclui `robots.txt`, `sitemap.xml` regenerado no build, metadados básicos, políticas públicas e checklist de publicação. Antes de publicar, configure domínio próprio, Search Console, contato/suporte, política de reembolso, comprovação de licença/autorização dos produtos e webhook do Stripe para liberação automática dos pedidos.
+O projeto inclui `robots.txt`, `sitemap.xml`, metadados básicos, políticas públicas e checklist de publicação. Rode `npm run generate:sitemap` antes de cada publicação para atualizar o domínio canônico e a data de modificação. Antes de publicar, configure domínio próprio, Search Console, contato/suporte, política de reembolso, comprovação de licença/autorização dos produtos e webhook do Stripe para liberação automática dos pedidos.
 
 ## Testes úteis
 
