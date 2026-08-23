@@ -13,6 +13,18 @@ Abra `http://127.0.0.1:4173/`.
 
 Crie uma conta pela página de cadastro para testar o fluxo local.
 
+## Painel administrativo
+
+O painel em `/admin.html` reúne indicadores, pedidos, clientes, chamados, leads e o histórico das alterações operacionais. As APIs administrativas validam a função diretamente no banco a cada requisição, exigem MFA ativo, sessão autenticada e CSRF; senhas, segredos de MFA e credenciais Stripe nunca são retornados.
+
+Para conceder o primeiro acesso, cadastre a conta normalmente, ative a verificação em duas etapas em `/client-dashboard.html` e execute em um ambiente com acesso ao mesmo banco de produção:
+
+```bash
+npm run admin:promote -- administrador@exemplo.com
+```
+
+Depois, use `/admin-login.html`. A promoção falha se a conta não existir ou se o MFA ainda não estiver ativo. Não use listas de e-mail administrativas no JavaScript público.
+
 ## Configuração para produção
 
 Copie `.env.example` para o painel de variáveis da hospedagem. Não commite `.env` com segredos reais.
