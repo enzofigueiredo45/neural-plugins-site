@@ -115,6 +115,17 @@ test("product pages identify the stable store product", () => {
   }
 });
 
+test("FL Studio and REAPER identify the confirmed 2026 edition", () => {
+  for (const file of ["produto-fl-studio.html", "produto-reaper.html"]) {
+    const html = fs.readFileSync(path.join(root, file), "utf8");
+    assert.match(html, /<h1>(?:FL Studio|REAPER) 2026<\/h1>/);
+    assert.match(html, /<span>Edição<\/span><strong>2026<\/strong>/);
+  }
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(main, /name: "FL Studio 2026"/);
+  assert.match(main, /name: "REAPER 2026"/);
+});
+
 test("Neural DSP page includes an accessible measured video demo", () => {
   const page = fs.readFileSync(path.join(root, "produto-neural-x.html"), "utf8");
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");

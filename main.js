@@ -12,14 +12,16 @@ const PRODUCTS = Object.freeze({
   },
   "fl-studio": {
     id: "fl-studio",
-    name: "FL Studio",
+    name: "FL Studio 2026",
+    edition: "2026",
     price: 19.9,
     accessMode: "pending",
     image: "/assets/product-fl-studio.jpg",
   },
   reaper: {
     id: "reaper",
-    name: "REAPER",
+    name: "REAPER 2026",
+    edition: "2026",
     price: 19.9,
     accessMode: "pending",
     image: "/assets/product-reaper.jpg",
@@ -141,6 +143,7 @@ function syncPublicCatalog() {
         const unitAmount = Number(item?.unitAmount);
         if (!product || !Number.isInteger(unitAmount) || unitAmount < 1) continue;
         product.price = unitAmount / 100;
+        product.edition = item.edition || product.edition || null;
         product.accessMode = ["automatic", "request"].includes(item.accessMode)
           ? item.accessMode
           : "pending";

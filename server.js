@@ -1388,7 +1388,7 @@ app.post(
           },
           metadata: {
             source: "neural-x-site",
-            catalog_version: "2026-08-12",
+            catalog_version: "2026-08-23",
             cart: JSON.stringify(
               cart.map(({ id, quantity }) => ({ id, quantity })),
             ),
