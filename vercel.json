@@ -28,7 +28,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://*.stripe.com; frame-src https://www.google.com https://recaptcha.google.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; style-src 'self' https://fonts.googleapis.com; script-src 'self' https://www.google.com https://www.gstatic.com; connect-src 'self' https://*.vercel-insights.com https://vitals.vercel-insights.com https://*.stripe.com https://www.google.com; upgrade-insecure-requests"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://*.stripe.com; frame-src https://www.google.com https://recaptcha.google.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; style-src 'self' https://fonts.googleapis.com; script-src 'self' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com; connect-src 'self' https://*.vercel-insights.com https://vitals.vercel-insights.com https://*.stripe.com https://www.google.com https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://www.googleadservices.com https://googleads.g.doubleclick.net; upgrade-insecure-requests"
         }
       ]
     }
