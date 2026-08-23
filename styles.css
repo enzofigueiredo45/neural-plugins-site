@@ -1432,7 +1432,8 @@ input:disabled {
 }
 
 .mfa-field[hidden],
-.mfa-enrollment[hidden] {
+.mfa-enrollment[hidden],
+.mfa-disable[hidden] {
   display: none;
 }
 
@@ -1814,6 +1815,17 @@ input[type="file"]::file-selector-button {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
+}
+
+.mfa-disable {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.mfa-disable h3,
+.mfa-disable p {
+  margin-bottom: 0;
 }
 
 .mfa-qr {

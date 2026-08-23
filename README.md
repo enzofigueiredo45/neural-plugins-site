@@ -1,6 +1,6 @@
 # Neural X Site
 
-Loja Node/Express para produtos digitais da Neural X, com vitrine pública, carrinho, login, checklist de publicação e endpoint server-side para Stripe Checkout.
+Loja Node/Express em Node 24 para produtos digitais da Neural X, com vitrine pública, carrinho, login, checklist de publicação e endpoint server-side para Stripe Checkout.
 
 ## Rodar localmente
 
@@ -39,6 +39,8 @@ Veja `CONFIGURACOES_PUBLICACAO.md` para a lista completa de pendências antes de
 
 O front-end lê preços públicos em `GET /api/catalog` e envia o carrinho para `POST /api/create-checkout-session`. O servidor valida IDs, valores e modo live/test contra o catálogo da Stripe antes de criar o checkout. A página de retorno consulta `GET /api/checkout-session` antes de afirmar que o pagamento foi aprovado. Nunca coloque `sk_test`, `sk_live`, Price IDs ou URLs privadas em HTML, JS público ou arquivos versionados.
 
+O checkout não fixa `payment_method_types`: a Stripe seleciona dinamicamente os meios elegíveis habilitados no Dashboard para a moeda, o país e o dispositivo do comprador.
+
 Cadastre na Stripe o webhook `POST /api/stripe-webhook` para os eventos `checkout.session.completed` e `checkout.session.async_payment_succeeded`, então salve o segredo de assinatura em `STRIPE_WEBHOOK_SECRET`. Adicione `store_product_id` (`neural-x`, `fl-studio` ou `reaper`) aos metadados dos Products e Prices. O processamento usa esse identificador estável e é idempotente por sessão/produto, continuando válido quando um Price ID for substituído.
 
 ## Liberação do produto
@@ -47,7 +49,7 @@ Cada pedido pago é registrado mesmo se a URL de acesso ainda não estiver confi
 
 ## SEO e confiança
 
-O projeto inclui `robots.txt`, `sitemap.xml`, metadados básicos, políticas públicas e checklist de publicação. Antes de publicar, configure domínio próprio, Search Console, contato/suporte, política de reembolso, comprovação de licença/autorização dos produtos e webhook do Stripe para liberação automática dos pedidos.
+O projeto inclui `robots.txt`, `sitemap.xml`, metadados básicos, políticas públicas e checklist de publicação. Rode `npm run generate:sitemap` antes de cada publicação para atualizar o domínio canônico e a data de modificação. Antes de publicar, configure domínio próprio, Search Console, contato/suporte, política de reembolso, comprovação de licença/autorização dos produtos e webhook do Stripe para liberação automática dos pedidos.
 
 ## Testes úteis
 
