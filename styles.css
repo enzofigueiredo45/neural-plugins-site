@@ -1087,6 +1087,51 @@ details p {
   line-height: 1.6;
 }
 
+.product-demo-section {
+  border-block: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(216, 255, 62, 0.1), transparent 30rem),
+    #090a0c;
+}
+
+.product-demo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.72fr);
+  align-items: center;
+  gap: clamp(2.5rem, 7vw, 7rem);
+}
+
+.product-demo-copy {
+  max-width: 43rem;
+}
+
+.product-demo-copy .button {
+  margin-top: 0.8rem;
+}
+
+.product-demo-media {
+  width: min(100%, 27rem);
+  margin: 0 auto;
+}
+
+.product-demo-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border: 1px solid rgba(216, 255, 62, 0.34);
+  border-radius: var(--radius-lg);
+  background: #000;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
+.product-demo-media figcaption {
+  margin-top: 0.8rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
 .plugin-catalog-section {
   border-block: 1px solid var(--line);
   background:
@@ -1931,7 +1976,8 @@ input[type="file"]::file-selector-button {
   .auth-shell,
   .contact-layout,
   .content-split,
-  .lead-capture {
+  .lead-capture,
+  .product-demo-layout {
     grid-template-columns: 1fr;
   }
 
