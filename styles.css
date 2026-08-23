@@ -1407,6 +1407,63 @@ input:disabled {
   text-underline-offset: 0.22rem;
 }
 
+.measurement-consent {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: max(1rem, env(safe-area-inset-left));
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(12, 14, 17, 0.97);
+  box-shadow: 0 1.2rem 3.5rem rgba(0, 0, 0, 0.5);
+}
+
+.measurement-consent strong,
+.measurement-consent p {
+  margin: 0;
+}
+
+.measurement-consent p {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.measurement-consent a {
+  color: var(--paper);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: var(--acid-dark);
+  text-underline-offset: 0.2rem;
+}
+
+.measurement-consent-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.6rem;
+}
+
+@media (max-width: 720px) {
+  .measurement-consent {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .measurement-consent-actions {
+    flex-wrap: wrap;
+  }
+}
+
 .form-message {
   min-height: 1.4rem;
   margin: 0;

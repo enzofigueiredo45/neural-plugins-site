@@ -75,6 +75,18 @@ test("Google discovery files cover every public page and product image", () => {
   );
 });
 
+test("Google Ads purchase tracking requires consent and preserves transaction value", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const privacy = fs.readFileSync(path.join(root, "privacy.html"), "utf8");
+  const vercel = fs.readFileSync(path.join(root, "vercel.json"), "utf8");
+  assert.match(main, /AW-10867942652\/-P1jCMGH0-YcEPzJnr4o/);
+  assert.match(main, /getMeasurementConsent\(\) !== "granted"/);
+  assert.match(main, /transaction_id: sessionId/);
+  assert.match(main, /value: Number\(data\.value \|\| 0\)/);
+  assert.match(privacy, /Não ativamos conversões otimizadas/);
+  assert.match(vercel, /https:\/\/www\.googletagmanager\.com/);
+});
+
 test("private commerce and account pages are not indexable", () => {
   for (const file of [
     "cart.html",
