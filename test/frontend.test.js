@@ -45,11 +45,39 @@ test("structured data and web manifest contain valid JSON", () => {
   );
 });
 
+test("Google discovery files cover every public page and product image", () => {
+  const sitemap = fs.readFileSync(path.join(root, "sitemap.xml"), "utf8");
+  const robots = fs.readFileSync(path.join(root, "robots.txt"), "utf8");
+  const verification = fs.readFileSync(
+    path.join(root, "googleab9c8b948f79ec49.html"),
+    "utf8",
+  );
+  for (const page of [
+    "/",
+    "/produto-neural-x.html",
+    "/produto-fl-studio.html",
+    "/produto-reaper.html",
+    "/contact.html",
+    "/privacy.html",
+    "/terms.html",
+  ])
+    assert.match(sitemap, new RegExp(`<loc>https://neural-plugins-site\\.vercel\\.app${page.replace("/", "\\/")}`));
+  for (const image of [
+    "archetype-john-mayer-x.png",
+    "product-fl-studio.jpg",
+    "product-reaper.jpg",
+  ])
+    assert.match(sitemap, new RegExp(`<image:loc>[^<]+${image}</image:loc>`));
+  assert.match(robots, /Sitemap: https:\/\/neural-plugins-site\.vercel\.app\/sitemap\.xml/);
+  assert.equal(
+    verification.trim(),
+    "google-site-verification: googleab9c8b948f79ec49.html",
+  );
+});
+
 test("private commerce and account pages are not indexable", () => {
   for (const file of [
     "cart.html",
-    "admin.html",
-    "admin-login.html",
     "client-dashboard.html",
     "client-login.html",
     "client-register.html",
@@ -61,7 +89,7 @@ test("private commerce and account pages are not indexable", () => {
 });
 
 test("browser-delivered files contain no Stripe or webhook secrets", () => {
-  for (const file of [...htmlFiles, "main.js", "admin.js", "styles.css"]) {
+  for (const file of [...htmlFiles, "main.js", "styles.css"]) {
     const content = fs.readFileSync(path.join(root, file), "utf8");
     assert.doesNotMatch(content, /(?:sk|rk)_(?:test|live)_[A-Za-z0-9]{12,}/, file);
     assert.doesNotMatch(content, /whsec_[A-Za-z0-9]{12,}/, file);
@@ -162,16 +190,4 @@ test("client dashboard includes a protected MFA disable flow", () => {
   assert.match(dashboard, /id="mfaDisablePassword"/);
   assert.match(dashboard, /id="mfaDisableToken"/);
   assert.match(main, /postJson\("\/api\/mfa\/disable"/);
-});
-
-test("admin interface is private and exposes all operational sections", () => {
-  const admin = fs.readFileSync(path.join(root, "admin.html"), "utf8");
-  const login = fs.readFileSync(path.join(root, "admin-login.html"), "utf8");
-  const script = fs.readFileSync(path.join(root, "admin.js"), "utf8");
-  assert.match(admin, /content="noindex,nofollow"/);
-  assert.match(login, /data-role="admin"/);
-  for (const section of ["overview", "orders", "users", "tickets", "leads", "audit"])
-    assert.match(admin, new RegExp(`data-admin-(?:tab|panel)="${section}"`));
-  assert.match(script, /X-CSRF-Token/);
-  assert.match(script, /\/api\/admin\/overview/);
 });
