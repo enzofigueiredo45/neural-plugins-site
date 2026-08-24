@@ -214,6 +214,17 @@ test("product pages and cart disclose the computer-bound digital license", () =>
   assert.match(terms, /licenças ficam vinculadas ao computador usado na ativação/i);
 });
 
+test("storefront identifies the business and preserves the legal refund window", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const contact = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+  const terms = fs.readFileSync(path.join(root, "terms.html"), "utf8");
+  assert.match(index, /"legalName": "Neural X Inc\."/);
+  assert.match(contact, /Nome empresarial informado: Neural X Inc\./);
+  assert.match(terms, /prazo legal de 7 dias/i);
+  assert.match(terms, /responde à solicitação em até 24 horas/i);
+  assert.match(terms, /não reduz nenhum direito/i);
+});
+
 test("Neural DSP page includes an accessible measured video demo", () => {
   const page = fs.readFileSync(path.join(root, "produto-neural-x.html"), "utf8");
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
