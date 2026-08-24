@@ -28,6 +28,7 @@ Variáveis mínimas:
 - `STRIPE_SECRET_KEY` no cofre/variáveis secretas da hospedagem; prefira uma chave restrita `rk_live_` com permissões mínimas
 - `STRIPE_PRICE_NEURAL_X`, `STRIPE_PRICE_FL_STUDIO`, `STRIPE_PRICE_REAPER`
 - `STRIPE_WEBHOOK_SECRET` para registrar pedidos pagos de forma idempotente
+- `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO` e `EMAIL_SUPPORT_TO` para confirmações automáticas de cadastro, pagamento e chamados. `EMAIL_FROM` precisa usar um domínio verificado no Resend em produção; `onboarding@resend.dev` serve apenas para testes.
 - `PRODUCT_ACCESS_URL_NEURAL_X`, `PRODUCT_ACCESS_URL_FL_STUDIO`, `PRODUCT_ACCESS_URL_REAPER` para liberar cada produto na biblioteca. Aceitam somente URLs HTTPS sem usuário ou senha embutidos; enquanto estiverem vazias, o pedido será exibido honestamente como “liberação pendente”.
 - `PRODUCT_ACCESS_MODE_*` pode ser `automatic` para acesso direto ou `request` quando o cliente precisa solicitar permissão no Drive. No segundo caso, a biblioteca mostra “Solicitar acesso no Drive” e nunca afirma que o acesso já foi liberado.
 
