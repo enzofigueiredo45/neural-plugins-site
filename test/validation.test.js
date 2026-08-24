@@ -33,6 +33,9 @@ test("reports missing production configuration by variable name only", () => {
     "STRIPE_WEBHOOK_SECRET",
     "RECAPTCHA_SECRET",
     "RECAPTCHA_SITE_KEY",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
+    "EMAIL_SUPPORT_TO",
   ]);
 });
 
@@ -53,6 +56,9 @@ test("accepts a complete production configuration", () => {
       STRIPE_WEBHOOK_SECRET: "whsec_123",
       RECAPTCHA_SECRET: "captcha-secret",
       RECAPTCHA_SITE_KEY: "captcha-site-key",
+      RESEND_API_KEY: "re_test",
+      EMAIL_FROM: "Neural X <hello@example.com>",
+      EMAIL_SUPPORT_TO: "support@example.com",
     },
     true,
   );
@@ -93,6 +99,9 @@ test("allows an isolated Stripe test key on Vercel previews", () => {
       STRIPE_WEBHOOK_SECRET: "whsec_123",
       RECAPTCHA_SECRET: "captcha-secret",
       RECAPTCHA_SITE_KEY: "captcha-site-key",
+      RESEND_API_KEY: "re_test",
+      EMAIL_FROM: "Neural X <hello@example.com>",
+      EMAIL_SUPPORT_TO: "support@example.com",
     },
     true,
   );
@@ -137,6 +146,9 @@ test("validates requested access mode", () => {
     STRIPE_WEBHOOK_SECRET: "whsec_123",
     RECAPTCHA_SECRET: "captcha-secret",
     RECAPTCHA_SITE_KEY: "captcha-site-key",
+    RESEND_API_KEY: "re_test",
+    EMAIL_FROM: "Neural X <hello@example.com>",
+    EMAIL_SUPPORT_TO: "support@example.com",
   };
   assert.deepEqual(
     validateRuntimeConfig(
