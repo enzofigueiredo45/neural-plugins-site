@@ -1224,6 +1224,173 @@ details p {
   text-align: center;
 }
 
+/* Educational guides */
+.guide-preview-section {
+  background:
+    radial-gradient(circle at 90% 5%, rgba(85, 200, 255, 0.1), transparent 30rem),
+    #090a0c;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.guide-card {
+  min-width: 0;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(22, 25, 30, 0.72);
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.guide-card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-4px);
+}
+
+.guide-card-kicker,
+.guide-meta {
+  margin-bottom: 1rem;
+  color: var(--acid);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.guide-card h3 {
+  font-size: clamp(1.55rem, 3vw, 2.3rem);
+}
+
+.guide-card > p:not(.guide-card-kicker) {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.guide-card > a {
+  display: inline-block;
+  margin-top: 0.8rem;
+  color: var(--acid);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.guide-preview-action {
+  margin-top: 1.5rem;
+}
+
+.guide-hero {
+  max-width: 68rem;
+  padding-block: clamp(4rem, 10vw, 8rem);
+}
+
+.guide-hero h1 {
+  max-width: 13ch;
+  font-size: clamp(3.4rem, 9vw, 7.5rem);
+}
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.32fr);
+  align-items: start;
+  gap: clamp(2rem, 7vw, 7rem);
+}
+
+.guide-article {
+  max-width: 48rem;
+}
+
+.guide-article h2 {
+  margin: 3.8rem 0 1.2rem;
+  font-size: clamp(2.2rem, 5vw, 4.1rem);
+}
+
+.guide-article h3 {
+  margin: 2.5rem 0 0.9rem;
+}
+
+.guide-article p,
+.guide-article li {
+  color: var(--muted-strong);
+  font-size: 1rem;
+  line-height: 1.85;
+}
+
+.guide-article a:not(.button) {
+  color: var(--acid);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.guide-article ul,
+.guide-article ol {
+  padding-left: 1.4rem;
+}
+
+.guide-callout {
+  margin: 2rem 0;
+  padding: 1.4rem;
+  border: 1px solid rgba(216, 255, 62, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(216, 255, 62, 0.06);
+}
+
+.guide-callout strong {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--paper);
+}
+
+.guide-aside {
+  position: sticky;
+  top: 7rem;
+  padding: 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ink-3);
+}
+
+.guide-aside strong {
+  display: block;
+  margin-bottom: 0.8rem;
+}
+
+.guide-aside a {
+  display: block;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted-strong);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.guide-aside a:last-child {
+  border-bottom: 0;
+}
+
+.guide-aside a:hover {
+  color: var(--acid);
+}
+
+.guide-product-box {
+  margin-top: 3rem;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 90% 0, rgba(216, 255, 62, 0.15), transparent 24rem),
+    var(--ink-3);
+}
+
+.guide-product-box p {
+  max-width: 42rem;
+}
+
 /* Forms and auth */
 .auth-page {
   min-height: calc(100svh - 7rem);
@@ -2046,8 +2213,13 @@ input[type="file"]::file-selector-button {
   .contact-layout,
   .content-split,
   .lead-capture,
-  .product-demo-layout {
+  .product-demo-layout,
+  .guide-layout {
     grid-template-columns: 1fr;
+  }
+
+  .guide-aside {
+    position: static;
   }
 
   .hero {
@@ -2148,7 +2320,8 @@ input[type="file"]::file-selector-button {
   .step-grid,
   .audience-grid,
   .dashboard-grid,
-  .cart-layout {
+  .cart-layout,
+  .guide-grid {
     grid-template-columns: 1fr;
   }
 

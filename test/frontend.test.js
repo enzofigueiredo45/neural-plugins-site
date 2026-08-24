@@ -57,6 +57,10 @@ test("Google discovery files cover every public page and product image", () => {
     "/produto-neural-x.html",
     "/produto-fl-studio.html",
     "/produto-reaper.html",
+    "/guias.html",
+    "/guia-plugins-guitarra.html",
+    "/guia-escolher-daw.html",
+    "/checklist-software-musical.html",
     "/contact.html",
     "/privacy.html",
     "/terms.html",
@@ -73,6 +77,33 @@ test("Google discovery files cover every public page and product image", () => {
     verification.trim(),
     "google-site-verification: googleab9c8b948f79ec49.html",
   );
+});
+
+test("guide pages are indexable, canonical and publish valid article data", () => {
+  const guides = [
+    "guia-plugins-guitarra.html",
+    "guia-escolher-daw.html",
+    "checklist-software-musical.html",
+  ];
+  for (const file of guides) {
+    const html = fs.readFileSync(path.join(root, file), "utf8");
+    assert.match(html, /<meta name="robots" content="index,follow/);
+    assert.match(html, new RegExp(`<link rel="canonical" href="https://neural-plugins-site\\.vercel\\.app/${file}"`));
+    assert.match(html, /<h1>[^<]+<\/h1>/);
+    assert.match(html, /"@type":\s*"Article"/);
+    assert.match(html, /data-content-id="[^"]+"/);
+  }
+});
+
+test("educational content is linked and measured through the product funnel", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(index, /href="\.\/guias\.html"/);
+  assert.match(index, /href="\.\/guia-plugins-guitarra\.html"/);
+  assert.match(index, /href="\.\/guia-escolher-daw\.html"/);
+  assert.match(index, /href="\.\/checklist-software-musical\.html"/);
+  assert.match(main, /"view_content"/);
+  assert.match(main, /"select_content_cta"/);
 });
 
 test("Google Ads purchase tracking requires consent and preserves transaction value", () => {

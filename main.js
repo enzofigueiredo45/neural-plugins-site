@@ -425,12 +425,20 @@ function initProductButtons() {
 function initFunnelInteractions() {
   const productId = document.body.dataset.productId;
   const product = PRODUCTS[productId];
+  const contentId = document.body.dataset.contentId;
   if (product) {
     trackEvent("view_item", {
       product_id: product.id,
       product_name: product.name,
       value: product.price,
       currency: "BRL",
+    });
+  }
+  if (contentId) {
+    trackEvent("view_content", {
+      content_id: contentId,
+      content_type: document.body.dataset.contentType || "guide",
+      page_path: window.location.pathname,
     });
   }
   document.addEventListener("click", (event) => {
@@ -444,6 +452,15 @@ function initFunnelInteractions() {
     const access = event.target.closest("[data-product-access]");
     if (access)
       trackEvent("access_product", { product_id: access.dataset.productAccess });
+    const contentCta = event.target.closest("[data-content-cta]");
+    if (contentCta) {
+      trackEvent("select_content_cta", {
+        content_id: contentId || contentCta.dataset.contentId || "unknown",
+        destination: contentCta.dataset.contentCta || "unknown",
+        product_id: contentCta.dataset.productId || "",
+        placement: contentCta.dataset.placement || "content",
+      });
+    }
   });
   document.querySelectorAll("details").forEach((details) => {
     details.addEventListener("toggle", () => {
