@@ -29,6 +29,13 @@ const {
   resolveLineItemProduct,
   toPublicCatalog,
 } = require("./lib/catalog");
+const {
+  getEmailConfig,
+  sendOrderConfirmationEmail,
+  sendSupportConfirmationEmail,
+  sendSupportNotificationEmail,
+  sendWelcomeEmail,
+} = require("./lib/email");
 
 const PORT = process.env.PORT || 4173;
 const isProduction = process.env.NODE_ENV === "production";
@@ -74,6 +81,24 @@ const indexablePages = [
     changefreq: "weekly",
     images: ["/assets/product-reaper.jpg"],
   },
+  { path: "/guias.html", priority: "0.8", changefreq: "weekly" },
+  {
+    path: "/guia-plugins-guitarra.html",
+    priority: "0.8",
+    changefreq: "monthly",
+    images: ["/assets/neural-dsp/archetype-john-mayer-x.png"],
+  },
+  {
+    path: "/guia-escolher-daw.html",
+    priority: "0.8",
+    changefreq: "monthly",
+    images: ["/assets/product-fl-studio.jpg", "/assets/product-reaper.jpg"],
+  },
+  {
+    path: "/checklist-software-musical.html",
+    priority: "0.8",
+    changefreq: "monthly",
+  },
   { path: "/contact.html", priority: "0.6", changefreq: "monthly" },
   { path: "/privacy.html", priority: "0.4", changefreq: "yearly" },
   { path: "/terms.html", priority: "0.4", changefreq: "yearly" },
@@ -106,6 +131,22 @@ function logError(scope, error, requestId) {
 
 function logEvent(event, details = {}) {
   console.log("application_event", { event, ...details });
+}
+
+async function sendEmailSafely(type, operation, details = {}) {
+  try {
+    const result = await operation();
+    logEvent("transactional_email", {
+      type,
+      sent: Boolean(result?.sent),
+      skipped: result?.skipped || undefined,
+      ...details,
+    });
+    return result;
+  } catch (error) {
+    logError(`transactional_email_${type}_error`, error, details.requestId);
+    return { sent: false, error: true };
+  }
 }
 
 let databaseReady = false;
@@ -796,6 +837,14 @@ async function persistPaidCheckout(checkout) {
       ({ product }) => product.accessMode === "request",
     ),
     productIds: resolvedItems.map(({ product }) => product.id),
+    buyerEmail,
+    products: resolvedItems.map(({ product, quantity }) => ({
+      id: product.id,
+      name: product.name,
+      quantity,
+    })),
+    amountTotal: checkout.amount_total,
+    currency: checkout.currency,
   };
 }
 
@@ -805,7 +854,23 @@ async function fulfillCheckoutSession(sessionId) {
   const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
     expand: ["line_items.data.price.product"],
   });
-  return persistPaidCheckout(checkout);
+  const fulfillment = await persistPaidCheckout(checkout);
+  if (fulfillment.recorded) {
+    await sendEmailSafely(
+      "order_confirmation",
+      () => sendOrderConfirmationEmail({
+        checkoutId: checkout.id,
+        email: fulfillment.buyerEmail,
+        products: fulfillment.products,
+        amountTotal: fulfillment.amountTotal,
+        currency: fulfillment.currency,
+        accessReady: fulfillment.accessReady,
+        accessRequestRequired: fulfillment.accessRequestRequired,
+      }),
+      { checkoutSessionId: checkout.id },
+    );
+  }
+  return fulfillment;
 }
 
 async function handleStripeWebhook(req, res, next) {
@@ -904,6 +969,11 @@ app.post(
         return res.status(409).json({ ok: false, error: "email_taken" });
       throw error;
     }
+    await sendEmailSafely(
+      "welcome",
+      () => sendWelcomeEmail({ email, name }),
+      { requestId: req.requestId },
+    );
     return res.status(201).json({ ok: true });
   }),
 );
@@ -1258,6 +1328,30 @@ app.post(
       ticketId,
       category,
     });
+    await Promise.all([
+      sendEmailSafely(
+        "support_confirmation",
+        () => sendSupportConfirmationEmail({
+          email,
+          name,
+          ticketId,
+          subject: supportCategories.get(category),
+        }),
+        { requestId: req.requestId, ticketId },
+      ),
+      sendEmailSafely(
+        "support_notification",
+        () => sendSupportNotificationEmail({
+          email,
+          name,
+          ticketId,
+          subject: supportCategories.get(category),
+          orderReference,
+          message,
+        }),
+        { requestId: req.requestId, ticketId },
+      ),
+    ]);
     return res.status(201).json({
       ok: true,
       ticketId,
@@ -1546,12 +1640,14 @@ app.get(
       (!isProduction || redisHealthy) &&
       (!isProduction || stripeCatalogHealthy) &&
       runtimeConfig.errors.length === 0;
+    const emailConfig = getEmailConfig();
     return res.status(ok ? 200 : 503).json({
       ok,
       services: {
         database: databaseHealthy ? "ok" : "unavailable",
         redis: redisHealthy ? "ok" : isProduction ? "unavailable" : "optional",
         stripe: stripeCatalogHealthy ? "ok" : "unavailable",
+        email: emailConfig.apiKey ? "configured" : "optional",
       },
       configuration: {
         valid: runtimeConfig.errors.length === 0,
