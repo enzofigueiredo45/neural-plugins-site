@@ -23,13 +23,15 @@ test("builds a public catalog without exposing Stripe IDs or access URLs", () =>
   assert.equal(catalog["neural-x"].accessUrl, "https://downloads.example.com/neural");
   assert.equal(publicCatalog[0].unitAmount, 2990);
   assert.equal(publicCatalog[0].accessMode, "request");
-  assert.equal(publicCatalog[0].licenseType, "Licença digital vinculada ao computador");
+  assert.equal(publicCatalog[0].licenseType, "Licença e ativação em confirmação");
+  assert.equal(publicCatalog[0].saleReady, false);
   assert.equal(publicCatalog[1].accessMode, "pending");
-  assert.equal(publicCatalog[1].name, "FL Studio 2026");
-  assert.equal(publicCatalog[1].edition, "2026");
-  assert.equal(publicCatalog[2].name, "REAPER 2026");
-  assert.equal(publicCatalog[2].edition, "2026");
-  assert.ok(publicCatalog.every((product) => product.licenseType.includes("computador")));
+  assert.equal(publicCatalog[1].name, "FL Studio");
+  assert.equal(publicCatalog[1].edition, null);
+  assert.equal(publicCatalog[2].name, "REAPER");
+  assert.equal(publicCatalog[2].edition, null);
+  assert.ok(publicCatalog.every((product) => product.saleReady === false));
+  assert.ok(publicCatalog.every((product) => product.licenseType.includes("confirmação")));
   for (const product of publicCatalog) {
     assert.equal(Object.hasOwn(product, "price"), false);
     assert.equal(Object.hasOwn(product, "priceId"), false);

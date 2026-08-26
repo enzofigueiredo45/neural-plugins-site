@@ -240,7 +240,7 @@ test("homepage has an interactive production selector and a non-numbered studio 
   assert.match(styles, /\.signal-led/);
 });
 
-test("digital delivery and activation promise is consistent through purchase", () => {
+test("unconfirmed offer details pause checkout without inventing delivery or activation", () => {
   for (const file of [
     "index.html",
     "produto-neural-x.html",
@@ -250,18 +250,15 @@ test("digital delivery and activation promise is consistent through purchase", (
     "terms.html",
   ]) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
-    assert.match(html, /(?:até 4h|até 4 horas)/i, file);
+    assert.match(html, /(?:confirmação|publicad|pausad)/i, file);
+    assert.doesNotMatch(html, /licenças? (?:digital )?(?:fica|ficam) vinculad[ao]s? ao computador/i, file);
   }
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
-  const email = fs.readFileSync(path.join(root, "lib/email.js"), "utf8");
-  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  assert.match(main, /link de download e as instruções de ativação/);
-  assert.match(server, /link de download e as instruções de ativação/);
-  assert.doesNotMatch(email, /Links de download/);
-  assert.match(email, /biblioteca da conta com e-mail verificado/);
-  assert.match(email, /em até 4 horas/);
-  assert.match(index, /"@type": "FAQPage"[\s\S]*link de download e as instruções de ativação[\s\S]*em até 4 horas/);
+  assert.match(main, /offer_not_ready/);
+  assert.match(main, /saleReady/);
+  assert.match(server, /offer_not_ready/);
+  assert.match(server, /terms_version: "2026-08-26"/);
 });
 
 test("product pages identify the stable store product", () => {
@@ -277,30 +274,32 @@ test("product pages identify the stable store product", () => {
   }
 });
 
-test("FL Studio and REAPER identify the confirmed 2026 edition", () => {
+test("FL Studio and REAPER avoid asserting an unconfirmed edition", () => {
   for (const file of ["produto-fl-studio.html", "produto-reaper.html"]) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
-    assert.match(html, /<h1>(?:FL Studio|REAPER) 2026<\/h1>/);
-    assert.match(html, /<span>Edição<\/span><strong>2026<\/strong>/);
+    assert.match(html, /<h1>(?:FL Studio|REAPER)<\/h1>/);
+    assert.match(html, /(?:Edição|Versão)<\/span><strong>Em confirmação<\/strong>/);
+    assert.doesNotMatch(html, /(?:FL Studio|REAPER) 2026/);
   }
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
-  assert.match(main, /name: "FL Studio 2026"/);
-  assert.match(main, /name: "REAPER 2026"/);
+  assert.match(main, /name: "FL Studio"/);
+  assert.match(main, /name: "REAPER"/);
 });
 
-test("product pages and cart disclose the computer-bound digital license", () => {
+test("product pages disclose that license and activation are pending confirmation", () => {
   for (const file of [
     "produto-neural-x.html",
     "produto-fl-studio.html",
     "produto-reaper.html",
   ]) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
-    assert.match(html, /Licença digital vinculada ao computador/i);
+    assert.match(html, /Licença[\s\S]{0,80}(?:confirmação|confirmad)/i);
+    assert.match(html, /disabled aria-disabled="true"/);
   }
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const terms = fs.readFileSync(path.join(root, "terms.html"), "utf8");
-  assert.match(main, /licenseType: "Licença digital vinculada ao computador"/);
-  assert.match(terms, /licenças ficam vinculadas ao computador usado na ativação/i);
+  assert.match(main, /licenseType: "(?:Edição, |Versão, )?Licença e ativação em confirmação"/i);
+  assert.match(terms, /Enquanto algum desses dados estiver em confirmação, a compra correspondente permanece pausada/i);
 });
 
 test("storefront avoids an unverified legal entity and preserves the legal refund window", () => {
