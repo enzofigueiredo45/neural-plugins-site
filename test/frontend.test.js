@@ -156,6 +156,8 @@ test("storefront exposes measurable offers without using HTML prices as checkout
     "begin_checkout",
     "checkout_created",
     "purchase",
+    "select_hero_path",
+    "view_recommendation",
     "generate_lead",
   ]) {
     assert.match(main, new RegExp(`"${eventName}"`));
@@ -196,17 +198,62 @@ test("purchase measurement is server-confirmed and deduplicated by Stripe sessio
   assert.match(main, /if \(!sessions\.includes\(sessionId\)\) \{\s*trackEvent\("purchase", data\)/);
 });
 
-test("lead capture is explicit, consented and connected to the privacy policy", () => {
+test("recommendation is immediate and optional email capture has separate consent", () => {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const privacy = fs.readFileSync(path.join(root, "privacy.html"), "utf8");
   const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
   const database = fs.readFileSync(path.join(root, "lib/db.js"), "utf8");
-  assert.match(index, /id="leadForm"/);
+  assert.match(index, /id="recommendationForm"/);
+  assert.match(index, /Ver recomendação sem cadastro/);
+  assert.match(index, /id="recommendationResult" hidden/);
+  assert.match(index, /id="leadForm" hidden/);
   assert.match(index, /name="marketingConsent"[^>]*required/);
+  assert.match(index, /Consentimento separado/);
   assert.match(index, /href="\.\/privacy\.html"/);
+  assert.match(main, /function initRecommendation\(\)/);
+  assert.match(main, /trackEvent\("view_recommendation"/);
   assert.match(server, /"\/api\/leads"/);
+  assert.match(server, /sendRecommendationEmail/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS leads/);
   assert.match(privacy, /cancelar o consentimento/);
+});
+
+test("homepage has an interactive production selector and a non-numbered studio strip", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const styles = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+  for (const objective of ["guitar", "beats", "recording"])
+    assert.match(index, new RegExp(`data-hero-choice="${objective}"`));
+  assert.match(index, /id="heroProductImage"/);
+  assert.match(index, /id="heroDemoLink"/);
+  assert.match(main, /const HERO_CHOICES/);
+  assert.match(main, /function initHeroSelector\(\)/);
+  assert.match(index, /class="trust-row studio-signal-strip"/);
+  assert.doesNotMatch(index, /trust-index/);
+  assert.match(styles, /\.studio-signal-strip/);
+  assert.match(styles, /\.signal-led/);
+});
+
+test("digital delivery and activation promise is consistent through purchase", () => {
+  for (const file of [
+    "index.html",
+    "produto-neural-x.html",
+    "produto-fl-studio.html",
+    "produto-reaper.html",
+    "cart.html",
+    "terms.html",
+  ]) {
+    const html = fs.readFileSync(path.join(root, file), "utf8");
+    assert.match(html, /(?:até 4h|até 4 horas)/i, file);
+  }
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const email = fs.readFileSync(path.join(root, "lib/email.js"), "utf8");
+  assert.match(main, /link de download e as instruções de ativação/);
+  assert.match(server, /link de download e as instruções de ativação/);
+  assert.match(email, /Links de download/);
+  assert.match(email, /em até 4 horas/);
 });
 
 test("product pages identify the stable store product", () => {

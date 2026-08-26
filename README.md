@@ -29,8 +29,8 @@ Variáveis mínimas:
 - `STRIPE_PRICE_NEURAL_X`, `STRIPE_PRICE_FL_STUDIO`, `STRIPE_PRICE_REAPER`
 - `STRIPE_WEBHOOK_SECRET` para registrar pedidos pagos de forma idempotente
 - `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO` e `EMAIL_SUPPORT_TO` para confirmações automáticas de cadastro, pagamento e chamados. `EMAIL_FROM` precisa usar um domínio verificado no Resend em produção; `onboarding@resend.dev` serve apenas para testes.
-- `PRODUCT_ACCESS_URL_NEURAL_X`, `PRODUCT_ACCESS_URL_FL_STUDIO`, `PRODUCT_ACCESS_URL_REAPER` para liberar cada produto na biblioteca. Aceitam somente URLs HTTPS sem usuário ou senha embutidos; enquanto estiverem vazias, o pedido será exibido honestamente como “liberação pendente”.
-- `PRODUCT_ACCESS_MODE_*` pode ser `automatic` para acesso direto ou `request` quando o cliente precisa solicitar permissão no Drive. No segundo caso, a biblioteca mostra “Solicitar acesso no Drive” e nunca afirma que o acesso já foi liberado.
+- `PRODUCT_ACCESS_URL_NEURAL_X`, `PRODUCT_ACCESS_URL_FL_STUDIO`, `PRODUCT_ACCESS_URL_REAPER` para incluir o link de cada produto no e-mail de confirmação e na biblioteca. Aceitam somente URLs HTTPS sem usuário ou senha embutidos; enquanto estiverem vazias, o pedido informa entrega por e-mail em até 4 horas.
+- `PRODUCT_ACCESS_MODE_*` pode ser `automatic` para acesso direto ou `request` quando o link do Drive pede identificação. No segundo caso, o cliente é orientado a usar o mesmo e-mail informado na compra.
 
 Na Vercel, faça um novo deploy de produção sempre que alterar variáveis de ambiente; deployments já existentes continuam usando o conjunto anterior. Mantenha a chave live somente em Production e uma chave test separada somente em Preview.
 
@@ -46,7 +46,7 @@ Cadastre na Stripe o webhook `POST /api/stripe-webhook` para os eventos `checkou
 
 ## Liberação do produto
 
-Cada pedido pago é registrado mesmo se a URL de acesso ainda não estiver configurada. Nesse caso, a confirmação e a área do cliente mostram “liberação pendente”, sem prometer download imediato. Quando a URL HTTPS correspondente for adicionada e um novo deploy for feito, pedidos antigos com `product_id` passam a exibir o acesso sem editar manualmente o banco. Para o modo `request`, confira o e-mail que solicitou o Drive com o pedido pago antes de aprovar.
+Cada pedido pago é registrado mesmo se a URL de acesso ainda não estiver configurada. Quando a URL HTTPS está configurada, o e-mail de confirmação já inclui o link de download; quando não está, a confirmação informa que o link e as instruções serão enviados ao e-mail da compra em até 4 horas. A operação precisa cumprir esse prazo manualmente até que todos os links estejam configurados. Depois de adicionar a URL e fazer um novo deploy, pedidos antigos com `product_id` também passam a exibir o acesso sem edição manual do banco.
 
 ## SEO e confiança
 

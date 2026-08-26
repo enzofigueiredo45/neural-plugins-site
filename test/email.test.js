@@ -5,6 +5,7 @@ const {
   getEmailConfig,
   sendEmail,
   sendOrderConfirmationEmail,
+  sendRecommendationEmail,
 } = require("../lib/email");
 
 test("escapes untrusted email template values", () => {
@@ -35,11 +36,30 @@ test("order confirmation remains safe without a configured provider", async () =
   const result = await sendOrderConfirmationEmail({
     checkoutId: "cs_test_123",
     email: "customer@example.com",
-    products: [{ name: "Neural X <script>", quantity: 1 }],
+    products: [{
+      name: "Neural X <script>",
+      quantity: 1,
+      accessUrl: "https://downloads.example.com/neural-x",
+    }],
     amountTotal: 2990,
     currency: "brl",
     accessReady: false,
     accessRequestRequired: true,
+  }, { SITE_URL: "https://example.com" });
+  assert.equal(result.sent, false);
+  assert.equal(result.skipped, "RESEND_API_KEY");
+});
+
+test("recommendation email remains safe without a configured provider", async () => {
+  const result = await sendRecommendationEmail({
+    email: "customer@example.com",
+    name: "Cliente <teste>",
+    recommendation: {
+      id: "neural-x",
+      name: "Coleção Neural DSP",
+      url: "/produto-neural-x.html",
+      reason: "Uma recomendação baseada no objetivo informado.",
+    },
   }, { SITE_URL: "https://example.com" });
   assert.equal(result.sent, false);
   assert.equal(result.skipped, "RESEND_API_KEY");

@@ -43,6 +43,74 @@ const PRODUCTS = Object.freeze({
   },
 });
 
+const HERO_CHOICES = Object.freeze({
+  guitar: {
+    productId: "neural-x",
+    kicker: "Guitarra, baixo e voz",
+    description:
+      "23 plugins para construir timbres, gravar instrumentos e processar voz em Windows ou macOS.",
+    image: "./assets/neural-dsp/archetype-john-mayer-x.png",
+    imageAlt: "Interface do plugin Archetype: John Mayer X",
+    productUrl: "./produto-neural-x.html",
+    demoUrl: "./produto-neural-x.html#demonstracao",
+    demoLabel: "Ouvir três timbres clean",
+  },
+  beats: {
+    productId: "fl-studio",
+    kicker: "Beats, composição e arranjo",
+    description:
+      "Um fluxo visual para transformar padrões, melodias e automações em músicas completas.",
+    image: "./assets/product-fl-studio.jpg",
+    imageAlt: "Interface do FL Studio com piano roll e instrumento aberto",
+    productUrl: "./produto-fl-studio.html",
+    demoUrl: "./produto-fl-studio.html",
+    demoLabel: "Ver interface e fluxo de beatmaking",
+  },
+  recording: {
+    productId: "reaper",
+    kicker: "Gravação, edição e mixagem",
+    description:
+      "Uma estação leve e flexível para capturar, editar e mixar projetos multipista.",
+    image: "./assets/product-reaper.jpg",
+    imageAlt: "Interface do REAPER com arranjo multipista e mixer",
+    productUrl: "./produto-reaper.html",
+    demoUrl: "./produto-reaper.html",
+    demoLabel: "Ver interface e fluxo de gravação",
+  },
+});
+
+const RECOMMENDATIONS = Object.freeze({
+  guitar: {
+    productId: "neural-x",
+    match: "Melhor ponto de partida para timbres",
+    reason:
+      "A Coleção Neural DSP reúne 23 plugins para guitarra, baixo e voz, com uma demonstração real para comparar timbres antes da compra.",
+    url: "./produto-neural-x.html",
+  },
+  beats: {
+    productId: "fl-studio",
+    match: "Melhor ponto de partida para beatmaking",
+    reason:
+      "O FL Studio 2026 prioriza um fluxo visual para padrões, piano roll, arranjos e mixagem sem tirar a ideia do ritmo.",
+    url: "./produto-fl-studio.html",
+  },
+  recording: {
+    productId: "reaper",
+    match: "Melhor ponto de partida para sessões multipista",
+    reason:
+      "O REAPER 2026 combina gravação, edição precisa, roteamento flexível e desempenho leve para home studio.",
+    url: "./produto-reaper.html",
+  },
+  compare: {
+    productId: null,
+    name: "Comparação dos três produtos",
+    match: "Você ainda está comparando o fluxo",
+    reason:
+      "Veja lado a lado objetivo, sistemas, diferencial e preço antes de escolher. Nenhum cadastro é necessário.",
+    url: "./index.html#produtos",
+  },
+});
+
 const money = (value) =>
   Number.isFinite(value)
     ? value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -445,6 +513,80 @@ function addToCart(productId) {
   });
 }
 
+function initHeroSelector() {
+  const buttons = [...document.querySelectorAll("[data-hero-choice]")];
+  const image = document.querySelector("#heroProductImage");
+  const kicker = document.querySelector("#heroProductKicker");
+  const name = document.querySelector("#heroProductName");
+  const price = document.querySelector("#heroProductPrice");
+  const description = document.querySelector("#heroProductDescription");
+  const productLink = document.querySelector("#heroProductLink");
+  const demoLink = document.querySelector("#heroDemoLink");
+  const addButton = document.querySelector("#heroAddButton");
+  if (
+    !buttons.length ||
+    !image ||
+    !kicker ||
+    !name ||
+    !price ||
+    !description ||
+    !productLink ||
+    !demoLink ||
+    !addButton
+  )
+    return;
+
+  let activeChoice = "guitar";
+  const render = (choice, shouldTrack = false) => {
+    const content = HERO_CHOICES[choice];
+    const product = content && PRODUCTS[content.productId];
+    if (!content || !product) return;
+    activeChoice = choice;
+    buttons.forEach((button) => {
+      button.setAttribute(
+        "aria-selected",
+        String(button.dataset.heroChoice === choice),
+      );
+    });
+    image.src = content.image;
+    image.alt = content.imageAlt;
+    kicker.textContent = content.kicker;
+    name.textContent = product.name;
+    price.textContent = money(product.price);
+    price.dataset.productPrice = product.id;
+    description.textContent = content.description;
+    productLink.href = content.productUrl;
+    productLink.dataset.offerSelect = product.id;
+    demoLink.href = content.demoUrl;
+    demoLink.textContent = content.demoLabel;
+    demoLink.dataset.offerSelect = product.id;
+    addButton.dataset.id = product.id;
+    if (shouldTrack) {
+      trackEvent("select_hero_path", {
+        objective: choice,
+        product_id: product.id,
+        product_name: product.name,
+        value: product.price,
+        currency: "BRL",
+      });
+    }
+  };
+
+  buttons.forEach((button, index) => {
+    button.addEventListener("click", () => render(button.dataset.heroChoice, true));
+    button.addEventListener("keydown", (event) => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const next = buttons[(index + direction + buttons.length) % buttons.length];
+      next.focus();
+      render(next.dataset.heroChoice, true);
+    });
+  });
+  document.addEventListener("neuralx:catalog-ready", () => render(activeChoice));
+  render(activeChoice);
+}
+
 function trackOfferSelection(productId, placement = "page") {
   const product = PRODUCTS[productId];
   if (!product) return;
@@ -657,17 +799,8 @@ function initCart() {
     if (checkoutButton) checkoutButton.disabled = cart.length === 0;
     if (clearButton) clearButton.disabled = cart.length === 0;
     if (fulfillmentNote) {
-      const requestRequired = cart.some(
-        (item) => PRODUCTS[item.id].accessMode === "request",
-      );
-      const pending = cart.some(
-        (item) => PRODUCTS[item.id].accessMode === "pending",
-      );
-      fulfillmentNote.textContent = requestRequired
-        ? "Após o pagamento, abra sua biblioteca e solicite acesso no Drive. A aprovação é manual e o e-mail do solicitante será conferido com o pedido."
-        : pending
-          ? "Após a aprovação, o pedido fica vinculado ao e-mail do checkout. A liberação é acompanhada na área do cliente e pode exigir atendimento."
-          : "Após a aprovação, o acesso é vinculado ao e-mail do checkout e aparece na área do cliente.";
+      fulfillmentNote.textContent =
+        "O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
     }
   };
 
@@ -904,6 +1037,77 @@ function initSupportForm() {
   });
 }
 
+function initRecommendation() {
+  const form = document.querySelector("#recommendationForm");
+  const result = document.querySelector("#recommendationResult");
+  const match = document.querySelector("#recommendationMatch");
+  const name = document.querySelector("#recommendationName");
+  const reason = document.querySelector("#recommendationReason");
+  const link = document.querySelector("#recommendationLink");
+  const changeButton = document.querySelector("#changeRecommendation");
+  const emailToggle = document.querySelector("#showRecommendationEmail");
+  const leadForm = document.querySelector("#leadForm");
+  const leadInterest = document.querySelector("#leadInterest");
+  if (
+    !form ||
+    !result ||
+    !match ||
+    !name ||
+    !reason ||
+    !link ||
+    !changeButton ||
+    !emailToggle ||
+    !leadForm ||
+    !leadInterest
+  )
+    return;
+
+  let activeRecommendation = null;
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    const interest = new FormData(form).get("recommendationInterest");
+    const recommendation = RECOMMENDATIONS[interest];
+    if (!recommendation) return;
+    const product = recommendation.productId
+      ? PRODUCTS[recommendation.productId]
+      : null;
+    activeRecommendation = recommendation;
+    match.textContent = recommendation.match;
+    name.textContent = product?.name || recommendation.name;
+    reason.textContent = recommendation.reason;
+    link.href = recommendation.url;
+    link.textContent = product ? "Conhecer produto" : "Comparar agora";
+    leadInterest.value = interest;
+    form.hidden = true;
+    result.hidden = false;
+    leadForm.hidden = true;
+    emailToggle.hidden = false;
+    trackEvent("view_recommendation", {
+      interest,
+      recommended_product: product?.id || "compare",
+    });
+    name.focus?.();
+  });
+
+  link.addEventListener("click", () => {
+    if (activeRecommendation?.productId)
+      trackOfferSelection(activeRecommendation.productId, "recommendation");
+  });
+  emailToggle.addEventListener("click", () => {
+    leadForm.hidden = false;
+    emailToggle.hidden = true;
+    document.querySelector("#leadName")?.focus();
+  });
+  changeButton.addEventListener("click", () => {
+    result.hidden = true;
+    leadForm.hidden = true;
+    emailToggle.hidden = false;
+    form.hidden = false;
+    form.querySelector('input[name="recommendationInterest"]:checked')?.focus();
+  });
+}
+
 function initLeadForm() {
   const form = document.querySelector("#leadForm");
   if (!form) return;
@@ -919,7 +1123,7 @@ function initLeadForm() {
     const interest = fields.namedItem("interest").value;
     try {
       submit.disabled = true;
-      submit.textContent = "Preparando recomendação…";
+      submit.textContent = "Enviando recomendação…";
       const captcha = await getRecaptchaToken("lead");
       const { response, data } = await postJson("/api/leads", {
         name: fields.namedItem("name").value.trim(),
@@ -930,31 +1134,26 @@ function initLeadForm() {
         captcha,
       });
       if (!response.ok) throw new Error(data.error || "lead_error");
-      const recommendationUrl = safeUrl(
-        data.recommendation?.url,
-        new URL("./index.html#produtos", window.location.href).href,
-      );
-      const link = document.createElement("a");
-      link.className = "inline-link";
-      link.href = recommendationUrl;
-      link.textContent = "Ver recomendação agora";
-      message.append("Interesse registrado. ", link, ".");
-      message.dataset.state = "success";
+      message.textContent = data.emailSent
+        ? "Recomendação enviada. Confira sua caixa de entrada."
+        : "Preferência registrada, mas o e-mail não pôde ser enviado agora. Sua recomendação continua disponível acima.";
+      message.dataset.state = data.emailSent ? "success" : "error";
       trackEvent("generate_lead", {
         interest,
         recommended_product: data.recommendation?.id || "compare",
       });
       form.reset();
+      fields.namedItem("interest").value = interest;
     } catch (error) {
       message.textContent = error.message === "invalid_lead"
-        ? "Confira seu nome, e-mail, objetivo e aceite de comunicação."
+        ? "Confira seu nome, e-mail e o consentimento de comunicação."
         : error.message === "captcha_failed"
           ? authMessages.captcha_failed
           : "Não foi possível registrar seu interesse agora. Tente novamente.";
       message.dataset.state = "error";
     } finally {
       submit.disabled = false;
-      submit.textContent = "Ver minha recomendação";
+      submit.textContent = "Enviar recomendação por e-mail";
     }
   });
 }
@@ -1032,9 +1231,9 @@ function initDashboard() {
               const download = safeUrl(order.download_url);
               const date = order.created_at ? new Date(order.created_at).toLocaleDateString("pt-BR") : "";
               const accessLabel = order.access_mode === "request"
-                ? "Solicitar acesso no Drive"
+                ? "Abrir link de download"
                 : "Acessar produto";
-              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Use uma conta Google identificável. O acesso será aprovado manualmente após a conferência do pedido.</small>" : ""}` : '<small>Pagamento registrado. A liberação ainda está pendente; <a class="inline-link" href="./contact.html?assunto=pedido">acompanhe com o suporte</a>.</small>'}</div></article>`;
+              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Se o Drive pedir identificação, use o mesmo e-mail informado na compra.</small>" : ""}` : '<small>O link de download será enviado ao e-mail da compra em até 4 horas. Se o prazo terminar, <a class="inline-link" href="./contact.html?assunto=pedido">fale com o suporte</a>.</small>'}</div></article>`;
             })
             .join("")
         : '<div class="empty-state">Nenhuma compra vinculada a este e-mail. Se você já pagou, confirme se sua conta usa o mesmo endereço do checkout.</div>';
@@ -1242,12 +1441,12 @@ function initCheckoutSuccess() {
         const items = data.products?.map((item) => item.name).filter(Boolean).join(", ");
         if (data.fulfillment === "ready") {
           message.textContent = items
-            ? `${items} já está vinculado ao e-mail usado no checkout. Entre ou crie sua conta com o mesmo endereço para acessar.`
-            : "Seu acesso já foi liberado para o e-mail usado no checkout.";
+            ? `${items}: o acesso foi liberado e a confirmação foi enviada ao e-mail da compra. Você também pode usar esse endereço na área do cliente.`
+            : "Seu acesso foi liberado e a confirmação foi enviada ao e-mail da compra.";
         } else if (data.fulfillment === "request_required") {
-          message.textContent = "Seu pedido foi registrado. Entre ou crie sua conta com o e-mail da compra, abra a biblioteca e clique em “Solicitar acesso no Drive”. A aprovação é manual após a conferência do pedido.";
+          message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
         } else if (data.fulfillment === "recorded_pending_access") {
-          message.textContent = "Seu pedido foi registrado, mas a liberação do acesso ainda está pendente. Use o mesmo e-mail do pagamento na área do cliente e acompanhe com o suporte.";
+          message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
         } else {
           message.textContent = "Seu pagamento foi aprovado e a confirmação do pedido está em andamento. Se ele não aparecer na conta em alguns minutos, abra um chamado.";
         }
@@ -1277,6 +1476,7 @@ captureAttribution();
 void syncPublicCatalog();
 initNavigation();
 initPasswordToggles();
+initHeroSelector();
 initProductButtons();
 initFunnelInteractions();
 initProductVideo();
@@ -1284,6 +1484,7 @@ initCart();
 initLogin();
 initRegistration();
 initSupportForm();
+initRecommendation();
 initLeadForm();
 initDashboard();
 initCheckoutSuccess();

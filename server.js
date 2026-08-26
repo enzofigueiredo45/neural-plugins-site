@@ -32,6 +32,7 @@ const {
 const {
   getEmailConfig,
   sendOrderConfirmationEmail,
+  sendRecommendationEmail,
   sendSupportConfirmationEmail,
   sendSupportNotificationEmail,
   sendWelcomeEmail,
@@ -620,10 +621,30 @@ const supportCategories = new Map([
   ["other", "Outro assunto"],
 ]);
 const leadInterests = new Map([
-  ["guitar", { id: "neural-x", url: "/produto-neural-x.html" }],
-  ["beats", { id: "fl-studio", url: "/produto-fl-studio.html" }],
-  ["recording", { id: "reaper", url: "/produto-reaper.html" }],
-  ["compare", { id: "compare", url: "/#produtos" }],
+  ["guitar", {
+    id: "neural-x",
+    name: "Coleção Neural DSP",
+    url: "/produto-neural-x.html",
+    reason: "23 plugins para guitarra, baixo e voz, com demonstração real para comparar timbres antes da compra.",
+  }],
+  ["beats", {
+    id: "fl-studio",
+    name: "FL Studio 2026",
+    url: "/produto-fl-studio.html",
+    reason: "Um fluxo visual para padrões, piano roll, arranjos e mixagem sem tirar a ideia do ritmo.",
+  }],
+  ["recording", {
+    id: "reaper",
+    name: "REAPER 2026",
+    url: "/produto-reaper.html",
+    reason: "Gravação, edição precisa, roteamento flexível e desempenho leve para home studio.",
+  }],
+  ["compare", {
+    id: "compare",
+    name: "Comparação dos três produtos",
+    url: "/#produtos",
+    reason: "Compare objetivo, sistemas, diferencial e preço antes de escolher.",
+  }],
 ]);
 
 function isValidEmail(value) {
@@ -756,9 +777,7 @@ function decryptMfaSecret(value) {
 
 function getOrderAccessStatus(product) {
   if (product.accessMode === "automatic") return "Acesso liberado";
-  if (product.accessMode === "request")
-    return "Pagamento confirmado · solicite acesso no Drive";
-  return "Pagamento confirmado · liberação pendente";
+  return "Pagamento confirmado · entrega por e-mail em até 4h";
 }
 
 async function persistPaidCheckout(checkout) {
@@ -842,6 +861,7 @@ async function persistPaidCheckout(checkout) {
       id: product.id,
       name: product.name,
       quantity,
+      accessUrl: product.accessUrl,
     })),
     amountTotal: checkout.amount_total,
     currency: checkout.currency,
@@ -864,8 +884,6 @@ async function fulfillCheckoutSession(sessionId) {
         products: fulfillment.products,
         amountTotal: fulfillment.amountTotal,
         currency: fulfillment.currency,
-        accessReady: fulfillment.accessReady,
-        accessRequestRequired: fulfillment.accessRequestRequired,
       }),
       { checkoutSessionId: checkout.id },
     );
@@ -1275,9 +1293,16 @@ app.post(
            ON CONFLICT(email) DO UPDATE SET name = excluded.name, interest = excluded.interest, status = 'Novo', marketing_consent_at = CURRENT_TIMESTAMP, utm_source = excluded.utm_source, utm_medium = excluded.utm_medium, utm_campaign = excluded.utm_campaign, utm_content = excluded.utm_content, utm_term = excluded.utm_term, landing_page = excluded.landing_page, referrer = excluded.referrer, updated_at = CURRENT_TIMESTAMP`,
       values,
     );
+    const recommendation = leadInterests.get(interest);
+    const emailDelivery = await sendEmailSafely(
+      "recommendation",
+      () => sendRecommendationEmail({ email, name, recommendation }),
+      { requestId: req.requestId },
+    );
     return res.status(201).json({
       ok: true,
-      recommendation: leadInterests.get(interest),
+      recommendation,
+      emailSent: Boolean(emailDelivery?.sent),
     });
   }),
 );
@@ -1474,12 +1499,6 @@ app.post(
       });
 
     const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
-    const accessReady = cart.every(
-      (item) => catalog[item.id]?.accessMode === "automatic",
-    );
-    const accessRequestRequired = cart.some(
-      (item) => catalog[item.id]?.accessMode === "request",
-    );
     const idempotencyKey = createHash("sha256")
       .update(`${req.sessionID}:${JSON.stringify(lineItems)}:${bucket}`)
       .digest("hex");
@@ -1500,11 +1519,7 @@ app.post(
           after_expiration: { recovery: { enabled: true } },
           custom_text: {
             submit: {
-              message: accessReady
-                ? "Licença digital vinculada ao computador de ativação. Use um e-mail que você acessa: ele identifica seu pedido e libera o produto na sua biblioteca Neural X."
-                : accessRequestRequired
-                  ? "Licença digital vinculada ao computador de ativação. Use um e-mail que você acessa: após o pagamento, solicite o acesso no Drive pela sua biblioteca Neural X. A aprovação é manual."
-                  : "Licença digital vinculada ao computador de ativação. Use um e-mail que você acessa: o pagamento confirma o pedido, e a liberação será acompanhada na sua biblioteca Neural X.",
+              message: "Use um e-mail que você acessa. O link de download e as instruções de ativação serão enviados a esse endereço em até 4 horas. A licença digital fica vinculada ao computador usado na ativação.",
             },
           },
           metadata: {
