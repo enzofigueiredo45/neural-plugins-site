@@ -42,5 +42,11 @@
       "source": "/",
       "destination": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/email-outbox",
+      "schedule": "0 12 * * *"
+    }
   ]
 }
