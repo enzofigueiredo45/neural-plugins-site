@@ -250,10 +250,12 @@ test("digital delivery and activation promise is consistent through purchase", (
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
   const email = fs.readFileSync(path.join(root, "lib/email.js"), "utf8");
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(main, /link de download e as instruções de ativação/);
   assert.match(server, /link de download e as instruções de ativação/);
   assert.match(email, /Links de download/);
   assert.match(email, /em até 4 horas/);
+  assert.match(index, /"@type": "FAQPage"[\s\S]*link de download e as instruções de ativação[\s\S]*em até 4 horas/);
 });
 
 test("product pages identify the stable store product", () => {
