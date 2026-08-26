@@ -1,5 +1,7 @@
 const CART_KEY = "neuralx_cart";
 const ATTRIBUTION_KEY = "neuralx_attribution";
+const FUNNEL_ID_KEY = "neuralx_funnel_id";
+const STOREFRONT_VIEW_KEY = "neuralx_storefront_viewed";
 const PURCHASE_TRACKING_KEY = "neuralx_tracked_purchases";
 const GOOGLE_ADS_PURCHASE_TRACKING_KEY = "neuralx_google_ads_purchases";
 const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
@@ -211,13 +213,36 @@ function initMeasurementConsent() {
 
 function trackEvent(name, data = {}) {
   try {
+    const attribution = readAttribution();
     const safeData = Object.fromEntries(
-      Object.entries({ page_variant: PAGE_VARIANT, ...data })
+      Object.entries({
+        funnel_id: getFunnelId(),
+        page_variant: PAGE_VARIANT,
+        page_path: window.location.pathname,
+        utm_source: attribution.utm_source || "direct",
+        utm_medium: attribution.utm_medium || "none",
+        utm_campaign: attribution.utm_campaign || "none",
+        ...data,
+      })
         .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
         .map(([key, value]) => [key.slice(0, 64), typeof value === "string" ? value.slice(0, 255) : value]),
     );
     window.va?.("event", { name: String(name).slice(0, 64), data: safeData });
   } catch {}
+}
+
+function getFunnelId() {
+  try {
+    let value = sessionStorage.getItem(FUNNEL_ID_KEY) || "";
+    if (!/^[A-Za-z0-9-]{16,64}$/.test(value)) {
+      value = globalThis.crypto?.randomUUID?.()
+        || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+      sessionStorage.setItem(FUNNEL_ID_KEY, value);
+    }
+    return value.slice(0, 64);
+  } catch {
+    return "session-unavailable";
+  }
 }
 
 const externalReferrerPath = (value) => {
@@ -292,14 +317,20 @@ function syncPublicCatalog() {
 }
 
 function cartMetrics(cart = readCart()) {
+  const cartValue = Number(
+    cart.reduce((total, item) => total + PRODUCTS[item.id].price * item.quantity, 0).toFixed(2),
+  );
   return {
+    cart_value: cartValue,
     currency: "BRL",
     item_count: cart.reduce((total, item) => total + item.quantity, 0),
     product_ids: cart.map((item) => item.id).join(","),
-    value: Number(
-      cart.reduce((total, item) => total + PRODUCTS[item.id].price * item.quantity, 0).toFixed(2),
-    ),
   };
+}
+
+function checkoutMetrics(cart = readCart()) {
+  const metrics = cartMetrics(cart);
+  return { ...metrics, value: metrics.cart_value };
 }
 
 function normalizeCart(value) {
@@ -400,21 +431,52 @@ function addToCart(productId) {
   const existing = cart.find((item) => item.id === productId);
   if (existing) existing.quantity = Math.min(existing.quantity + 1, 10);
   else cart.push({ id: productId, quantity: 1 });
-  writeCart(cart);
+  const next = writeCart(cart);
   updateCartCount();
   showToast(`${product.name} foi adicionado ao carrinho.`);
   trackEvent("add_to_cart", {
     product_id: product.id,
     product_name: product.name,
     value: product.price,
+    unit_value: product.price,
     currency: "BRL",
-    quantity: existing?.quantity || 1,
+    quantity: 1,
+    ...cartMetrics(next),
+  });
+}
+
+function trackOfferSelection(productId, placement = "page") {
+  const product = PRODUCTS[productId];
+  if (!product) return;
+  trackEvent("select_offer", {
+    product_id: product.id,
+    product_name: product.name,
+    value: product.price,
+    currency: "BRL",
+    placement,
+  });
+}
+
+function trackStorefrontViewOnce(entryPoint) {
+  try {
+    if (sessionStorage.getItem(STOREFRONT_VIEW_KEY)) return;
+    sessionStorage.setItem(STOREFRONT_VIEW_KEY, "1");
+  } catch {}
+  trackEvent("storefront_view", {
+    catalog_size: Object.keys(PRODUCTS).length,
+    currency: "BRL",
+    entry_point: entryPoint,
   });
 }
 
 function initProductButtons() {
   document.querySelectorAll(".add-cart").forEach((button) => {
     button.addEventListener("click", () => {
+      trackOfferSelection(
+        button.dataset.id,
+        button.dataset.placement
+          || (document.body.dataset.page === "store" ? "catalog_quick_add" : "product_page"),
+      );
       addToCart(button.dataset.id);
       const original = button.dataset.originalLabel || button.textContent.trim();
       button.dataset.originalLabel = original;
@@ -430,12 +492,8 @@ function initFunnelInteractions() {
   const productId = document.body.dataset.productId;
   const product = PRODUCTS[productId];
   const contentId = document.body.dataset.contentId;
-  if (document.body.dataset.page === "store") {
-    trackEvent("storefront_view", {
-      page_path: window.location.pathname,
-      catalog_size: Object.keys(PRODUCTS).length,
-    });
-  }
+  if (document.body.dataset.page === "store" || product)
+    trackStorefrontViewOnce(product ? "product" : "store");
   if (product) {
     trackEvent("view_item", {
       product_id: product.id,
@@ -453,12 +511,11 @@ function initFunnelInteractions() {
   }
   document.addEventListener("click", (event) => {
     const offer = event.target.closest("[data-offer-select]");
-    if (offer && PRODUCTS[offer.dataset.offerSelect]) {
-      trackEvent("select_offer", {
-        product_id: offer.dataset.offerSelect,
-        placement: offer.dataset.placement || "page",
-      });
-    }
+    if (offer)
+      trackOfferSelection(
+        offer.dataset.offerSelect,
+        offer.dataset.placement || "page",
+      );
     const access = event.target.closest("[data-product-access]");
     if (access)
       trackEvent("access_product", { product_id: access.dataset.productAccess });
@@ -631,8 +688,13 @@ function initCart() {
     writeCart(next);
     updateCartCount();
     render();
+    const product = PRODUCTS[id];
     trackEvent(action === "increase" ? "add_to_cart" : "remove_from_cart", {
       product_id: id,
+      product_name: product.name,
+      unit_value: product.price,
+      value: product.price,
+      quantity: 1,
       action,
       ...cartMetrics(next),
     });
@@ -652,7 +714,7 @@ function initCart() {
     if (!cart.length) return;
     const label = checkoutButton.querySelector(".checkout-button-label");
     try {
-      trackEvent("begin_checkout", cartMetrics(cart));
+      trackEvent("begin_checkout", checkoutMetrics(cart));
       checkoutButton.disabled = true;
       checkoutButton.classList.add("is-loading");
       if (label) label.textContent = "Abrindo checkout…";
@@ -663,7 +725,7 @@ function initCart() {
         attribution: readAttribution(),
       });
       if (!response.ok || !data.url) throw new Error(data.error || "checkout_error");
-      trackEvent("checkout_created", cartMetrics(cart));
+      trackEvent("checkout_created", checkoutMetrics(cart));
       window.location.assign(data.url);
     } catch (error) {
       const message = checkoutErrorMessages[error.message] || "Não foi possível abrir o checkout agora. Tente novamente.";
