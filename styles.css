@@ -1350,7 +1350,7 @@ details p {
   justify-content: space-between;
   gap: 1rem;
   border-top: 1px solid var(--line);
-  color: #777b76;
+  color: #949890;
   font-size: 0.72rem;
   line-height: 1.5;
 }
@@ -1950,7 +1950,7 @@ textarea {
 
 input::placeholder,
 textarea::placeholder {
-  color: #646862;
+  color: #8c9188;
 }
 
 input:focus,
@@ -2282,6 +2282,31 @@ input:disabled {
   margin-bottom: 1.2rem;
 }
 
+.verification-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem 1.2rem;
+  margin-bottom: 1.2rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid rgba(228, 102, 61, 0.42);
+  border-radius: 1rem;
+  background: rgba(228, 102, 61, 0.08);
+}
+
+.verification-banner[hidden] {
+  display: none;
+}
+
+.verification-banner h2,
+.verification-banner p {
+  margin-bottom: 0.25rem;
+}
+
+.verification-banner .form-message {
+  grid-column: 1 / -1;
+}
+
 .summary-card {
   min-width: 0;
   display: flex;
@@ -2602,6 +2627,66 @@ input[type="file"]::file-selector-button {
 .status-card p {
   color: var(--muted);
   line-height: 1.65;
+}
+
+.fulfillment-steps {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1.5rem 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.fulfillment-steps li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fulfillment-steps li > span {
+  width: 2rem;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.fulfillment-steps strong,
+.fulfillment-steps small {
+  display: block;
+}
+
+.fulfillment-steps small {
+  margin-top: 0.15rem;
+  color: var(--muted);
+}
+
+.fulfillment-steps li[data-state="complete"] {
+  border-color: rgba(135, 230, 165, 0.34);
+}
+
+.fulfillment-steps li[data-state="complete"] > span {
+  background: rgba(135, 230, 165, 0.14);
+  color: var(--success);
+}
+
+@media (max-width: 640px) {
+  .verification-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .verification-banner .form-message {
+    grid-column: auto;
+  }
 }
 
 .toast-region {

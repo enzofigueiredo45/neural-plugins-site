@@ -5,6 +5,7 @@ const STOREFRONT_VIEW_KEY = "neuralx_storefront_viewed";
 const PURCHASE_TRACKING_KEY = "neuralx_tracked_purchases";
 const GOOGLE_ADS_PURCHASE_TRACKING_KEY = "neuralx_google_ads_purchases";
 const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
+const PENDING_ORDER_CLAIM_KEY = "neuralx_pending_order_claim";
 const GOOGLE_ADS_ID = "AW-10867942652";
 const GOOGLE_ADS_PURCHASE_DESTINATION =
   "AW-10867942652/-P1jCMGH0-YcEPzJnr4o";
@@ -470,12 +471,18 @@ function initNavigation() {
     toggle.setAttribute("aria-expanded", String(open));
     toggle.setAttribute("aria-label", open ? "Fechar menu" : "Abrir menu");
     nav.dataset.open = String(open);
+    if (open) nav.querySelector("a")?.focus();
   });
   nav.addEventListener("click", (event) => {
     if (event.target.closest("a")) close();
   });
   window.addEventListener("resize", () => {
     if (window.innerWidth > 820) close();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || nav.dataset.open !== "true") return;
+    close();
+    toggle.focus();
   });
 }
 
@@ -543,11 +550,17 @@ function initHeroSelector() {
     if (!content || !product) return;
     activeChoice = choice;
     buttons.forEach((button) => {
+      const selected = button.dataset.heroChoice === choice;
       button.setAttribute(
         "aria-selected",
-        String(button.dataset.heroChoice === choice),
+        String(selected),
       );
+      button.tabIndex = selected ? 0 : -1;
     });
+    document.querySelector("#heroOffer")?.setAttribute(
+      "aria-labelledby",
+      buttons.find((button) => button.dataset.heroChoice === choice)?.id || "heroTabGuitar",
+    );
     image.src = content.image;
     image.alt = content.imageAlt;
     kicker.textContent = content.kicker;
@@ -575,10 +588,15 @@ function initHeroSelector() {
   buttons.forEach((button, index) => {
     button.addEventListener("click", () => render(button.dataset.heroChoice, true));
     button.addEventListener("keydown", (event) => {
-      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
-      const direction = event.key === "ArrowRight" ? 1 : -1;
-      const next = buttons[(index + direction + buttons.length) % buttons.length];
+      const direction = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1;
+      const nextIndex = event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? buttons.length - 1
+          : (index + direction + buttons.length) % buttons.length;
+      const next = buttons[nextIndex];
       next.focus();
       render(next.dataset.heroChoice, true);
     });
@@ -888,6 +906,9 @@ const authMessages = {
   invalid_credentials_format: "Confira o e-mail e use uma senha forte com pelo menos 12 caracteres.",
   terms_required: "Você precisa aceitar os termos e a política de privacidade.",
   mfa_failed: "Código de verificação inválido.",
+  session_revoked: "Sua sessão foi encerrada por segurança. Entre novamente.",
+  invalid_or_expired_token: "Este link é inválido, expirou ou já foi usado.",
+  email_unverified: "Confirme seu e-mail antes de abrir a biblioteca.",
 };
 
 function initLogin() {
@@ -920,7 +941,10 @@ function initLogin() {
         return;
       }
       if (!response.ok) throw new Error(data.error || "login_error");
-      window.location.assign("./client-dashboard.html");
+      const sessionId = new URLSearchParams(window.location.search).get("session_id");
+      window.location.assign(sessionId
+        ? `./client-dashboard.html?session_id=${encodeURIComponent(sessionId)}`
+        : "./client-dashboard.html");
     } catch (error) {
       message.textContent = authMessages[error.message] || "Não foi possível entrar agora. Tente novamente.";
       message.dataset.state = "error";
@@ -975,17 +999,123 @@ function initRegistration() {
         captcha,
       });
       if (!response.ok) throw new Error(data.error || "registration_error");
-      message.textContent = "Conta criada. Redirecionando para o login…";
-      message.dataset.state = "success";
-      window.setTimeout(() => {
-        window.location.assign(`./client-login.html?email=${encodeURIComponent(fields.namedItem("email").value.trim())}`);
-      }, 900);
+      const email = fields.namedItem("email").value.trim();
+      message.textContent = data.emailSent
+        ? "Conta criada. Enviamos um link de confirmação válido por 24 horas. Confira também o spam."
+        : "Conta criada, mas o serviço de e-mail ainda não está configurado. Sua biblioteca permanece bloqueada por segurança; fale com o suporte.";
+      message.dataset.state = data.emailSent ? "success" : "error";
+      if (data.emailSent) {
+        const sessionId = new URLSearchParams(window.location.search).get("session_id");
+        window.setTimeout(() => {
+          const params = new URLSearchParams({ email });
+          if (sessionId) params.set("session_id", sessionId);
+          window.location.assign(`./client-login.html?${params}`);
+        }, 2400);
+      }
     } catch (error) {
       message.textContent = authMessages[error.message] || "Não foi possível criar sua conta agora.";
       message.dataset.state = "error";
     } finally {
       submit.disabled = false;
       submit.textContent = "Criar minha conta";
+    }
+  });
+}
+
+function initEmailVerification() {
+  const card = document.querySelector("#verifyEmailCard");
+  if (!card) return;
+  const title = document.querySelector("#verifyEmailTitle");
+  const message = document.querySelector("#verifyEmailMessage");
+  const icon = document.querySelector("#verifyEmailIcon");
+  const token = new URLSearchParams(window.location.search).get("token") || "";
+  if (!token) {
+    card.dataset.state = "error";
+    icon.textContent = "!";
+    title.textContent = "Link inválido.";
+    message.textContent = authMessages.invalid_or_expired_token;
+    return;
+  }
+  postJson("/api/email-verification/confirm", { token })
+    .then(({ response, data }) => {
+      if (!response.ok) throw new Error(data.error || "verification_error");
+      card.dataset.state = "success";
+      icon.textContent = "✓";
+      title.textContent = "E-mail confirmado.";
+      message.textContent = "Sua conta agora pode reivindicar e abrir compras vinculadas com segurança.";
+      window.history.replaceState({}, "", "./verify-email.html");
+    })
+    .catch((error) => {
+      card.dataset.state = "error";
+      icon.textContent = "!";
+      title.textContent = "Não foi possível confirmar.";
+      message.textContent = authMessages[error.message] || "Solicite um novo link na área do cliente.";
+    });
+}
+
+function initForgotPassword() {
+  const form = document.querySelector("#forgotPasswordForm");
+  if (!form) return;
+  const message = document.querySelector("#forgotPasswordMessage");
+  const submit = form.querySelector('button[type="submit"]');
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    try {
+      submit.disabled = true;
+      const { response, data } = await postJson("/api/password/forgot", {
+        email: form.email.value.trim(),
+      });
+      if (!response.ok) throw new Error(data.error || "reset_request_error");
+      message.textContent = data.deliveryConfigured
+        ? "Se o e-mail estiver cadastrado, enviaremos um link válido por 30 minutos."
+        : "O serviço de e-mail ainda não está configurado. Sua conta não foi alterada; fale com o suporte para continuar.";
+      message.dataset.state = data.deliveryConfigured ? "success" : "error";
+    } catch {
+      message.textContent = "Não foi possível processar a solicitação agora.";
+      message.dataset.state = "error";
+    } finally {
+      submit.disabled = false;
+    }
+  });
+}
+
+function initResetPassword() {
+  const form = document.querySelector("#resetPasswordForm");
+  if (!form) return;
+  const message = document.querySelector("#resetPasswordMessage");
+  const submit = form.querySelector('button[type="submit"]');
+  const token = new URLSearchParams(window.location.search).get("token") || "";
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    if (form.newPassword.value !== form.confirmPassword.value) {
+      message.textContent = "As senhas não coincidem.";
+      message.dataset.state = "error";
+      return;
+    }
+    if (!isStrongPassword(form.newPassword.value)) {
+      message.textContent = "Use 12 ou mais caracteres com maiúscula, minúscula, número e símbolo.";
+      message.dataset.state = "error";
+      return;
+    }
+    try {
+      submit.disabled = true;
+      const { response, data } = await postJson("/api/password/reset", {
+        token,
+        newPassword: form.newPassword.value,
+      });
+      if (!response.ok) throw new Error(data.error || "reset_error");
+      form.reset();
+      message.textContent = "Senha e e-mail confirmados. As sessões anteriores foram revogadas.";
+      message.dataset.state = "success";
+      window.history.replaceState({}, "", "./reset-password.html");
+      window.setTimeout(() => window.location.assign("./client-login.html"), 1800);
+    } catch (error) {
+      message.textContent = authMessages[error.message] || "Não foi possível redefinir a senha.";
+      message.dataset.state = "error";
+    } finally {
+      submit.disabled = false;
     }
   });
 }
@@ -1129,6 +1259,7 @@ function initLeadForm() {
         name: fields.namedItem("name").value.trim(),
         email: fields.namedItem("email").value.trim(),
         interest,
+        recommendationConsent: fields.namedItem("recommendationConsent").checked,
         marketingConsent: fields.namedItem("marketingConsent").checked,
         attribution: readAttribution(),
         captcha,
@@ -1146,7 +1277,7 @@ function initLeadForm() {
       fields.namedItem("interest").value = interest;
     } catch (error) {
       message.textContent = error.message === "invalid_lead"
-        ? "Confira seu nome, e-mail e o consentimento de comunicação."
+        ? "Confira seu nome, e-mail e a solicitação de envio da recomendação."
         : error.message === "captcha_failed"
           ? authMessages.captcha_failed
           : "Não foi possível registrar seu interesse agora. Tente novamente.";
@@ -1182,6 +1313,9 @@ function initDashboard() {
   const productCount = document.querySelector("#productCount");
   const ticketCount = document.querySelector("#ticketCount");
   const securityStatus = document.querySelector("#securityStatus");
+  const verificationBanner = document.querySelector("#emailVerificationBanner");
+  const resendVerification = document.querySelector("#resendVerification");
+  const verificationMessage = document.querySelector("#verificationMessage");
 
   const setAvatar = (user) => {
     avatarPreview.textContent = initials(user.name || user.email);
@@ -1196,7 +1330,10 @@ function initDashboard() {
       profileName.value = data.user.name || "";
       profileEmail.value = data.user.email || "";
       welcomeName.textContent = (data.user.name || data.user.email).split(/\s+|@/)[0];
-      securityStatus.textContent = data.user.mfaEnabled ? "MFA ativado" : "MFA disponível";
+      securityStatus.textContent = data.user.emailVerified
+        ? data.user.mfaEnabled ? "E-mail + MFA" : "E-mail verificado"
+        : "E-mail pendente";
+      verificationBanner.hidden = Boolean(data.user.emailVerified);
       const mfaButton = document.querySelector("#mfaSetup");
       const mfaDescription = document.querySelector("#mfaDescription");
       const mfaDisable = document.querySelector("#mfaDisable");
@@ -1220,15 +1357,15 @@ function initDashboard() {
   const loadOrders = async () => {
     try {
       const response = await fetch("/api/orders", { credentials: "include" });
-      if (!response.ok) throw new Error("orders_error");
       const orders = await readJsonResponse(response);
+      if (!response.ok) throw new Error(orders.error || "orders_error");
       productCount.textContent = String(orders.length);
       ordersList.innerHTML = orders.length
         ? orders
             .map((order) => {
               const fallback = Object.values(PRODUCTS).find((item) => item.name === order.product)?.image || PRODUCTS["neural-x"].image;
               const image = safeUrl(order.image, new URL(fallback, window.location.href).href);
-              const download = safeUrl(order.download_url);
+              const download = safeUrl(order.access_url);
               const date = order.created_at ? new Date(order.created_at).toLocaleDateString("pt-BR") : "";
               const accessLabel = order.access_mode === "request"
                 ? "Abrir link de download"
@@ -1236,10 +1373,26 @@ function initDashboard() {
               return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Se o Drive pedir identificação, use o mesmo e-mail informado na compra.</small>" : ""}` : '<small>O link de download será enviado ao e-mail da compra em até 4 horas. Se o prazo terminar, <a class="inline-link" href="./contact.html?assunto=pedido">fale com o suporte</a>.</small>'}</div></article>`;
             })
             .join("")
-        : '<div class="empty-state">Nenhuma compra vinculada a este e-mail. Se você já pagou, confirme se sua conta usa o mesmo endereço do checkout.</div>';
-    } catch {
-      ordersList.innerHTML = '<div class="empty-state">Não foi possível carregar sua biblioteca agora.</div>';
+        : '<div class="empty-state">Nenhuma compra vinculada. Se você acabou de pagar neste navegador, aguarde alguns segundos e atualize a página.</div>';
+    } catch (error) {
+      ordersList.innerHTML = error.message === "email_unverified"
+        ? '<div class="empty-state">Confirme seu e-mail para consultar a biblioteca. Nenhum pedido é exibido apenas pela igualdade do endereço.</div>'
+        : '<div class="empty-state">Não foi possível carregar sua biblioteca agora.</div>';
     }
+  };
+
+  const claimPaidOrder = async () => {
+    let sessionId = new URLSearchParams(window.location.search).get("session_id");
+    try {
+      sessionId ||= sessionStorage.getItem(PENDING_ORDER_CLAIM_KEY) || "";
+    } catch {}
+    if (!sessionId) return;
+    const { response, data } = await postJson("/api/orders/claim", { sessionId });
+    if (!response.ok) throw new Error(data.error || "order_claim_error");
+    try {
+      sessionStorage.removeItem(PENDING_ORDER_CLAIM_KEY);
+    } catch {}
+    window.history.replaceState({}, "", "./client-dashboard.html");
   };
 
   const loadTickets = async () => {
@@ -1380,8 +1533,40 @@ function initDashboard() {
     window.location.replace("./client-login.html");
   });
 
+  resendVerification?.addEventListener("click", async () => {
+    try {
+      resendVerification.disabled = true;
+      const { response, data } = await postJson("/api/email-verification/resend", {
+        email: profileEmail.value,
+      });
+      if (!response.ok) throw new Error(data.error || "verification_resend_error");
+      verificationMessage.textContent = data.deliveryConfigured
+        ? "Se o endereço estiver pendente, enviamos um novo link válido por 24 horas."
+        : "O serviço de e-mail ainda não está configurado. A biblioteca continua bloqueada por segurança.";
+      verificationMessage.dataset.state = data.deliveryConfigured ? "success" : "error";
+    } catch {
+      verificationMessage.textContent = "Não foi possível solicitar um novo link agora.";
+      verificationMessage.dataset.state = "error";
+    } finally {
+      resendVerification.disabled = false;
+    }
+  });
+
   loadAccount().then((user) => {
-    if (user) Promise.all([loadOrders(), loadTickets()]);
+    if (!user) return;
+    if (!user.emailVerified) {
+      productCount.textContent = "—";
+      ordersList.innerHTML = '<div class="empty-state">Confirme seu e-mail para consultar a biblioteca.</div>';
+      void loadTickets();
+      return;
+    }
+    claimPaidOrder()
+      .catch((error) => {
+        if (error.message !== "order_claim_denied")
+          showToast("Não foi possível vincular automaticamente a compra agora.", "error");
+      })
+      .finally(() => loadOrders());
+    void loadTickets();
   });
 }
 
@@ -1409,6 +1594,19 @@ function initCheckoutSuccess() {
   const message = document.querySelector("#successMessage");
   const icon = document.querySelector("#successIcon");
   const sessionId = new URLSearchParams(window.location.search).get("session_id");
+  const milestones = {
+    payment: document.querySelector("#milestonePayment"),
+    order: document.querySelector("#milestoneOrder"),
+    email: document.querySelector("#milestoneEmail"),
+    access: document.querySelector("#milestoneAccess"),
+  };
+  const setMilestone = (name, state, detail) => {
+    const item = milestones[name];
+    if (!item) return;
+    item.dataset.state = state;
+    const label = item.querySelector("small");
+    if (label && detail) label.textContent = detail;
+  };
   const fail = () => {
     icon.textContent = "!";
     title.textContent = "Não foi possível confirmar.";
@@ -1416,11 +1614,18 @@ function initCheckoutSuccess() {
     card.dataset.state = "error";
   };
   if (!sessionId) return fail();
+  try {
+    sessionStorage.setItem(PENDING_ORDER_CLAIM_KEY, sessionId);
+  } catch {}
+  const claimParams = `session_id=${encodeURIComponent(sessionId)}`;
+  document.querySelector("#successRegisterLink").href = `./client-register.html?${claimParams}`;
+  document.querySelector("#successLoginLink").href = `./client-login.html?${claimParams}`;
   fetch(`/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`, { credentials: "include" })
     .then(async (response) => ({ response, data: await readJsonResponse(response) }))
     .then(({ response, data }) => {
       if (!response.ok) throw new Error(data.error || "session_lookup_error");
       if (data.paymentStatus === "paid") {
+        setMilestone("payment", "complete", "Pagamento confirmado pela Stripe");
         writeCart([]);
         updateCartCount();
         trackPurchaseOnce(sessionId, {
@@ -1438,20 +1643,36 @@ function initCheckoutSuccess() {
         });
         icon.textContent = "✓";
         title.textContent = "Pagamento confirmado.";
+        const orderRecorded = ["ready", "request_required", "recorded_pending_access"].includes(data.fulfillment);
+        setMilestone(
+          "order",
+          orderRecorded ? "complete" : "pending",
+          orderRecorded ? "Pedido gravado sem duplicação" : "Confirmação sendo repetida com segurança",
+        );
+        setMilestone(
+          "email",
+          data.emailStatus === "sent" ? "complete" : "pending",
+          data.emailStatus === "sent" ? "Confirmação enviada" : "Mensagem salva na fila de retentativa",
+        );
         const items = data.products?.map((item) => item.name).filter(Boolean).join(", ");
         if (data.fulfillment === "ready") {
+          setMilestone("access", "complete", "Disponível após entrar com e-mail verificado");
           message.textContent = items
-            ? `${items}: o acesso foi liberado e a confirmação foi enviada ao e-mail da compra. Você também pode usar esse endereço na área do cliente.`
-            : "Seu acesso foi liberado e a confirmação foi enviada ao e-mail da compra.";
+            ? `${items}: o pedido está pronto. Confirme o e-mail da conta para vinculá-lo e abrir o acesso.`
+            : "Seu pedido está pronto. Confirme o e-mail da conta para abrir o acesso.";
         } else if (data.fulfillment === "request_required") {
+          setMilestone("access", "pending", "Entrega assistida em até 4 horas");
           message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
         } else if (data.fulfillment === "recorded_pending_access") {
+          setMilestone("access", "pending", "Aguardando liberação operacional");
           message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
         } else {
+          setMilestone("access", "pending", "Aguardando o registro do pedido");
           message.textContent = "Seu pagamento foi aprovado e a confirmação do pedido está em andamento. Se ele não aparecer na conta em alguns minutos, abra um chamado.";
         }
         card.dataset.state = "success";
       } else {
+        setMilestone("payment", "pending", "Pagamento ainda em processamento");
         icon.textContent = "…";
         title.textContent = "Pagamento em processamento.";
         message.textContent = "A Stripe ainda está processando o pagamento. Atualize esta página em instantes.";
@@ -1463,7 +1684,7 @@ function initCheckoutSuccess() {
 
 function applyQueryPrefill() {
   const email = new URLSearchParams(window.location.search).get("email");
-  const emailInput = document.querySelector("#email");
+  const emailInput = document.querySelector("#email, #registerEmail, #forgotEmail");
   if (email && emailInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     emailInput.value = email.slice(0, 254);
     document.querySelector("#password")?.focus();
@@ -1483,6 +1704,9 @@ initProductVideo();
 initCart();
 initLogin();
 initRegistration();
+initEmailVerification();
+initForgotPassword();
+initResetPassword();
 initSupportForm();
 initRecommendation();
 initLeadForm();

@@ -124,7 +124,10 @@ test("private commerce and account pages are not indexable", () => {
     "client-dashboard.html",
     "client-login.html",
     "client-register.html",
+    "forgot-password.html",
+    "reset-password.html",
     "success.html",
+    "verify-email.html",
   ]) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
     assert.match(html, /<meta name="robots" content="noindex,(?:no)?follow">/);
@@ -208,7 +211,9 @@ test("recommendation is immediate and optional email capture has separate consen
   assert.match(index, /Ver recomendação sem cadastro/);
   assert.match(index, /id="recommendationResult" hidden/);
   assert.match(index, /id="leadForm" hidden/);
-  assert.match(index, /name="marketingConsent"[^>]*required/);
+  assert.match(index, /name="recommendationConsent"[^>]*required/);
+  assert.match(index, /name="marketingConsent"/);
+  assert.doesNotMatch(index, /name="marketingConsent"[^>]*required/);
   assert.match(index, /Consentimento separado/);
   assert.match(index, /href="\.\/privacy\.html"/);
   assert.match(main, /function initRecommendation\(\)/);
@@ -253,7 +258,8 @@ test("digital delivery and activation promise is consistent through purchase", (
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(main, /link de download e as instruções de ativação/);
   assert.match(server, /link de download e as instruções de ativação/);
-  assert.match(email, /Links de download/);
+  assert.doesNotMatch(email, /Links de download/);
+  assert.match(email, /biblioteca da conta com e-mail verificado/);
   assert.match(email, /em até 4 horas/);
   assert.match(index, /"@type": "FAQPage"[\s\S]*link de download e as instruções de ativação[\s\S]*em até 4 horas/);
 });
@@ -297,12 +303,13 @@ test("product pages and cart disclose the computer-bound digital license", () =>
   assert.match(terms, /licenças ficam vinculadas ao computador usado na ativação/i);
 });
 
-test("storefront identifies the business and preserves the legal refund window", () => {
+test("storefront avoids an unverified legal entity and preserves the legal refund window", () => {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const contact = fs.readFileSync(path.join(root, "contact.html"), "utf8");
   const terms = fs.readFileSync(path.join(root, "terms.html"), "utf8");
-  assert.match(index, /"legalName": "Neural X Inc\."/);
-  assert.match(contact, /Nome empresarial informado: Neural X Inc\./);
+  assert.doesNotMatch(index, /Neural X Inc\./);
+  assert.doesNotMatch(contact, /Neural X Inc\./);
+  assert.match(contact, /identificação legal, fiscal e o endereço do responsável/);
   assert.match(terms, /prazo legal de 7 dias/i);
   assert.match(terms, /responde à solicitação em até 24 horas/i);
   assert.match(terms, /não reduz nenhum direito/i);
@@ -316,6 +323,8 @@ test("Neural DSP page includes an accessible measured video demo", () => {
   assert.match(page, /neural-dsp-comparacao-clean-neural-x\.mp4/);
   assert.match(page, /neural-dsp-comparacao-clean-neural-x-poster\.jpg/);
   assert.match(page, /O vídeo demonstra 3 dos 23 plugins/);
+  assert.match(page, /Alternativa textual da demonstração/);
+  assert.match(page, /O vídeo é instrumental e não contém fala/);
   for (const eventName of ["video_start", "video_half", "video_complete"])
     assert.match(main, new RegExp(`"${eventName}"`));
 });
@@ -327,4 +336,44 @@ test("client dashboard includes a protected MFA disable flow", () => {
   assert.match(dashboard, /id="mfaDisablePassword"/);
   assert.match(dashboard, /id="mfaDisableToken"/);
   assert.match(main, /postJson\("\/api\/mfa\/disable"/);
+});
+
+test("account ownership and product access require verification and paid-order claim", () => {
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const database = fs.readFileSync(path.join(root, "lib/db.js"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  for (const route of [
+    "/api/email-verification/confirm",
+    "/api/password/forgot",
+    "/api/password/reset",
+    "/api/orders/claim",
+    "/api/orders/:orderId/access",
+  ]) assert.match(server, new RegExp(route.replaceAll("/", "\\/")));
+  assert.match(server, /requireVerifiedEmail/);
+  assert.match(server, /WHERE user_id = \$1/);
+  assert.doesNotMatch(server, /FROM orders WHERE buyer_email = \$1/);
+  assert.match(database, /email_verified_at/);
+  assert.match(database, /auth_version/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS account_tokens/);
+  assert.match(database, /CREATE TABLE IF NOT EXISTS email_outbox/);
+  assert.match(main, /order\.access_url/);
+  assert.doesNotMatch(main, /order\.download_url/);
+});
+
+test("post-purchase page exposes four operational milestones", () => {
+  const success = fs.readFileSync(path.join(root, "success.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  for (const id of ["milestonePayment", "milestoneOrder", "milestoneEmail", "milestoneAccess"])
+    assert.match(success, new RegExp(`id="${id}"`));
+  assert.match(main, /emailStatus/);
+  assert.match(main, /PENDING_ORDER_CLAIM_KEY/);
+});
+
+test("the hero tabs implement keyboard and panel relationships", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(index, /role="tabpanel"[^>]*aria-labelledby="heroTabGuitar"/);
+  assert.match(index, /role="tab"[^>]*aria-controls="heroOffer"[^>]*tabindex="-1"/);
+  assert.match(main, /"Home", "End"/);
+  assert.match(main, /event\.key !== "Escape"/);
 });
