@@ -6,6 +6,10 @@ const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
 const GOOGLE_ADS_ID = "AW-10867942652";
 const GOOGLE_ADS_PURCHASE_DESTINATION =
   "AW-10867942652/-P1jCMGH0-YcEPzJnr4o";
+const PAGE_VARIANT =
+  document.body.dataset.pageVariant ||
+  document.documentElement.dataset.pageVariant ||
+  "default";
 let pendingGoogleAdsPurchase = null;
 const ATTRIBUTION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
 const PRODUCTS = Object.freeze({
@@ -208,7 +212,7 @@ function initMeasurementConsent() {
 function trackEvent(name, data = {}) {
   try {
     const safeData = Object.fromEntries(
-      Object.entries(data)
+      Object.entries({ page_variant: PAGE_VARIANT, ...data })
         .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
         .map(([key, value]) => [key.slice(0, 64), typeof value === "string" ? value.slice(0, 255) : value]),
     );
@@ -426,6 +430,12 @@ function initFunnelInteractions() {
   const productId = document.body.dataset.productId;
   const product = PRODUCTS[productId];
   const contentId = document.body.dataset.contentId;
+  if (document.body.dataset.page === "store") {
+    trackEvent("storefront_view", {
+      page_path: window.location.pathname,
+      catalog_size: Object.keys(PRODUCTS).length,
+    });
+  }
   if (product) {
     trackEvent("view_item", {
       product_id: product.id,
