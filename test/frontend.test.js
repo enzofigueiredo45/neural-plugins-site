@@ -162,6 +162,40 @@ test("storefront exposes measurable offers without using HTML prices as checkout
   }
 });
 
+test("the commercial funnel has consistent anonymous dimensions and monetary context", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const cart = fs.readFileSync(path.join(root, "cart.html"), "utf8");
+  const success = fs.readFileSync(path.join(root, "success.html"), "utf8");
+
+  for (const dimension of [
+    "funnel_id",
+    "page_variant",
+    "page_path",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+  ])
+    assert.match(main, new RegExp(`${dimension}:`));
+
+  assert.match(main, /sessionStorage\.getItem\(FUNNEL_ID_KEY\)/);
+  assert.match(main, /sessionStorage\.getItem\(STOREFRONT_VIEW_KEY\)/);
+  assert.match(main, /trackStorefrontViewOnce\(product \? "product" : "store"\)/);
+  assert.match(main, /function trackOfferSelection[\s\S]*?product_name:[\s\S]*?currency: "BRL"[\s\S]*?placement,/);
+  assert.match(main, /trackOfferSelection\([\s\S]*?addToCart\(button\.dataset\.id\)/);
+  assert.match(main, /trackEvent\("add_to_cart", \{[\s\S]*?quantity: 1,[\s\S]*?cartMetrics\(next\)/);
+  assert.match(main, /trackEvent\("begin_checkout", checkoutMetrics\(cart\)\)/);
+  assert.match(main, /trackPurchaseOnce\(sessionId,[\s\S]*?value:[\s\S]*?currency:[\s\S]*?item_count:[\s\S]*?product_ids:/);
+  assert.match(cart, /data-page-variant="studio-editorial-v1"/);
+  assert.match(success, /data-page-variant="studio-editorial-v1"/);
+});
+
+test("purchase measurement is server-confirmed and deduplicated by Stripe session", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(main, /fetch\(`\/api\/checkout-session\?session_id=/);
+  assert.match(main, /if \(data\.paymentStatus === "paid"\)/);
+  assert.match(main, /if \(!sessions\.includes\(sessionId\)\) \{\s*trackEvent\("purchase", data\)/);
+});
+
 test("lead capture is explicit, consented and connected to the privacy policy", () => {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   const privacy = fs.readFileSync(path.join(root, "privacy.html"), "utf8");
