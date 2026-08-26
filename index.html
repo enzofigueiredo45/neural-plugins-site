@@ -56,7 +56,7 @@
           {
             "@type": "FAQPage",
             "mainEntity": [
-              { "@type": "Question", "name": "Como recebo meu produto?", "acceptedAnswer": { "@type": "Answer", "text": "Após a confirmação do pagamento pela Stripe, o pedido é vinculado ao e-mail usado no checkout. A liberação pode ser automática ou acompanhada pelo suporte e fica visível na área do cliente." } },
+              { "@type": "Question", "name": "Como recebo meu produto?", "acceptedAnswer": { "@type": "Answer", "text": "Após a confirmação do pagamento pela Stripe, o link de download e as instruções de ativação são enviados ao e-mail usado no checkout em até 4 horas." } },
               { "@type": "Question", "name": "O pagamento é seguro?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O pagamento é processado pela Stripe e os dados completos do cartão não são armazenados pela Neural X." } },
               { "@type": "Question", "name": "Como acesso minhas compras?", "acceptedAnswer": { "@type": "Answer", "text": "Crie uma conta usando o mesmo e-mail informado no pagamento e entre na área do cliente." } }
               ,{ "@type": "Question", "name": "Como funcionam cancelamento e reembolso?", "acceptedAnswer": { "@type": "Answer", "text": "Solicitações recebem resposta em até 24 horas. Quando o reembolso for devido, a Neural X inicia o estorno em até 24 horas, sem limitar o direito legal de arrependimento de 7 dias para compras online." } }
@@ -68,7 +68,7 @@
   </head>
   <body data-page="store" data-page-variant="studio-editorial-v1">
     <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-    <div class="promo-bar">Checkout Stripe · suporte com resposta em até 24h · compra online com direito de arrependimento</div>
+    <div class="promo-bar">Entrega digital por e-mail em até 4h · ativação simples · checkout Stripe</div>
     <header class="site-header">
       <div class="header-inner">
         <a class="brand" href="./index.html" aria-label="Neural X — início">
@@ -94,34 +94,43 @@
     <main id="conteudo">
       <section class="container hero">
         <div class="hero-copy">
-          <p class="eyebrow">Loja para músicos · catálogo 2026</p>
-          <h1>Plugins e DAWs para <em>criar sem comprar no escuro.</em></h1>
-          <p class="lead">Veja o que cada produto faz, em quais sistemas roda e como a licença é ativada. Escolha por tarefa — guitarra, beats ou gravação — e finalize pela Stripe.</p>
-          <div class="button-row">
-            <a class="button primary" href="#produtos" data-content-cta="catalog" data-content-id="homepage" data-placement="hero">Comparar os 3 produtos</a>
-            <a class="button secondary" href="./produto-neural-x.html#demonstracao" data-offer-select="neural-x" data-placement="hero_demo">Ouvir demonstração</a>
+          <p class="eyebrow">Escolha pelo que você quer produzir</p>
+          <h1>Comece pelo seu <em>próximo som.</em></h1>
+          <p class="lead">Selecione uma tarefa. A vitrine muda na hora para mostrar a ferramenta, o preço e a demonstração mais úteis para você.</p>
+          <div class="hero-selector" role="tablist" aria-label="Escolha seu objetivo musical">
+            <button class="hero-selector-button" type="button" role="tab" aria-selected="true" data-hero-choice="guitar">Guitarra</button>
+            <button class="hero-selector-button" type="button" role="tab" aria-selected="false" data-hero-choice="beats">Beats</button>
+            <button class="hero-selector-button" type="button" role="tab" aria-selected="false" data-hero-choice="recording">Gravação</button>
           </div>
           <dl class="hero-facts" aria-label="Informações rápidas da loja">
-            <div><dt>Catálogo</dt><dd>3 escolhas objetivas</dd></div>
-            <div><dt>Antes de pagar</dt><dd>Requisitos e ativação visíveis</dd></div>
-            <div><dt>Depois da compra</dt><dd>Pedido na área do cliente</dd></div>
+            <div><dt>Entrega</dt><dd>Digital por e-mail em até 4h</dd></div>
+            <div><dt>Ativação</dt><dd>Simples e vinculada ao computador</dd></div>
+            <div><dt>Pagamento</dt><dd>Checkout seguro pela Stripe</dd></div>
           </dl>
         </div>
-        <figure class="hero-visual home-product-showcase">
-          <div class="home-showcase-grid">
-            <img class="home-showcase-featured" src="./assets/neural-dsp/archetype-john-mayer-x.png" width="550" height="311" alt="Interface real do plugin Archetype: John Mayer X" fetchpriority="high">
-            <img src="./assets/neural-dsp/archetype-gojira-x.png" width="550" height="311" alt="Interface real do plugin Archetype: Gojira X" loading="lazy" decoding="async">
-            <img src="./assets/neural-dsp/archetype-petrucci-x.png" width="550" height="311" alt="Interface real do plugin Archetype: Petrucci X" loading="lazy" decoding="async">
+        <article class="hero-visual hero-offer" id="heroOffer" aria-live="polite">
+          <div class="hero-offer-meter" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <figure class="hero-offer-media">
+            <img id="heroProductImage" src="./assets/neural-dsp/archetype-john-mayer-x.png" width="900" height="508" alt="Interface do plugin Archetype: John Mayer X" fetchpriority="high">
+          </figure>
+          <div class="hero-offer-body">
+            <p class="hero-offer-kicker" id="heroProductKicker">Guitarra, baixo e voz</p>
+            <div class="hero-offer-heading"><h2 id="heroProductName">Coleção Neural DSP</h2><strong id="heroProductPrice" data-product-price="neural-x">R$ 29,90</strong></div>
+            <p id="heroProductDescription">23 plugins para construir timbres, gravar instrumentos e processar voz em Windows ou macOS.</p>
+            <div class="hero-demo-line"><span class="signal-led" aria-hidden="true"></span><a id="heroDemoLink" href="./produto-neural-x.html#demonstracao" data-offer-select="neural-x" data-placement="hero_demo">Ouvir três timbres clean</a></div>
+            <div class="button-row">
+              <a class="button secondary" id="heroProductLink" href="./produto-neural-x.html" data-offer-select="neural-x" data-placement="hero_selector">Ver produto</a>
+              <button class="button primary add-cart" id="heroAddButton" type="button" data-id="neural-x">Adicionar ao carrinho</button>
+            </div>
           </div>
-          <figcaption class="floating-label"><strong>Produto em primeiro plano</strong><small>Interfaces e conteúdo identificados antes da compra.</small></figcaption>
-        </figure>
+        </article>
       </section>
 
-      <section class="trust-row" aria-label="O que você sabe antes e depois da compra">
-        <div class="trust-item"><span class="trust-index" aria-hidden="true">01</span><div><strong>Compatibilidade clara</strong><small>Sistema, edição e ativação em cada produto.</small></div></div>
-        <div class="trust-item"><span class="trust-index" aria-hidden="true">02</span><div><strong>Checkout pela Stripe</strong><small>Dados completos do cartão não ficam na Neural X.</small></div></div>
-        <div class="trust-item"><span class="trust-index" aria-hidden="true">03</span><div><strong>Pedido acompanhado</strong><small>Status e acesso reunidos na área do cliente.</small></div></div>
-        <div class="trust-item"><span class="trust-index" aria-hidden="true">04</span><div><strong>Suporte em português</strong><small>Resposta em até 24 horas para sua solicitação.</small></div></div>
+      <section class="trust-row studio-signal-strip" aria-label="Condições técnicas da compra">
+        <div class="trust-item"><span class="signal-led" aria-hidden="true"></span><div><small>Compatibilidade</small><strong>Sistema e edição visíveis</strong></div></div>
+        <div class="trust-item"><span class="signal-led" aria-hidden="true"></span><div><small>Pagamento</small><strong>Checkout pela Stripe</strong></div></div>
+        <div class="trust-item"><span class="signal-led" aria-hidden="true"></span><div><small>Entrega digital</small><strong>Link por e-mail em até 4h</strong></div></div>
+        <div class="trust-item"><span class="signal-led" aria-hidden="true"></span><div><small>Licença</small><strong>Ativação simples no computador</strong></div></div>
       </section>
 
       <section class="section" id="produtos" aria-labelledby="produtos-title">
@@ -219,7 +228,7 @@
           <div class="step-grid">
             <article class="step-card"><span class="step-number">01</span><h3>Escolha</h3><p>Compare os detalhes, compatibilidade e recursos de cada produto.</p></article>
             <article class="step-card"><span class="step-number">02</span><h3>Pague</h3><p>Finalize em um checkout da Stripe. A Neural X não armazena os dados completos do cartão.</p></article>
-            <article class="step-card"><span class="step-number">03</span><h3>Acompanhe</h3><p>Use o e-mail da compra para ver o status e o acesso na área do cliente. Se a liberação for assistida, o suporte orienta o próximo passo.</p></article>
+            <article class="step-card"><span class="step-number">03</span><h3>Receba e ative</h3><p>O link de download e as instruções chegam no e-mail da compra em até 4 horas. Siga o passo a passo para vincular a licença ao computador.</p></article>
           </div>
         </div>
       </section>
@@ -248,16 +257,36 @@
             <p class="lead">Escolha o que você quer produzir e veja a opção mais próxima do seu objetivo. Para confirmar requisitos, envie seu sistema e versão ao suporte antes de pagar.</p>
             <div class="button-row"><a class="button secondary" href="./contact.html?assunto=compatibilidade" data-content-cta="support" data-content-id="homepage" data-placement="decision_help">Confirmar compatibilidade</a><a class="button secondary" href="./checklist-software-musical.html" data-content-cta="checklist" data-content-id="homepage" data-placement="decision_help">Abrir checklist</a></div>
           </div>
-          <form class="form-card lead-form decision-help-card" id="leadForm" novalidate>
-            <p class="decision-label">Recomendação por objetivo</p>
-            <div class="field-group"><label for="leadName">Primeiro nome</label><input id="leadName" name="name" type="text" autocomplete="given-name" minlength="2" maxlength="80" required placeholder="Como podemos chamar você?"></div>
-            <div class="field-group"><label for="leadEmail">E-mail</label><input id="leadEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com"></div>
-            <div class="field-group"><label for="leadInterest">O que você quer fazer?</label><select id="leadInterest" name="interest" required><option value="">Escolha um objetivo</option><option value="guitar">Gravar guitarra, baixo ou voz</option><option value="beats">Criar beats e arranjos</option><option value="recording">Gravar e mixar multipista</option><option value="compare">Comparar as três opções</option></select></div>
-            <label class="consent"><input name="marketingConsent" type="checkbox" required><span>Quero receber esta recomendação, conteúdos e ofertas da Neural X. Li a <a href="./privacy.html">política de privacidade</a>.</span></label>
-            <p class="form-message" id="leadMessage" role="status" aria-live="polite"></p>
-            <button class="button primary" type="submit">Ver minha recomendação</button>
-            <small class="lead-privacy-note">Sem listas compradas. Você pode cancelar quando quiser.</small>
-          </form>
+          <div class="form-card decision-help-card recommendation-card">
+            <form class="recommendation-form" id="recommendationForm" novalidate>
+              <p class="decision-label">Recomendação por objetivo</p>
+              <fieldset class="recommendation-choices"><legend>O que você quer fazer?</legend>
+                <label><input type="radio" name="recommendationInterest" value="guitar" required><span>Gravar guitarra, baixo ou voz</span></label>
+                <label><input type="radio" name="recommendationInterest" value="beats"><span>Criar beats e arranjos</span></label>
+                <label><input type="radio" name="recommendationInterest" value="recording"><span>Gravar e mixar multipista</span></label>
+                <label><input type="radio" name="recommendationInterest" value="compare"><span>Comparar as três opções</span></label>
+              </fieldset>
+              <button class="button primary" type="submit">Ver recomendação sem cadastro</button>
+            </form>
+            <section class="recommendation-result" id="recommendationResult" hidden aria-live="polite">
+              <p class="decision-label">Sua recomendação</p>
+              <p class="recommendation-match" id="recommendationMatch"></p>
+              <h3 id="recommendationName"></h3>
+              <p id="recommendationReason"></p>
+              <div class="button-row"><a class="button primary" id="recommendationLink" href="#produtos">Conhecer produto</a><button class="button ghost" id="changeRecommendation" type="button">Mudar objetivo</button></div>
+              <form class="lead-form recommendation-email" id="leadForm" hidden novalidate>
+                <input id="leadInterest" name="interest" type="hidden">
+                <p><strong>Quer guardar a recomendação?</strong><br><small>O envio por e-mail e os conteúdos são opcionais. Seu resultado acima não depende disso.</small></p>
+                <div class="field-group"><label for="leadName">Primeiro nome</label><input id="leadName" name="name" type="text" autocomplete="given-name" minlength="2" maxlength="80" required placeholder="Como podemos chamar você?"></div>
+                <div class="field-group"><label for="leadEmail">E-mail</label><input id="leadEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com"></div>
+                <label class="consent"><input name="marketingConsent" type="checkbox" required><span>Quero receber esta recomendação, conteúdos e ofertas da Neural X. Li a <a href="./privacy.html">política de privacidade</a>.</span></label>
+                <p class="form-message" id="leadMessage" role="status" aria-live="polite"></p>
+                <button class="button secondary" type="submit">Enviar recomendação por e-mail</button>
+                <small class="lead-privacy-note">Consentimento separado. Cancele quando quiser.</small>
+              </form>
+              <button class="recommendation-email-toggle" id="showRecommendationEmail" type="button">Receber por e-mail e conteúdos opcionais</button>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -265,7 +294,8 @@
         <div class="container">
           <div class="section-heading centered"><p class="eyebrow">Antes de comprar</p><h2 id="faq-title">Dúvidas frequentes.</h2></div>
           <div class="faq-list">
-            <details><summary>Como recebo meu produto?</summary><p>Depois que a Stripe confirmar o pagamento, o pedido é vinculado ao e-mail informado no checkout. A liberação pode ser automática ou acompanhada pelo suporte; use o mesmo e-mail na área do cliente para ver o status.</p></details>
+            <details><summary>Como recebo meu produto?</summary><p>Depois que a Stripe confirmar o pagamento, enviamos o link de download e as instruções de ativação ao e-mail informado no checkout em até 4 horas. Use esse mesmo endereço para acompanhar o pedido na área do cliente.</p></details>
+            <details><summary>Como funciona a ativação?</summary><p>Você recebe um passo a passo simples junto do link de download. A licença digital fica vinculada ao computador usado na ativação.</p></details>
             <details><summary>O pagamento é seguro?</summary><p>O checkout é processado pela Stripe. Os dados completos do cartão não passam nem ficam armazenados nos servidores da Neural X.</p></details>
             <details><summary>Funciona no meu computador?</summary><p>Consulte a compatibilidade e os requisitos na página de cada produto antes da compra. Em caso de dúvida, fale com o suporte.</p></details>
             <details><summary>Como entro na área do cliente?</summary><p>Use “Criar conta” e cadastre o mesmo e-mail utilizado no pagamento. Depois, seus pedidos aparecem na biblioteca assim que forem confirmados.</p></details>
