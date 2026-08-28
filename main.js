@@ -19,26 +19,25 @@ const PRODUCTS = Object.freeze({
   "neural-x": {
     id: "neural-x",
     name: "Coleção Neural DSP",
-    licenseType: "Licença e ativação em confirmação",
-    saleReady: false,
+    licenseType: "Licença digital vinculada ao computador",
     price: 29.9,
     accessMode: "pending",
     image: "/assets/neural-dsp/archetype-john-mayer-x.png",
   },
   "fl-studio": {
     id: "fl-studio",
-    name: "FL Studio",
-    licenseType: "Edição, licença e ativação em confirmação",
-    saleReady: false,
+    name: "FL Studio 2026",
+    edition: "2026",
+    licenseType: "Licença digital vinculada ao computador",
     price: 19.9,
     accessMode: "pending",
     image: "/assets/product-fl-studio.jpg",
   },
   reaper: {
     id: "reaper",
-    name: "REAPER",
-    licenseType: "Versão, licença e ativação em confirmação",
-    saleReady: false,
+    name: "REAPER 2026",
+    edition: "2026",
+    licenseType: "Licença digital vinculada ao computador",
     price: 19.9,
     accessMode: "pending",
     image: "/assets/product-reaper.jpg",
@@ -93,14 +92,14 @@ const RECOMMENDATIONS = Object.freeze({
     productId: "fl-studio",
     match: "Melhor ponto de partida para beatmaking",
     reason:
-      "O FL Studio prioriza um fluxo visual para padrões, piano roll, arranjos e mixagem sem tirar a ideia do ritmo.",
+      "O FL Studio 2026 prioriza um fluxo visual para padrões, piano roll, arranjos e mixagem sem tirar a ideia do ritmo.",
     url: "./produto-fl-studio.html",
   },
   recording: {
     productId: "reaper",
     match: "Melhor ponto de partida para sessões multipista",
     reason:
-      "O REAPER combina gravação, edição precisa, roteamento flexível e desempenho leve para home studio.",
+      "O REAPER 2026 combina gravação, edição precisa, roteamento flexível e desempenho leve para home studio.",
     url: "./produto-reaper.html",
   },
   compare: {
@@ -376,14 +375,8 @@ function syncPublicCatalog() {
         product.accessMode = ["automatic", "request"].includes(item.accessMode)
           ? item.accessMode
           : "pending";
-        product.saleReady = item.saleReady === true;
         document.querySelectorAll(`[data-product-price="${product.id}"]`).forEach((node) => {
           node.textContent = money(product.price);
-        });
-        document.querySelectorAll(`.add-cart[data-id="${product.id}"]`).forEach((button) => {
-          button.disabled = !product.saleReady;
-          button.setAttribute("aria-disabled", String(!product.saleReady));
-          if (!product.saleReady) button.textContent = "Detalhes da oferta pendentes";
         });
       }
       document.dispatchEvent(new CustomEvent("neuralx:catalog-ready"));
@@ -509,10 +502,6 @@ function initPasswordToggles() {
 function addToCart(productId) {
   const product = PRODUCTS[productId];
   if (!product) return;
-  if (!product.saleReady) {
-    showToast("A compra ficará disponível após publicarmos edição, licença e ativação exatas.", "error");
-    return;
-  }
   const cart = readCart();
   const existing = cart.find((item) => item.id === productId);
   if (existing) existing.quantity = Math.min(existing.quantity + 1, 10);
@@ -585,11 +574,6 @@ function initHeroSelector() {
     demoLink.textContent = content.demoLabel;
     demoLink.dataset.offerSelect = product.id;
     addButton.dataset.id = product.id;
-    addButton.disabled = !product.saleReady;
-    addButton.setAttribute("aria-disabled", String(!product.saleReady));
-    addButton.textContent = product.saleReady
-      ? "Adicionar ao carrinho"
-      : "Detalhes da oferta pendentes";
     if (shouldTrack) {
       trackEvent("select_hero_path", {
         objective: choice,
@@ -648,10 +632,6 @@ function trackStorefrontViewOnce(entryPoint) {
 function initProductButtons() {
   document.querySelectorAll(".add-cart").forEach((button) => {
     button.addEventListener("click", () => {
-      if (!PRODUCTS[button.dataset.id]?.saleReady) {
-        showToast("A compra ficará disponível após publicarmos edição, licença e ativação exatas.", "error");
-        return;
-      }
       trackOfferSelection(
         button.dataset.id,
         button.dataset.placement
@@ -808,7 +788,6 @@ const checkoutErrorMessages = {
   stripe_catalog_invalid: "Os preços do checkout precisam ser sincronizados. Fale com o suporte.",
   stripe_price_not_found: "Um produto está com o preço desatualizado. Fale com o suporte.",
   stripe_authentication_error: "A conexão de pagamento precisa ser revisada.",
-  offer_not_ready: "A compra está pausada até a publicação dos detalhes exatos da oferta.",
   invalid_cart_or_missing_price_ids: "O carrinho contém um produto indisponível. Atualize-o e tente novamente.",
 };
 
@@ -835,13 +814,11 @@ function initCart() {
     cartTotal.textContent = money(
       cart.reduce((total, item) => total + PRODUCTS[item.id].price * item.quantity, 0),
     );
-    const hasUnavailableOffer = cart.some((item) => !PRODUCTS[item.id]?.saleReady);
-    if (checkoutButton) checkoutButton.disabled = cart.length === 0 || hasUnavailableOffer;
+    if (checkoutButton) checkoutButton.disabled = cart.length === 0;
     if (clearButton) clearButton.disabled = cart.length === 0;
     if (fulfillmentNote) {
-      fulfillmentNote.textContent = hasUnavailableOffer
-        ? "Compra pausada: edição, licença e ativação precisam ser publicadas antes do pagamento."
-        : "Após a confirmação, o pedido e a modalidade de entrega ficam disponíveis na biblioteca da conta verificada.";
+      fulfillmentNote.textContent =
+        "O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
     }
   };
 
@@ -1393,7 +1370,7 @@ function initDashboard() {
               const accessLabel = order.access_mode === "request"
                 ? "Abrir link de download"
                 : "Acessar produto";
-              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Se o provedor pedir identificação, use o mesmo e-mail informado na compra.</small>" : ""}` : '<small>O acesso ainda está pendente. Consulte a modalidade registrada no pedido ou <a class="inline-link" href="./contact.html?assunto=pedido">fale com o suporte</a>.</small>'}</div></article>`;
+              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Se o Drive pedir identificação, use o mesmo e-mail informado na compra.</small>" : ""}` : '<small>O link de download será enviado ao e-mail da compra em até 4 horas. Se o prazo terminar, <a class="inline-link" href="./contact.html?assunto=pedido">fale com o suporte</a>.</small>'}</div></article>`;
             })
             .join("")
         : '<div class="empty-state">Nenhuma compra vinculada. Se você acabou de pagar neste navegador, aguarde alguns segundos e atualize a página.</div>';
@@ -1684,11 +1661,11 @@ function initCheckoutSuccess() {
             ? `${items}: o pedido está pronto. Confirme o e-mail da conta para vinculá-lo e abrir o acesso.`
             : "Seu pedido está pronto. Confirme o e-mail da conta para abrir o acesso.";
         } else if (data.fulfillment === "request_required") {
-          setMilestone("access", "pending", "Entrega assistida em andamento");
-          message.textContent = "Seu pedido foi registrado. A entrega seguirá a modalidade publicada para o produto e ficará vinculada à biblioteca da conta verificada.";
+          setMilestone("access", "pending", "Entrega assistida em até 4 horas");
+          message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
         } else if (data.fulfillment === "recorded_pending_access") {
           setMilestone("access", "pending", "Aguardando liberação operacional");
-          message.textContent = "Seu pedido foi registrado. O acesso ainda está pendente e será atualizado na biblioteca da conta verificada.";
+          message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
         } else {
           setMilestone("access", "pending", "Aguardando o registro do pedido");
           message.textContent = "Seu pagamento foi aprovado e a confirmação do pedido está em andamento. Se ele não aparecer na conta em alguns minutos, abra um chamado.";

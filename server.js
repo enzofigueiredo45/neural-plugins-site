@@ -539,16 +539,11 @@ app.get("/robots.txt", (req, res) => {
 });
 
 app.get("/sitemap.xml", (req, res) => {
+  const lastmod = new Date().toISOString().slice(0, 10);
   const urls = indexablePages
     .map(
-      (page) => {
-        const pageFile = page.path === "/" ? "index.html" : page.path.replace(/^\//, "");
-        let lastmod = "";
-        try {
-          lastmod = fs.statSync(path.join(root, pageFile)).mtime.toISOString().slice(0, 10);
-        } catch {}
-        return `  <url><loc>${xmlEscape(canonicalUrl + page.path)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>${page.changefreq}</changefreq><priority>${page.priority}</priority>${(page.images || []).map((image) => `<image:image><image:loc>${xmlEscape(canonicalUrl + image)}</image:loc></image:image>`).join("")}</url>`;
-      },
+      (page) =>
+        `  <url><loc>${xmlEscape(canonicalUrl + page.path)}</loc><lastmod>${lastmod}</lastmod><changefreq>${page.changefreq}</changefreq><priority>${page.priority}</priority>${(page.images || []).map((image) => `<image:image><image:loc>${xmlEscape(canonicalUrl + image)}</image:loc></image:image>`).join("")}</url>`,
     )
     .join("\n");
   res
@@ -726,13 +721,13 @@ const leadInterests = new Map([
   }],
   ["beats", {
     id: "fl-studio",
-    name: "FL Studio",
+    name: "FL Studio 2026",
     url: "/produto-fl-studio.html",
     reason: "Um fluxo visual para padrões, piano roll, arranjos e mixagem sem tirar a ideia do ritmo.",
   }],
   ["recording", {
     id: "reaper",
-    name: "REAPER",
+    name: "REAPER 2026",
     url: "/produto-reaper.html",
     reason: "Gravação, edição precisa, roteamento flexível e desempenho leve para home studio.",
   }],
@@ -961,8 +956,7 @@ function decryptMfaSecret(value) {
 
 function getOrderAccessStatus(product) {
   if (product.accessMode === "automatic") return "Acesso liberado";
-  if (product.accessMode === "request") return "Pagamento confirmado · entrega assistida";
-  return "Pagamento confirmado · acesso pendente";
+  return "Pagamento confirmado · entrega por e-mail em até 4h";
 }
 
 async function resolveCheckoutUserId(checkout, buyerEmail) {
@@ -1912,13 +1906,6 @@ app.post(
       })
       .filter(Boolean);
 
-    if (cart.some((item) => !catalog[item?.id]?.saleReady))
-      return res.status(409).json({
-        ok: false,
-        error: "offer_not_ready",
-        requestId: req.requestId,
-      });
-
     if (!lineItems.length || lineItems.length !== cart.length)
       return res.status(400).json({
         ok: false,
@@ -1947,14 +1934,14 @@ app.post(
           after_expiration: { recovery: { enabled: true } },
           custom_text: {
             submit: {
-              message: "Use um e-mail que você acessa. Após o pagamento, o pedido e a modalidade de entrega ficam disponíveis na biblioteca da conta verificada.",
+              message: "Use um e-mail que você acessa. O link de download e as instruções de ativação serão enviados a esse endereço em até 4 horas. A licença digital fica vinculada ao computador usado na ativação.",
             },
           },
           metadata: {
             source: "neural-x-site",
-            catalog_version: "2026-08-26",
-            terms_version: "2026-08-26",
-            privacy_version: "2026-08-26",
+            catalog_version: "2026-08-23",
+            license_type: "digital",
+            device_binding: "computer",
             cart: JSON.stringify(
               cart.map(({ id, quantity }) => ({ id, quantity })),
             ),
@@ -2132,9 +2119,6 @@ app.get(
       },
       operations: {
         pendingEmailJobs,
-        commercialSalesReady: Object.values(getProductCatalog()).every(
-          (product) => product.saleReady,
-        ),
       },
       configuration: {
         valid: runtimeConfig.errors.length === 0,

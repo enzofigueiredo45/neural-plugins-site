@@ -37,7 +37,6 @@ test("reports missing production configuration by variable name only", () => {
     "EMAIL_FROM",
     "EMAIL_SUPPORT_TO",
     "CRON_SECRET",
-    "COMMERCIAL_SALES_ENABLED",
   ]);
 });
 
@@ -62,7 +61,6 @@ test("accepts a complete production configuration", () => {
       EMAIL_FROM: "Neural X <hello@example.com>",
       EMAIL_SUPPORT_TO: "support@example.com",
       CRON_SECRET: "c".repeat(48),
-      COMMERCIAL_SALES_ENABLED: "true",
     },
     true,
   );
@@ -107,7 +105,6 @@ test("allows an isolated Stripe test key on Vercel previews", () => {
       EMAIL_FROM: "Neural X <hello@example.com>",
       EMAIL_SUPPORT_TO: "support@example.com",
       CRON_SECRET: "c".repeat(48),
-      COMMERCIAL_SALES_ENABLED: "true",
     },
     true,
   );
@@ -156,7 +153,6 @@ test("validates requested access mode", () => {
     EMAIL_FROM: "Neural X <hello@example.com>",
     EMAIL_SUPPORT_TO: "support@example.com",
     CRON_SECRET: "c".repeat(48),
-    COMMERCIAL_SALES_ENABLED: "true",
   };
   assert.deepEqual(
     validateRuntimeConfig(
