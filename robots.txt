@@ -7,4 +7,4 @@ Disallow: /cart.html
 Disallow: /success.html
 Disallow: /api/
 
-Sitemap: https://neural-plugins-site.vercel.app/sitemap.xml
+Sitemap: https://neuralxplugins.com.br/sitemap.xml

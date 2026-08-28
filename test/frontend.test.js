@@ -65,14 +65,14 @@ test("Google discovery files cover every public page and product image", () => {
     "/privacy.html",
     "/terms.html",
   ])
-    assert.match(sitemap, new RegExp(`<loc>https://neural-plugins-site\\.vercel\\.app${page.replace("/", "\\/")}`));
+    assert.match(sitemap, new RegExp(`<loc>https://neuralxplugins\\.com\\.br${page.replace("/", "\\/")}`));
   for (const image of [
     "archetype-john-mayer-x.png",
     "product-fl-studio.jpg",
     "product-reaper.jpg",
   ])
     assert.match(sitemap, new RegExp(`<image:loc>[^<]+${image}</image:loc>`));
-  assert.match(robots, /Sitemap: https:\/\/neural-plugins-site\.vercel\.app\/sitemap\.xml/);
+  assert.match(robots, /Sitemap: https:\/\/neuralxplugins\.com\.br\/sitemap\.xml/);
   assert.equal(
     verification.trim(),
     "google-site-verification: googleab9c8b948f79ec49.html",
@@ -88,7 +88,7 @@ test("guide pages are indexable, canonical and publish valid article data", () =
   for (const file of guides) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
     assert.match(html, /<meta name="robots" content="index,follow/);
-    assert.match(html, new RegExp(`<link rel="canonical" href="https://neural-plugins-site\\.vercel\\.app/${file}"`));
+    assert.match(html, new RegExp(`<link rel="canonical" href="https://neuralxplugins\\.com\\.br/${file}"`));
     assert.match(html, /<h1>[^<]+<\/h1>/);
     assert.match(html, /"@type":\s*"Article"/);
     assert.match(html, /data-content-id="[^"]+"/);
