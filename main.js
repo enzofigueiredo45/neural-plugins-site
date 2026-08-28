@@ -6,6 +6,7 @@ const PURCHASE_TRACKING_KEY = "neuralx_tracked_purchases";
 const GOOGLE_ADS_PURCHASE_TRACKING_KEY = "neuralx_google_ads_purchases";
 const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
 const GOOGLE_ADS_ID = "AW-10867942652";
+const GOOGLE_ANALYTICS_ID = "G-JY83B1EM8L";
 const GOOGLE_ADS_PURCHASE_DESTINATION =
   "AW-10867942652/-P1jCMGH0-YcEPzJnr4o";
 const PAGE_VARIANT =
@@ -162,8 +163,16 @@ function initAnalytics() {
   document.head.append(script);
 }
 
-function loadGoogleAdsTag() {
-  if (window.__neuralxGoogleAdsLoaded) return;
+function loadGoogleMeasurementTag() {
+  if (window.__neuralxGoogleAdsLoaded) {
+    window.gtag?.("consent", "update", {
+      ad_storage: "granted",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+      analytics_storage: "granted",
+    });
+    return;
+  }
   window.__neuralxGoogleAdsLoaded = true;
   window.dataLayer = window.dataLayer || [];
   window.gtag =
@@ -175,15 +184,16 @@ function loadGoogleAdsTag() {
     ad_storage: "granted",
     ad_user_data: "denied",
     ad_personalization: "denied",
-    analytics_storage: "denied",
+    analytics_storage: "granted",
   });
   window.gtag("js", new Date());
   window.gtag("config", GOOGLE_ADS_ID);
+  window.gtag("config", GOOGLE_ANALYTICS_ID, { send_page_view: true });
   if (document.querySelector('script[data-google-ads-tag="true"]')) return;
   const script = document.createElement("script");
   script.async = true;
   script.dataset.googleAdsTag = "true";
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GOOGLE_ADS_ID)}`;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GOOGLE_ANALYTICS_ID)}`;
   document.head.append(script);
 }
 
@@ -209,11 +219,11 @@ function showMeasurementConsent() {
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Preferências de medição");
   panel.innerHTML = `
-    <div><strong>Medição de anúncios</strong><p>Com sua permissão, usamos a tag do Google Ads para atribuir compras aos anúncios. Não enviamos seu e-mail ao Google.</p><a href="./privacy.html">Ver política de privacidade</a></div>
+    <div><strong>Medição e anúncios</strong><p>Com sua permissão, usamos o Google Analytics para entender o funil e a tag do Google Ads para atribuir compras. Não enviamos seu e-mail ao Google.</p><a href="./privacy.html">Ver política de privacidade</a></div>
     <div class="measurement-consent-actions"><button class="button primary compact" type="button" data-measurement-accept>Aceitar medição</button><button class="button ghost compact" type="button" data-measurement-essential>Somente essenciais</button></div>`;
   panel.querySelector("[data-measurement-accept]")?.addEventListener("click", () => {
     setMeasurementConsent("granted");
-    loadGoogleAdsTag();
+    loadGoogleMeasurementTag();
     if (pendingGoogleAdsPurchase) {
       const { sessionId, data } = pendingGoogleAdsPurchase;
       trackGoogleAdsPurchaseOnce(sessionId, data);
@@ -247,7 +257,7 @@ function trackGoogleAdsPurchaseOnce(sessionId, data) {
       ? tracked.filter((value) => typeof value === "string")
       : [];
     if (sessions.includes(sessionId)) return;
-    loadGoogleAdsTag();
+    loadGoogleMeasurementTag();
     window.gtag("event", "conversion", {
       send_to: GOOGLE_ADS_PURCHASE_DESTINATION,
       value: Number(data.value || 0),
@@ -264,7 +274,7 @@ function trackGoogleAdsPurchaseOnce(sessionId, data) {
 
 function initMeasurementConsent() {
   const consent = getMeasurementConsent();
-  if (consent === "granted") loadGoogleAdsTag();
+  if (consent === "granted") loadGoogleMeasurementTag();
   else if (consent !== "denied") showMeasurementConsent();
   document
     .querySelector("[data-reset-measurement-consent]")
@@ -299,6 +309,27 @@ function trackEvent(name, data = {}) {
         .map(([key, value]) => [key.slice(0, 64), typeof value === "string" ? value.slice(0, 255) : value]),
     );
     window.va?.("event", { name: String(name).slice(0, 64), data: safeData });
+    if (getMeasurementConsent() === "granted") {
+      loadGoogleMeasurementTag();
+      const items = Array.isArray(data.items)
+        ? data.items.slice(0, 10).map((item) =>
+            Object.fromEntries(
+              Object.entries(item || {})
+                .filter(([, value]) =>
+                  ["string", "number", "boolean"].includes(typeof value),
+                )
+                .map(([key, value]) => [
+                  key.slice(0, 64),
+                  typeof value === "string" ? value.slice(0, 255) : value,
+                ]),
+            ),
+          )
+        : undefined;
+      window.gtag?.("event", String(name).slice(0, 40), {
+        ...safeData,
+        ...(items?.length ? { items } : {}),
+      });
+    }
   } catch {}
 }
 
@@ -396,6 +427,12 @@ function cartMetrics(cart = readCart()) {
     currency: "BRL",
     item_count: cart.reduce((total, item) => total + item.quantity, 0),
     product_ids: cart.map((item) => item.id).join(","),
+    items: cart.map((item) => ({
+      item_id: item.id,
+      item_name: PRODUCTS[item.id].name,
+      price: PRODUCTS[item.id].price,
+      quantity: item.quantity,
+    })),
   };
 }
 
@@ -513,6 +550,12 @@ function addToCart(productId) {
     currency: "BRL",
     quantity: 1,
     ...cartMetrics(next),
+    items: [{
+      item_id: product.id,
+      item_name: product.name,
+      price: product.price,
+      quantity: 1,
+    }],
   });
 }
 
@@ -645,6 +688,12 @@ function initFunnelInteractions() {
       product_name: product.name,
       value: product.price,
       currency: "BRL",
+      items: [{
+        item_id: product.id,
+        item_name: product.name,
+        price: product.price,
+        quantity: 1,
+      }],
     });
   }
   if (contentId) {
@@ -926,6 +975,12 @@ function initCart() {
         });
         window.location.assign(data.url);
       } catch (error) {
+        trackEvent("checkout_error", {
+          ...checkoutMetrics(cart),
+          payment_provider: "mercado_pago",
+          payment_method: "pix",
+          error_code: String(error.message || "mercado_pago_error").slice(0, 80),
+        });
         const message =
           checkoutErrorMessages[error.message] ||
           "Não foi possível abrir o Mercado Pago agora. Tente novamente.";
@@ -956,7 +1011,11 @@ function initCart() {
     if (!cart.length) return;
     const label = checkoutButton.querySelector(".checkout-button-label");
     try {
-      trackEvent("begin_checkout", checkoutMetrics(cart));
+      trackEvent("begin_checkout", {
+        ...checkoutMetrics(cart),
+        payment_provider: "stripe",
+        payment_method: "dynamic",
+      });
       checkoutButton.disabled = true;
       checkoutButton.classList.add("is-loading");
       if (label) label.textContent = "Abrindo checkout…";
@@ -967,9 +1026,19 @@ function initCart() {
         attribution: readAttribution(),
       });
       if (!response.ok || !data.url) throw new Error(data.error || "checkout_error");
-      trackEvent("checkout_created", checkoutMetrics(cart));
+      trackEvent("checkout_created", {
+        ...checkoutMetrics(cart),
+        payment_provider: "stripe",
+        payment_method: "dynamic",
+      });
       window.location.assign(data.url);
     } catch (error) {
+      trackEvent("checkout_error", {
+        ...checkoutMetrics(cart),
+        payment_provider: "stripe",
+        payment_method: "dynamic",
+        error_code: String(error.message || "stripe_error").slice(0, 80),
+      });
       const message = checkoutErrorMessages[error.message] || "Não foi possível abrir o checkout agora. Tente novamente.";
       showToast(message, "error");
       if (status) status.textContent = message;
@@ -982,6 +1051,10 @@ function initCart() {
 
   if (new URLSearchParams(window.location.search).get("checkout") === "cancelled") {
     status.textContent = "Pagamento cancelado. Seu carrinho continua salvo.";
+    trackEvent("checkout_cancelled", {
+      ...checkoutMetrics(readCart()),
+      payment_provider: "stripe",
+    });
   }
   render();
   trackEvent("view_cart", cartMetrics());
@@ -1500,20 +1573,21 @@ function initDashboard() {
 }
 
 function trackPurchaseOnce(sessionId, data) {
+  const purchaseData = { ...data, transaction_id: sessionId };
   try {
     const tracked = JSON.parse(localStorage.getItem(PURCHASE_TRACKING_KEY) || "[]");
     const sessions = Array.isArray(tracked) ? tracked.filter((value) => typeof value === "string") : [];
     if (!sessions.includes(sessionId)) {
-      trackEvent("purchase", data);
+      trackEvent("purchase", purchaseData);
       localStorage.setItem(
         PURCHASE_TRACKING_KEY,
         JSON.stringify([...sessions.slice(-19), sessionId]),
       );
     }
   } catch {
-    trackEvent("purchase", data);
+    trackEvent("purchase", purchaseData);
   }
-  trackGoogleAdsPurchaseOnce(sessionId, data);
+  trackGoogleAdsPurchaseOnce(sessionId, purchaseData);
 }
 
 function initCheckoutSuccess() {
@@ -1563,6 +1637,14 @@ function initCheckoutSuccess() {
             .map((item) => item.id)
             .filter(Boolean)
             .join(","),
+          items: (data.products || [])
+            .filter((item) => item?.id)
+            .map((item) => ({
+              item_id: item.id,
+              item_name: item.name || PRODUCTS[item.id]?.name || item.id,
+              price: PRODUCTS[item.id]?.price,
+              quantity: Number(item.quantity) || 1,
+            })),
           fulfillment: data.fulfillment || "unknown",
           payment_provider: isMercadoPago ? "mercado_pago" : "stripe",
         });
