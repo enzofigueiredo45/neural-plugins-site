@@ -3,11 +3,8 @@ Allow: /
 Disallow: /client-dashboard.html
 Disallow: /client-login.html
 Disallow: /client-register.html
-Disallow: /forgot-password.html
-Disallow: /reset-password.html
 Disallow: /cart.html
 Disallow: /success.html
-Disallow: /verify-email.html
 Disallow: /api/
 
 Sitemap: https://neural-plugins-site.vercel.app/sitemap.xml
