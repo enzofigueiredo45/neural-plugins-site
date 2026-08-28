@@ -37,6 +37,12 @@ const {
   sendSupportNotificationEmail,
   sendWelcomeEmail,
 } = require("./lib/email");
+const {
+  createPreference: createMercadoPagoPreference,
+  getPayment: getMercadoPagoPayment,
+  isMercadoPagoPaymentId,
+  verifyWebhookSignature: verifyMercadoPagoWebhookSignature,
+} = require("./lib/mercado-pago");
 
 const PORT = process.env.PORT || 4173;
 const isProduction = process.env.NODE_ENV === "production";
@@ -269,6 +275,14 @@ app.post(
   handleStripeWebhook,
 );
 
+// Mercado Pago signs request metadata. Parse only this isolated webhook route
+// before the session, origin and CSRF middleware.
+app.post(
+  "/api/mercado-pago-webhook",
+  express.json({ type: ["application/json", "application/*+json"], limit: "256kb" }),
+  handleMercadoPagoWebhook,
+);
+
 // body parsing
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
@@ -295,6 +309,7 @@ const statelessApiPaths = new Set([
   "/api/catalog",
   "/api/public-config",
   "/api/checkout-session",
+  "/api/mercado-pago-payment",
 ]);
 app.use("/api", (req, res, next) => {
   if (statelessApiPaths.has(req.originalUrl.split("?")[0])) return next();
@@ -320,7 +335,7 @@ app.use(
   }),
 );
 
-// Stripe webhooks are registered above and use signature verification. Every
+// Provider webhooks are registered above and use signature verification. Every
 // other cross-site state change is rejected before CSRF validation.
 app.use("/api", (req, res, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
@@ -543,6 +558,24 @@ const stripeSecret = getStripeSecret();
 const stripeClient = stripeSecret
   ? require("stripe")(stripeSecret, { maxNetworkRetries: 2, timeout: 10_000 })
   : null;
+const mercadoPagoAccessToken = String(
+  process.env.MERCADO_PAGO_ACCESS_TOKEN || "",
+).trim();
+const mercadoPagoWebhookSecret = String(
+  process.env.MERCADO_PAGO_WEBHOOK_SECRET || "",
+).trim();
+
+function isMercadoPagoConfigured() {
+  return Boolean(
+    db &&
+      mercadoPagoAccessToken &&
+      mercadoPagoWebhookSecret &&
+      !hasConfigurationError(
+        "MERCADO_PAGO_ACCESS_TOKEN",
+        "MERCADO_PAGO_WEBHOOK_SECRET",
+      ),
+  );
+}
 
 function normalizeAttribution(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -780,6 +813,360 @@ function getOrderAccessStatus(product) {
   return "Pagamento confirmado · entrega por e-mail em até 4h";
 }
 
+function isOrderAccessRevoked(status) {
+  return new Set([
+    "Pagamento reembolsado",
+    "Pagamento parcialmente reembolsado",
+    "Pagamento contestado",
+    "Pagamento cancelado",
+    "Pagamento recusado",
+  ]).has(String(status || ""));
+}
+
+function isMercadoPagoReference(value) {
+  return /^nx_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || ""),
+  );
+}
+
+function mercadoPagoProcessingError(code, statusCode = 400) {
+  const error = new Error(code);
+  error.code = code;
+  error.statusCode = statusCode;
+  return error;
+}
+
+function getMercadoPagoOrderStatus(providerStatus, product) {
+  if (providerStatus === "approved") return getOrderAccessStatus(product);
+  return (
+    {
+      refunded: "Pagamento reembolsado",
+      charged_back: "Pagamento contestado",
+      partially_refunded: "Pagamento parcialmente reembolsado",
+      cancelled: "Pagamento cancelado",
+      rejected: "Pagamento recusado",
+    }[providerStatus] || null
+  );
+}
+
+async function getMercadoPagoCheckout(reference) {
+  if (!db || !isMercadoPagoReference(reference)) return null;
+  return db.getOne(
+    db.usePostgres
+      ? "SELECT * FROM payment_checkouts WHERE reference = $1 AND provider = 'mercado_pago'"
+      : "SELECT * FROM payment_checkouts WHERE reference = ? AND provider = 'mercado_pago'",
+    [reference],
+  );
+}
+
+function resolveMercadoPagoCart(checkoutRow) {
+  let storedCart;
+  try {
+    storedCart = JSON.parse(String(checkoutRow.cart_json || ""));
+  } catch {
+    throw mercadoPagoProcessingError("payment_integrity_error", 409);
+  }
+  const catalog = getProductCatalog();
+  const seen = new Set();
+  if (!Array.isArray(storedCart) || storedCart.length < 1)
+    throw mercadoPagoProcessingError("payment_integrity_error", 409);
+  const resolved = storedCart.map((item) => {
+    const id = String(item?.id || "");
+    const quantity = Number.parseInt(item?.quantity, 10);
+    const unitAmount = Number.parseInt(item?.unitAmount, 10);
+    if (
+      !catalog[id] ||
+      seen.has(id) ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 10 ||
+      !Number.isInteger(unitAmount) ||
+      unitAmount < 1
+    )
+      throw mercadoPagoProcessingError("payment_integrity_error", 409);
+    seen.add(id);
+    return { product: catalog[id], quantity, unitAmount };
+  });
+  const storedTotal = resolved.reduce(
+    (total, item) => total + item.unitAmount * item.quantity,
+    0,
+  );
+  if (storedTotal !== Number(checkoutRow.amount_total))
+    throw mercadoPagoProcessingError("payment_integrity_error", 409);
+  return resolved;
+}
+
+async function persistMercadoPagoPayment(payment) {
+  const paymentId = String(payment?.id || "");
+  const reference = String(payment?.external_reference || "");
+  if (!isMercadoPagoPaymentId(paymentId) || !isMercadoPagoReference(reference))
+    throw mercadoPagoProcessingError("unknown_payment_reference", 404);
+  const checkoutRow = await getMercadoPagoCheckout(reference);
+  if (!checkoutRow)
+    throw mercadoPagoProcessingError("unknown_payment_reference", 404);
+  if (
+    checkoutRow.approved_payment_id &&
+    String(checkoutRow.approved_payment_id) !== paymentId
+  )
+    throw mercadoPagoProcessingError("duplicate_payment_reference", 409);
+
+  // Mercado Pago test and production tokens can share the APP_USR prefix.
+  // Vercel's environment boundary is therefore the reliable mode signal here.
+  const expectedLiveMode = process.env.VERCEL_ENV === "preview" ? false : isProduction;
+  const transactionAmount = Number(payment.transaction_amount);
+  const unroundedAmountCents = transactionAmount * 100;
+  const amountCents = Math.round(unroundedAmountCents);
+  if (
+    String(payment.currency_id || "").toUpperCase() !==
+      String(checkoutRow.currency || "").toUpperCase() ||
+    !Number.isFinite(amountCents) ||
+    Math.abs(unroundedAmountCents - amountCents) > 0.000001 ||
+    amountCents !== Number(checkoutRow.amount_total) ||
+    Boolean(payment.live_mode) !== expectedLiveMode
+  )
+    throw mercadoPagoProcessingError("payment_integrity_error", 409);
+
+  const items = resolveMercadoPagoCart(checkoutRow);
+  const refundedAmount = Number(payment.transaction_amount_refunded || 0);
+  const refundedAmountCents = Math.round(refundedAmount * 100);
+  if (
+    !Number.isFinite(refundedAmountCents) ||
+    refundedAmountCents < 0 ||
+    refundedAmountCents > amountCents
+  )
+    throw mercadoPagoProcessingError("payment_integrity_error", 409);
+  const providerStatus =
+    refundedAmountCents > 0 && refundedAmountCents < amountCents
+      ? "partially_refunded"
+      : refundedAmountCents === amountCents && amountCents > 0
+        ? "refunded"
+        : String(payment.status || "unknown").slice(0, 80);
+  const providerEmail = String(payment.payer?.email || "").trim().toLowerCase();
+  const storedEmail = String(checkoutRow.buyer_email || "").trim().toLowerCase();
+  const buyerEmail = isValidEmail(providerEmail)
+    ? providerEmail
+    : isValidEmail(storedEmail)
+      ? storedEmail
+      : "";
+
+  await db.run(
+    db.usePostgres
+      ? "UPDATE payment_checkouts SET payment_id = $1, status = $2, approved_payment_id = COALESCE(approved_payment_id, $3), buyer_email = COALESCE($4, buyer_email), live_mode = $5, updated_at = CURRENT_TIMESTAMP WHERE reference = $6 AND provider = 'mercado_pago' AND (approved_payment_id IS NULL OR approved_payment_id = $1)"
+      : "UPDATE payment_checkouts SET payment_id = ?, status = ?, approved_payment_id = COALESCE(approved_payment_id, ?), buyer_email = COALESCE(?, buyer_email), live_mode = ?, updated_at = CURRENT_TIMESTAMP WHERE reference = ? AND provider = 'mercado_pago' AND (approved_payment_id IS NULL OR approved_payment_id = ?)",
+    [
+      paymentId,
+      providerStatus,
+      providerStatus === "approved" ? paymentId : null,
+      buyerEmail || null,
+      db.usePostgres ? Boolean(payment.live_mode) : Number(Boolean(payment.live_mode)),
+      reference,
+      ...(db.usePostgres ? [] : [paymentId]),
+    ],
+  );
+  const updatedCheckoutRow = await getMercadoPagoCheckout(reference);
+  if (
+    updatedCheckoutRow?.approved_payment_id &&
+    String(updatedCheckoutRow.approved_payment_id) !== paymentId
+  )
+    throw mercadoPagoProcessingError("duplicate_payment_reference", 409);
+
+  const terminalOrderStatus = getMercadoPagoOrderStatus(providerStatus);
+  if (providerStatus !== "approved") {
+    if (terminalOrderStatus)
+      await db.run(
+        db.usePostgres
+          ? "UPDATE orders SET status = $1, download_url = NULL WHERE payment_provider = 'mercado_pago' AND provider_payment_id = $2"
+          : "UPDATE orders SET status = ?, download_url = NULL WHERE payment_provider = 'mercado_pago' AND provider_payment_id = ?",
+        [terminalOrderStatus, paymentId],
+      );
+    return {
+      recorded: false,
+      providerStatus,
+      paymentStatus: ["pending", "in_process", "authorized"].includes(
+        providerStatus,
+      )
+        ? "pending"
+        : "not_paid",
+      fulfillment: "not_paid",
+      products: items.map(({ product, quantity }) => ({
+        id: product.id,
+        name: product.name,
+        quantity,
+      })),
+      amountTotal: Number(checkoutRow.amount_total),
+      currency: checkoutRow.currency,
+    };
+  }
+
+  if (!buyerEmail)
+    throw mercadoPagoProcessingError("payment_email_missing", 422);
+
+  for (const { product, quantity, unitAmount } of items) {
+    const status = getOrderAccessStatus(product);
+    const values = [
+      buyerEmail,
+      product.id,
+      product.name,
+      status,
+      (unitAmount * quantity) / 100,
+      quantity,
+      product.image,
+      product.accessUrl,
+      "mercado_pago",
+      paymentId,
+      checkoutRow.preference_id,
+    ];
+    await db.run(
+      db.usePostgres
+        ? "INSERT INTO orders (buyer_email, product_id, product, status, price, quantity, image, download_url, payment_provider, provider_payment_id, provider_checkout_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT DO NOTHING"
+        : "INSERT OR IGNORE INTO orders (buyer_email, product_id, product, status, price, quantity, image, download_url, payment_provider, provider_payment_id, provider_checkout_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      values,
+    );
+    await db.run(
+      db.usePostgres
+        ? "UPDATE orders SET buyer_email = $1, status = $2, download_url = COALESCE(download_url, $3), provider_checkout_id = COALESCE(provider_checkout_id, $4) WHERE payment_provider = 'mercado_pago' AND provider_payment_id = $5 AND product_id = $6"
+        : "UPDATE orders SET buyer_email = ?, status = ?, download_url = COALESCE(download_url, ?), provider_checkout_id = COALESCE(provider_checkout_id, ?) WHERE payment_provider = 'mercado_pago' AND provider_payment_id = ? AND product_id = ?",
+      [
+        buyerEmail,
+        status,
+        product.accessUrl,
+        checkoutRow.preference_id,
+        paymentId,
+        product.id,
+      ],
+    );
+  }
+
+  const accessReady = items.every(
+    ({ product }) => product.accessMode === "automatic",
+  );
+  const accessRequestRequired = items.some(
+    ({ product }) => product.accessMode === "request",
+  );
+  return {
+    recorded: true,
+    providerStatus,
+    paymentStatus: "paid",
+    fulfillment: accessReady
+      ? "ready"
+      : accessRequestRequired
+        ? "request_required"
+        : "recorded_pending_access",
+    accessReady,
+    accessRequestRequired,
+    buyerEmail,
+    productIds: items.map(({ product }) => product.id),
+    products: items.map(({ product, quantity }) => ({
+      id: product.id,
+      name: product.name,
+      quantity,
+      accessUrl: product.accessUrl,
+    })),
+    amountTotal: Number(checkoutRow.amount_total),
+    currency: checkoutRow.currency,
+  };
+}
+
+async function processMercadoPagoPayment(paymentId, expectedReference = "") {
+  if (!isMercadoPagoConfigured() || !(await ensureDatabaseReady()))
+    throw mercadoPagoProcessingError("mercado_pago_not_configured", 503);
+  const payment = await getMercadoPagoPayment({
+    accessToken: mercadoPagoAccessToken,
+    paymentId,
+  });
+  if (String(payment.id || "") !== String(paymentId))
+    throw mercadoPagoProcessingError("payment_integrity_error", 409);
+  if (
+    expectedReference &&
+    String(payment.external_reference || "") !== String(expectedReference)
+  )
+    throw mercadoPagoProcessingError("payment_integrity_error", 409);
+  const result = await persistMercadoPagoPayment(payment);
+  if (result.recorded) {
+    await sendEmailSafely(
+      "order_confirmation",
+      () =>
+        sendOrderConfirmationEmail({
+          checkoutId: `mercado-pago:${paymentId}`,
+          email: result.buyerEmail,
+          products: result.products,
+          amountTotal: result.amountTotal,
+          currency: result.currency,
+        }),
+      { mercadoPagoPaymentId: paymentId },
+    );
+  }
+  return result;
+}
+
+function getMercadoPagoWebhookDataId(req) {
+  try {
+    return new URL(req.originalUrl, canonicalUrl).searchParams.get("data.id") || "";
+  } catch {
+    return "";
+  }
+}
+
+async function handleMercadoPagoWebhook(req, res) {
+  if (!isMercadoPagoConfigured())
+    return res
+      .status(503)
+      .json({ ok: false, error: "webhook_not_configured" });
+  const dataId = getMercadoPagoWebhookDataId(req);
+  const bodyDataId = String(req.body?.data?.id || "");
+  const requestId = String(req.get("x-request-id") || "");
+  const signatureHeader = String(req.get("x-signature") || "");
+  if (!dataId || (bodyDataId && bodyDataId.toLowerCase() !== dataId.toLowerCase()))
+    return res.status(400).json({ ok: false, error: "invalid_notification" });
+  if (
+    !verifyMercadoPagoWebhookSignature({
+      dataId,
+      requestId,
+      signatureHeader,
+      secret: mercadoPagoWebhookSecret,
+    })
+  )
+    return res.status(401).json({ ok: false, error: "invalid_signature" });
+
+  const notificationType = String(
+    req.body?.type || req.query?.type || req.query?.topic || "",
+  ).toLowerCase();
+  if (notificationType && notificationType !== "payment")
+    return res.json({ received: true, processed: false });
+  if (!isMercadoPagoPaymentId(dataId))
+    return res.status(400).json({ ok: false, error: "invalid_payment_id" });
+
+  try {
+    const result = await processMercadoPagoPayment(dataId);
+    logEvent("mercado_pago_notification_processed", {
+      requestId: req.requestId,
+      mercadoPagoPaymentId: dataId,
+      providerStatus: result.providerStatus,
+      productIds: result.productIds || [],
+    });
+    return res.json({ received: true, processed: true });
+  } catch (error) {
+    logError("mercado_pago_webhook_error", error, req.requestId);
+    if (
+      [
+        "unknown_payment_reference",
+        "payment_integrity_error",
+        "duplicate_payment_reference",
+        "payment_email_missing",
+      ].includes(
+        error?.code,
+      ) ||
+      (error?.statusCode === 404 && req.body?.live_mode === false)
+    )
+      return res.json({ received: true, processed: false });
+    return res.status(error?.statusCode === 400 ? 400 : 502).json({
+      ok: false,
+      error: "payment_processing_failed",
+      requestId: req.requestId,
+    });
+  }
+}
+
 async function persistPaidCheckout(checkout) {
   if (checkout.payment_status !== "paid")
     return {
@@ -934,7 +1321,10 @@ async function handleStripeWebhook(req, res, next) {
 }
 
 app.get("/api/public-config", (req, res) =>
-  res.json({ recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || "" }),
+  res.json({
+    recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || "",
+    mercadoPagoCheckoutEnabled: isMercadoPagoConfigured(),
+  }),
 );
 
 app.get("/api/catalog", (req, res) => {
@@ -1406,26 +1796,33 @@ app.get(
   asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
-        ? "SELECT id, product_id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC LIMIT 100"
-        : "SELECT id, product_id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = ? ORDER BY created_at DESC LIMIT 100",
+        ? "SELECT id, product_id, product, status, price, quantity, image, download_url, payment_provider, created_at FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC LIMIT 100"
+        : "SELECT id, product_id, product, status, price, quantity, image, download_url, payment_provider, created_at FROM orders WHERE buyer_email = ? ORDER BY created_at DESC LIMIT 100",
       [req.session.user.email],
     );
     const catalog = getProductCatalog();
     return res.json(
       rows.map((order) => {
         const currentProduct = catalog[order.product_id];
-        const currentAccessUrl = currentProduct?.accessUrl || null;
-        const downloadUrl = order.download_url || currentAccessUrl;
-        const accessMode = currentProduct
-          ? currentProduct.accessMode === "pending" && order.download_url
-            ? "automatic"
-            : currentProduct.accessMode
-          : order.download_url
-            ? "automatic"
-            : "pending";
+        const accessRevoked = isOrderAccessRevoked(order.status);
+        const currentAccessUrl = accessRevoked
+          ? null
+          : currentProduct?.accessUrl || null;
+        const downloadUrl = accessRevoked
+          ? null
+          : order.download_url || currentAccessUrl;
+        const accessMode = accessRevoked
+          ? "revoked"
+          : currentProduct
+            ? currentProduct.accessMode === "pending" && order.download_url
+              ? "automatic"
+              : currentProduct.accessMode
+            : order.download_url
+              ? "automatic"
+              : "pending";
         return {
           ...order,
-          status: currentProduct
+          status: currentProduct && !accessRevoked
             ? getOrderAccessStatus({ ...currentProduct, accessMode })
             : order.status,
           access_mode: accessMode,
@@ -1559,6 +1956,148 @@ app.post(
   }),
 );
 
+app.post(
+  "/api/create-mercado-pago-checkout",
+  checkoutLimiter,
+  asyncHandler(requireDatabase),
+  asyncHandler(async (req, res) => {
+    if (!isMercadoPagoConfigured())
+      return res.status(503).json({
+        ok: false,
+        error: "mercado_pago_not_configured",
+        requestId: req.requestId,
+      });
+
+    const catalog = getProductCatalog();
+    const cart = Array.isArray(req.body?.cart) ? req.body.cart : [];
+    const cartIds = cart.map((item) => item?.id);
+    if (
+      cart.length < 1 ||
+      cart.length > Object.keys(catalog).length ||
+      new Set(cartIds).size !== cart.length
+    )
+      return res.status(400).json({
+        ok: false,
+        error: "invalid_cart",
+        requestId: req.requestId,
+      });
+
+    const resolvedItems = cart.map((item) => {
+      const product = catalog[String(item?.id || "")];
+      const quantity = Number.parseInt(item?.quantity, 10);
+      if (
+        !product ||
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        quantity > 10
+      )
+        return null;
+      return { product, quantity, unitAmount: product.unitAmount };
+    });
+    if (resolvedItems.some((item) => !item))
+      return res.status(400).json({
+        ok: false,
+        error: "invalid_cart",
+        requestId: req.requestId,
+      });
+
+    const reference = `nx_${randomUUID()}`;
+    const amountTotal = resolvedItems.reduce(
+      (total, item) => total + item.unitAmount * item.quantity,
+      0,
+    );
+    const attribution = normalizeAttribution(req.body?.attribution);
+    const buyerEmail = String(req.session.user?.email || "")
+      .trim()
+      .toLowerCase();
+    const storedCart = resolvedItems.map(({ product, quantity, unitAmount }) => ({
+      id: product.id,
+      quantity,
+      unitAmount,
+    }));
+
+    await db.run(
+      db.usePostgres
+        ? "INSERT INTO payment_checkouts (reference, provider, status, buyer_email, cart_json, amount_total, currency, attribution_json) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)"
+        : "INSERT INTO payment_checkouts (reference, provider, status, buyer_email, cart_json, amount_total, currency, attribution_json) VALUES (?,?,?,?,?,?,?,?)",
+      [
+        reference,
+        "mercado_pago",
+        "creating_preference",
+        isValidEmail(buyerEmail) ? buyerEmail : null,
+        JSON.stringify(storedCart),
+        amountTotal,
+        "BRL",
+        JSON.stringify(attribution),
+      ],
+    );
+
+    try {
+      const preference = await createMercadoPagoPreference({
+        accessToken: mercadoPagoAccessToken,
+        idempotencyKey: reference,
+        preference: {
+          items: resolvedItems.map(({ product, quantity, unitAmount }) => ({
+            id: product.id,
+            title: product.name,
+            description: product.licenseType,
+            picture_url: `${canonicalUrl}${product.image}`,
+            quantity,
+            currency_id: "BRL",
+            unit_price: unitAmount / 100,
+          })),
+          payer: isValidEmail(buyerEmail) ? { email: buyerEmail } : undefined,
+          back_urls: {
+            success: `${canonicalUrl}/success.html?provider=mercado_pago&result=approved&external_reference=${encodeURIComponent(reference)}`,
+            pending: `${canonicalUrl}/success.html?provider=mercado_pago&result=pending&external_reference=${encodeURIComponent(reference)}`,
+            failure: `${canonicalUrl}/success.html?provider=mercado_pago&result=failure&external_reference=${encodeURIComponent(reference)}`,
+          },
+          auto_return: "approved",
+          binary_mode: false,
+          external_reference: reference,
+          notification_url: `${canonicalUrl}/api/mercado-pago-webhook`,
+          statement_descriptor: "NEURAL X",
+          metadata: { source: "neural-x-site", checkout_reference: reference },
+        },
+      });
+      await db.run(
+        db.usePostgres
+          ? "UPDATE payment_checkouts SET preference_id = $1, status = 'preference_created', updated_at = CURRENT_TIMESTAMP WHERE reference = $2"
+          : "UPDATE payment_checkouts SET preference_id = ?, status = 'preference_created', updated_at = CURRENT_TIMESTAMP WHERE reference = ?",
+        [preference.id, reference],
+      );
+      logEvent("mercado_pago_checkout_created", {
+        requestId: req.requestId,
+        preferenceId: preference.id,
+        productIds: resolvedItems.map(({ product }) => product.id),
+        itemCount: resolvedItems.reduce(
+          (total, item) => total + item.quantity,
+          0,
+        ),
+      });
+      return res.json({ ok: true, url: preference.url });
+    } catch (error) {
+      await db
+        .run(
+          db.usePostgres
+            ? "UPDATE payment_checkouts SET status = 'preference_failed', updated_at = CURRENT_TIMESTAMP WHERE reference = $1"
+            : "UPDATE payment_checkouts SET status = 'preference_failed', updated_at = CURRENT_TIMESTAMP WHERE reference = ?",
+          [reference],
+        )
+        .catch(() => {});
+      logError("mercado_pago_checkout_error", error, req.requestId);
+      return res.status(502).json({
+        ok: false,
+        error:
+          [401, 403].includes(error?.statusCode)
+            ? "mercado_pago_authentication_error"
+            : "mercado_pago_error",
+        requestId: req.requestId,
+      });
+    }
+  }),
+);
+
 app.get(
   "/api/checkout-session",
   asyncHandler(async (req, res) => {
@@ -1624,6 +2163,62 @@ app.get(
 );
 
 app.get(
+  "/api/mercado-pago-payment",
+  checkoutLimiter,
+  asyncHandler(async (req, res) => {
+    const paymentId = String(req.query.payment_id || "");
+    const reference = String(req.query.external_reference || "");
+    if (!isMercadoPagoPaymentId(paymentId) || !isMercadoPagoReference(reference))
+      return res.status(400).json({
+        ok: false,
+        error: "invalid_payment_reference",
+        requestId: req.requestId,
+      });
+    try {
+      const result = await processMercadoPagoPayment(paymentId, reference);
+      return res.json({
+        ok: true,
+        provider: "mercado_pago",
+        status: result.providerStatus,
+        paymentStatus: result.paymentStatus,
+        amountTotal: result.amountTotal,
+        currency: result.currency,
+        fulfillment: result.fulfillment,
+        products: result.products.map(({ id, name, quantity }) => ({
+          id,
+          name,
+          quantity,
+        })),
+      });
+    } catch (error) {
+      logError("mercado_pago_payment_lookup_error", error, req.requestId);
+      const statusCode =
+        error?.code === "unknown_payment_reference" || error?.statusCode === 404
+          ? 404
+          : ["payment_integrity_error", "duplicate_payment_reference"].includes(
+                error?.code,
+              )
+            ? 409
+            : error?.statusCode === 503
+              ? 503
+              : 502;
+      return res.status(statusCode).json({
+        ok: false,
+        error:
+          statusCode === 404
+            ? "payment_not_found"
+            : statusCode === 409
+              ? "payment_verification_failed"
+              : statusCode === 503
+                ? "mercado_pago_not_configured"
+                : "mercado_pago_error",
+        requestId: req.requestId,
+      });
+    }
+  }),
+);
+
+app.get(
   "/api/health",
   asyncHandler(async (req, res) => {
     const [databaseInitialized, redisConnected, stripeCatalogHealthy] = await Promise.all([
@@ -1662,6 +2257,18 @@ app.get(
         database: databaseHealthy ? "ok" : "unavailable",
         redis: redisHealthy ? "ok" : isProduction ? "unavailable" : "optional",
         stripe: stripeCatalogHealthy ? "ok" : "unavailable",
+        mercadoPago: isMercadoPagoConfigured()
+          ? "configured"
+          : mercadoPagoAccessToken && !mercadoPagoWebhookSecret
+            ? "pending_webhook_secret"
+            : !mercadoPagoAccessToken && mercadoPagoWebhookSecret
+              ? "pending_access_token"
+              : hasConfigurationError(
+                    "MERCADO_PAGO_ACCESS_TOKEN",
+                    "MERCADO_PAGO_WEBHOOK_SECRET",
+                  )
+                ? "misconfigured"
+                : "optional",
         email: emailConfig.apiKey ? "configured" : "optional",
       },
       configuration: {

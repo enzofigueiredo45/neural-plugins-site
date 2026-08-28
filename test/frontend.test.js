@@ -136,6 +136,7 @@ test("browser-delivered files contain no Stripe or webhook secrets", () => {
     const content = fs.readFileSync(path.join(root, file), "utf8");
     assert.doesNotMatch(content, /(?:sk|rk)_(?:test|live)_[A-Za-z0-9]{12,}/, file);
     assert.doesNotMatch(content, /whsec_[A-Za-z0-9]{12,}/, file);
+    assert.doesNotMatch(content, /APP_USR-[A-Za-z0-9_-]{16,}/, file);
   }
 });
 
@@ -186,16 +187,34 @@ test("the commercial funnel has consistent anonymous dimensions and monetary con
   assert.match(main, /trackOfferSelection\([\s\S]*?addToCart\(button\.dataset\.id\)/);
   assert.match(main, /trackEvent\("add_to_cart", \{[\s\S]*?quantity: 1,[\s\S]*?cartMetrics\(next\)/);
   assert.match(main, /trackEvent\("begin_checkout", checkoutMetrics\(cart\)\)/);
-  assert.match(main, /trackPurchaseOnce\(sessionId,[\s\S]*?value:[\s\S]*?currency:[\s\S]*?item_count:[\s\S]*?product_ids:/);
+  assert.match(main, /trackPurchaseOnce\(transactionId,[\s\S]*?value:[\s\S]*?currency:[\s\S]*?item_count:[\s\S]*?product_ids:/);
   assert.match(cart, /data-page-variant="studio-editorial-v1"/);
   assert.match(success, /data-page-variant="studio-editorial-v1"/);
 });
 
-test("purchase measurement is server-confirmed and deduplicated by Stripe session", () => {
+test("purchase measurement is server-confirmed for Stripe and Mercado Pago", () => {
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
-  assert.match(main, /fetch\(`\/api\/checkout-session\?session_id=/);
+  assert.match(main, /`\/api\/checkout-session\?session_id=/);
+  assert.match(main, /`\/api\/mercado-pago-payment\?payment_id=/);
   assert.match(main, /if \(data\.paymentStatus === "paid"\)/);
   assert.match(main, /if \(!sessions\.includes\(sessionId\)\) \{\s*trackEvent\("purchase", data\)/);
+  assert.match(main, /payment_provider: isMercadoPago \? "mercado_pago" : "stripe"/);
+});
+
+test("cart upgrades Pix to automatic checkout only when the server enables it", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const cart = fs.readFileSync(path.join(root, "cart.html"), "utf8");
+  assert.match(main, /config\.mercadoPagoCheckoutEnabled === true/);
+  assert.match(main, /"\/api\/create-mercado-pago-checkout"/);
+  assert.match(main, /dataset\.checkoutMode = "manual"/);
+  assert.match(main, /dataset\.checkoutMode = "api"/);
+  assert.match(cart, /id="pixCheckoutButton"/);
+});
+
+test("refunded payment history does not expose an active product link", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(main, /order\.access_mode !== "revoked"/);
+  assert.match(main, /O acesso deste pedido não está ativo/);
 });
 
 test("recommendation is immediate and optional email capture has separate consent", () => {
