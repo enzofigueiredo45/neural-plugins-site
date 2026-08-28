@@ -118,6 +118,22 @@ test("Google Ads purchase tracking requires consent and preserves transaction va
   assert.match(vercel, /https:\/\/www\.googletagmanager\.com/);
 });
 
+test("Google Analytics measures the consented funnel and deduplicated purchases", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const privacy = fs.readFileSync(path.join(root, "privacy.html"), "utf8");
+  assert.match(main, /G-JY83B1EM8L/);
+  assert.match(main, /analytics_storage: "granted"/);
+  assert.match(main, /window\.gtag\?\.\("event", String\(name\)\.slice\(0, 40\)/);
+  assert.match(main, /transaction_id: sessionId/);
+  assert.match(main, /payment_provider: isMercadoPago \? "mercado_pago" : "stripe"/);
+  assert.match(main, /items: \(data\.products \|\| \[\]\)/);
+  assert.match(main, /payment_provider: "stripe"/);
+  assert.match(main, /"checkout_error"/);
+  assert.match(main, /"checkout_cancelled"/);
+  assert.match(privacy, /Google Analytics mede páginas e etapas do funil/);
+  assert.match(privacy, /sem enviar seu e-mail ao Google/);
+});
+
 test("private commerce and account pages are not indexable", () => {
   for (const file of [
     "cart.html",
@@ -186,7 +202,7 @@ test("the commercial funnel has consistent anonymous dimensions and monetary con
   assert.match(main, /function trackOfferSelection[\s\S]*?product_name:[\s\S]*?currency: "BRL"[\s\S]*?placement,/);
   assert.match(main, /trackOfferSelection\([\s\S]*?addToCart\(button\.dataset\.id\)/);
   assert.match(main, /trackEvent\("add_to_cart", \{[\s\S]*?quantity: 1,[\s\S]*?cartMetrics\(next\)/);
-  assert.match(main, /trackEvent\("begin_checkout", checkoutMetrics\(cart\)\)/);
+  assert.match(main, /trackEvent\("begin_checkout", \{[\s\S]*?checkoutMetrics\(cart\)[\s\S]*?payment_provider: "stripe"/);
   assert.match(main, /trackPurchaseOnce\(transactionId,[\s\S]*?value:[\s\S]*?currency:[\s\S]*?item_count:[\s\S]*?product_ids:/);
   assert.match(cart, /data-page-variant="studio-editorial-v1"/);
   assert.match(success, /data-page-variant="studio-editorial-v1"/);
@@ -197,7 +213,7 @@ test("purchase measurement is server-confirmed for Stripe and Mercado Pago", () 
   assert.match(main, /`\/api\/checkout-session\?session_id=/);
   assert.match(main, /`\/api\/mercado-pago-payment\?payment_id=/);
   assert.match(main, /if \(data\.paymentStatus === "paid"\)/);
-  assert.match(main, /if \(!sessions\.includes\(sessionId\)\) \{\s*trackEvent\("purchase", data\)/);
+  assert.match(main, /if \(!sessions\.includes\(sessionId\)\) \{\s*trackEvent\("purchase", purchaseData\)/);
   assert.match(main, /payment_provider: isMercadoPago \? "mercado_pago" : "stripe"/);
 });
 
