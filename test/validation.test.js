@@ -1,10 +1,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  isMercadoPagoAccessToken,
+  isMercadoPagoWebhookSecret,
   isStripePriceId,
   isStripeSessionId,
   validateRuntimeConfig,
 } = require("../lib/validation");
+
+const productionMercadoPagoToken = `${["APP", "USR"].join("_")}-${"1".repeat(24)}`;
 
 test("accepts Stripe identifiers and rejects malformed values", () => {
   assert.equal(isStripePriceId("price_123AbC"), true);
@@ -12,6 +16,23 @@ test("accepts Stripe identifiers and rejects malformed values", () => {
   assert.equal(isStripeSessionId("cs_test_123AbC"), true);
   assert.equal(isStripeSessionId("cs_live_123AbC"), true);
   assert.equal(isStripeSessionId("checkout_123"), false);
+});
+
+test("validates Mercado Pago production and preview credentials", () => {
+  assert.equal(
+    isMercadoPagoAccessToken(productionMercadoPagoToken),
+    true,
+  );
+  assert.equal(isMercadoPagoAccessToken("TEST-1234567890abcdefghijkl"), false);
+  assert.equal(
+    isMercadoPagoAccessToken("TEST-1234567890abcdefghijkl", true),
+    true,
+  );
+  assert.equal(isMercadoPagoWebhookSecret("short"), false);
+  assert.equal(
+    isMercadoPagoWebhookSecret("webhook-secret-1234567890"),
+    true,
+  );
 });
 
 test("reports missing production configuration by variable name only", () => {
@@ -31,6 +52,8 @@ test("reports missing production configuration by variable name only", () => {
     "PRODUCT_ACCESS_URL_FL_STUDIO",
     "PRODUCT_ACCESS_URL_REAPER",
     "STRIPE_WEBHOOK_SECRET",
+    "MERCADO_PAGO_ACCESS_TOKEN",
+    "MERCADO_PAGO_WEBHOOK_SECRET",
     "RECAPTCHA_SECRET",
     "RECAPTCHA_SITE_KEY",
     "RESEND_API_KEY",
@@ -54,6 +77,8 @@ test("accepts a complete production configuration", () => {
       PRODUCT_ACCESS_URL_FL_STUDIO: "https://downloads.example.com/fl-studio",
       PRODUCT_ACCESS_URL_REAPER: "https://downloads.example.com/reaper",
       STRIPE_WEBHOOK_SECRET: "whsec_123",
+      MERCADO_PAGO_ACCESS_TOKEN: productionMercadoPagoToken,
+      MERCADO_PAGO_WEBHOOK_SECRET: "webhook-secret-1234567890",
       RECAPTCHA_SECRET: "captcha-secret",
       RECAPTCHA_SITE_KEY: "captcha-site-key",
       RESEND_API_KEY: "re_test",
@@ -97,6 +122,8 @@ test("allows an isolated Stripe test key on Vercel previews", () => {
       PRODUCT_ACCESS_URL_FL_STUDIO: "https://downloads.example.com/fl-studio",
       PRODUCT_ACCESS_URL_REAPER: "https://downloads.example.com/reaper",
       STRIPE_WEBHOOK_SECRET: "whsec_123",
+      MERCADO_PAGO_ACCESS_TOKEN: "TEST-1234567890abcdefghijkl",
+      MERCADO_PAGO_WEBHOOK_SECRET: "webhook-secret-1234567890",
       RECAPTCHA_SECRET: "captcha-secret",
       RECAPTCHA_SITE_KEY: "captcha-site-key",
       RESEND_API_KEY: "re_test",
@@ -144,6 +171,8 @@ test("validates requested access mode", () => {
     PRODUCT_ACCESS_URL_FL_STUDIO: "https://drive.google.com/folder/fl",
     PRODUCT_ACCESS_URL_REAPER: "https://drive.google.com/folder/reaper",
     STRIPE_WEBHOOK_SECRET: "whsec_123",
+    MERCADO_PAGO_ACCESS_TOKEN: productionMercadoPagoToken,
+    MERCADO_PAGO_WEBHOOK_SECRET: "webhook-secret-1234567890",
     RECAPTCHA_SECRET: "captcha-secret",
     RECAPTCHA_SITE_KEY: "captcha-site-key",
     RESEND_API_KEY: "re_test",

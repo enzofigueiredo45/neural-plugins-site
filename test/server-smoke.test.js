@@ -16,6 +16,8 @@ const CONFIG_KEYS = [
   "PRODUCT_ACCESS_URL_FL_STUDIO",
   "PRODUCT_ACCESS_URL_REAPER",
   "STRIPE_WEBHOOK_SECRET",
+  "MERCADO_PAGO_ACCESS_TOKEN",
+  "MERCADO_PAGO_WEBHOOK_SECRET",
   "RECAPTCHA_SECRET",
   "RECAPTCHA_SITE_KEY",
 ];
@@ -53,6 +55,15 @@ test("production server stays diagnosable when configuration is missing", async 
   assert.equal(JSON.stringify(catalog).includes("price_"), false);
   assert.equal(JSON.stringify(catalog).includes("accessUrl"), false);
 
+  const publicConfigResponse = await fetch(
+    `http://127.0.0.1:${port}/api/public-config`,
+  );
+  assert.equal(publicConfigResponse.status, 200);
+  const publicConfig = await publicConfigResponse.json();
+  assert.equal(publicConfig.mercadoPagoCheckoutEnabled, false);
+  assert.equal(JSON.stringify(publicConfig).includes("ACCESS_TOKEN"), false);
+  assert.equal(JSON.stringify(publicConfig).includes("WEBHOOK_SECRET"), false);
+
   const healthResponse = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(healthResponse.status, 503);
   const health = await healthResponse.json();
@@ -69,6 +80,21 @@ test("checkout uses Stripe dynamic payment methods", () => {
   const server = fs.readFileSync("server.js", "utf8");
   assert.doesNotMatch(server, /payment_method_types\s*:/);
   assert.match(server, /integration_identifier:\s*"neural_x_qmvkzpta"/);
+});
+
+test("Mercado Pago checkout is server-authoritative and webhook-signed", () => {
+  const server = fs.readFileSync("server.js", "utf8");
+  const database = fs.readFileSync("lib/db.js", "utf8");
+  assert.match(server, /"\/api\/create-mercado-pago-checkout"/);
+  assert.match(server, /"\/api\/mercado-pago-webhook"/);
+  assert.match(server, /verifyMercadoPagoWebhookSignature/);
+  assert.match(server, /getMercadoPagoPayment/);
+  assert.match(server, /amountCents !== Number\(checkoutRow\.amount_total\)/);
+  assert.match(database, /payment_provider TEXT NOT NULL DEFAULT 'stripe'/);
+  assert.match(database, /orders_provider_payment_product_idx/);
+  assert.match(database, /approved_payment_id/);
+  assert.match(server, /Pagamento parcialmente reembolsado/);
+  assert.match(server, /accessRevoked/);
 });
 
 test("authenticated clients can safely disable MFA", () => {

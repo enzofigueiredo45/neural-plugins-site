@@ -733,11 +733,15 @@ async function fetchCsrf() {
 
 let publicConfigRequest;
 let recaptchaLoader;
-async function getRecaptchaToken(action) {
+function getPublicConfig() {
   publicConfigRequest ||= fetch("/api/public-config", { credentials: "include" })
     .then(readJsonResponse)
     .catch(() => ({}));
-  const { recaptchaSiteKey } = await publicConfigRequest;
+  return publicConfigRequest;
+}
+
+async function getRecaptchaToken(action) {
+  const { recaptchaSiteKey } = await getPublicConfig();
   if (!recaptchaSiteKey) return "";
   recaptchaLoader ||= new Promise((resolve, reject) => {
     if (window.grecaptcha) return resolve(window.grecaptcha);
@@ -773,6 +777,11 @@ const checkoutErrorMessages = {
   stripe_catalog_invalid: "Os preços do checkout precisam ser sincronizados. Fale com o suporte.",
   stripe_price_not_found: "Um produto está com o preço desatualizado. Fale com o suporte.",
   stripe_authentication_error: "A conexão de pagamento precisa ser revisada.",
+  mercado_pago_not_configured: "O Pix automático ainda está sendo configurado. Use a opção disponível ou tente novamente mais tarde.",
+  mercado_pago_authentication_error: "A conexão com o Mercado Pago precisa ser revisada.",
+  mercado_pago_error: "Não foi possível abrir o Mercado Pago agora. Tente novamente.",
+  database_not_ready: "O registro de pedidos está iniciando. Tente novamente em instantes.",
+  invalid_cart: "O carrinho contém um produto indisponível. Atualize-o e tente novamente.",
   invalid_cart_or_missing_price_ids: "O carrinho contém um produto indisponível. Atualize-o e tente novamente.",
 };
 
@@ -786,7 +795,12 @@ function initCart() {
   const fulfillmentNote = document.querySelector("#fulfillmentNote");
   const pixButton = document.querySelector("#pixCheckoutButton");
   const pixNote = document.querySelector("#pixCheckoutNote");
+  let mercadoPagoCheckoutEnabled = false;
   void fetchCsrf();
+  void getPublicConfig().then((config) => {
+    mercadoPagoCheckoutEnabled = config.mercadoPagoCheckoutEnabled === true;
+    render();
+  });
 
   const render = () => {
     const cart = readCart();
@@ -805,23 +819,35 @@ function initCart() {
     if (clearButton) clearButton.disabled = cart.length === 0;
     const pixItem = cart.length === 1 && cart[0].quantity === 1 ? cart[0] : null;
     const pixProduct = pixItem ? PRODUCTS[pixItem.id] : null;
-    const pixUrl = safeUrl(pixProduct?.paymentLink);
+    const manualPixUrl = safeUrl(pixProduct?.paymentLink);
+    const automaticPixAvailable = mercadoPagoCheckoutEnabled && cart.length > 0;
     if (pixButton) {
-      pixButton.hidden = !pixUrl;
-      if (pixUrl) {
-        pixButton.href = pixUrl;
+      pixButton.hidden = !automaticPixAvailable && !manualPixUrl;
+      if (automaticPixAvailable) {
+        pixButton.href = "#";
+        pixButton.removeAttribute("target");
+        pixButton.dataset.checkoutMode = "api";
+        delete pixButton.dataset.productId;
+        pixButton.setAttribute("aria-label", "Pagar o carrinho com Pix no Mercado Pago");
+      } else if (manualPixUrl) {
+        pixButton.href = manualPixUrl;
+        pixButton.target = "_blank";
+        pixButton.dataset.checkoutMode = "manual";
         pixButton.dataset.productId = pixProduct.id;
         pixButton.setAttribute("aria-label", `Pagar ${pixProduct.name} com Pix no Mercado Pago`);
       } else {
         pixButton.removeAttribute("href");
+        delete pixButton.dataset.checkoutMode;
         delete pixButton.dataset.productId;
       }
     }
     if (pixNote) {
       pixNote.hidden = cart.length === 0;
-      pixNote.textContent = pixUrl
-        ? "O Pix abre no Mercado Pago. Após pagar, guarde o comprovante; a confirmação e a liberação são conferidas manualmente em até 4 horas."
-        : "Para pagar por Pix, deixe apenas uma unidade de um produto no carrinho. A Stripe continua disponível para o carrinho completo.";
+      pixNote.textContent = automaticPixAvailable
+        ? "O Pix abre no Mercado Pago. A aprovação é confirmada automaticamente e o pedido aparece na mesma área de cliente usada pelas compras na Stripe."
+        : manualPixUrl
+          ? "O Pix abre no Mercado Pago. Após pagar, guarde o comprovante; a confirmação e a liberação são conferidas manualmente em até 4 horas."
+          : "Para pagar por Pix, deixe apenas uma unidade de um produto no carrinho. A Stripe continua disponível para o carrinho completo.";
     }
     if (fulfillmentNote) {
       fulfillmentNote.textContent =
@@ -867,10 +893,55 @@ function initCart() {
     trackEvent("remove_from_cart", { action: "clear", ...cartMetrics(previous) });
   });
 
-  pixButton?.addEventListener("click", () => {
+  pixButton?.addEventListener("click", async (event) => {
+    if (pixButton.getAttribute("aria-disabled") === "true")
+      return event.preventDefault();
     const cart = readCart();
+    if (!cart.length) return event.preventDefault();
+    if (pixButton.dataset.checkoutMode === "api") {
+      event.preventDefault();
+      const originalLabel = pixButton.textContent;
+      try {
+        trackEvent("begin_checkout", {
+          ...checkoutMetrics(cart),
+          payment_provider: "mercado_pago",
+          payment_method: "pix",
+        });
+        pixButton.setAttribute("aria-disabled", "true");
+        pixButton.classList.add("is-loading");
+        pixButton.textContent = "Abrindo Mercado Pago…";
+        if (checkoutButton) checkoutButton.disabled = true;
+        if (clearButton) clearButton.disabled = true;
+        if (status) status.textContent = "Conectando com o Mercado Pago.";
+        const { response, data } = await postJson(
+          "/api/create-mercado-pago-checkout",
+          { cart, attribution: readAttribution() },
+        );
+        if (!response.ok || !safeUrl(data.url))
+          throw new Error(data.error || "mercado_pago_error");
+        trackEvent("checkout_created", {
+          ...checkoutMetrics(cart),
+          payment_provider: "mercado_pago",
+          payment_method: "pix",
+        });
+        window.location.assign(data.url);
+      } catch (error) {
+        const message =
+          checkoutErrorMessages[error.message] ||
+          "Não foi possível abrir o Mercado Pago agora. Tente novamente.";
+        showToast(message, "error");
+        if (status) status.textContent = message;
+        pixButton.removeAttribute("aria-disabled");
+        pixButton.classList.remove("is-loading");
+        pixButton.textContent = originalLabel;
+        if (checkoutButton) checkoutButton.disabled = false;
+        if (clearButton) clearButton.disabled = false;
+      }
+      return;
+    }
     const product = PRODUCTS[pixButton.dataset.productId];
-    if (!product || cart.length !== 1 || cart[0].id !== product.id || cart[0].quantity !== 1) return;
+    if (!product || cart.length !== 1 || cart[0].id !== product.id || cart[0].quantity !== 1)
+      return event.preventDefault();
     trackEvent("begin_checkout", {
       ...checkoutMetrics(cart),
       payment_provider: "mercado_pago",
@@ -1260,7 +1331,9 @@ function initDashboard() {
       const response = await fetch("/api/orders", { credentials: "include" });
       if (!response.ok) throw new Error("orders_error");
       const orders = await readJsonResponse(response);
-      productCount.textContent = String(orders.length);
+      productCount.textContent = String(
+        orders.filter((order) => order.access_mode !== "revoked").length,
+      );
       ordersList.innerHTML = orders.length
         ? orders
             .map((order) => {
@@ -1271,7 +1344,10 @@ function initDashboard() {
               const accessLabel = order.access_mode === "request"
                 ? "Abrir link de download"
                 : "Acessar produto";
-              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Se o Drive pedir identificação, use o mesmo e-mail informado na compra.</small>" : ""}` : '<small>O link de download será enviado ao e-mail da compra em até 4 horas. Se o prazo terminar, <a class="inline-link" href="./contact.html?assunto=pedido">fale com o suporte</a>.</small>'}</div></article>`;
+              const unavailableMessage = order.access_mode === "revoked"
+                ? '<small>O acesso deste pedido não está ativo. Se você não reconhece esse estado, <a class="inline-link" href="./contact.html?assunto=pedido">fale com o suporte</a>.</small>'
+                : '<small>O link de download será enviado ao e-mail da compra em até 4 horas. Se o prazo terminar, <a class="inline-link" href="./contact.html?assunto=pedido">fale com o suporte</a>.</small>';
+              return `<article class="order-card"><img src="${escapeHtml(image)}" alt="${escapeHtml(order.product || "Produto")}" /><div class="order-details"><span class="status-badge">${escapeHtml(order.status || "Processando")}</span><h3>${escapeHtml(order.product || "Produto digital")}</h3><p>${date ? `Pedido de ${escapeHtml(date)} · ` : ""}${escapeHtml(money(Number(order.price)))}</p>${download ? `<a class="button primary compact" href="${escapeHtml(download)}" data-product-access="${escapeHtml(order.product_id || "unknown")}" rel="noopener" target="_blank">${accessLabel}</a>${order.access_mode === "request" ? "<small>Se o Drive pedir identificação, use o mesmo e-mail informado na compra.</small>" : ""}` : unavailableMessage}</div></article>`;
             })
             .join("")
         : '<div class="empty-state">Nenhuma compra vinculada a este e-mail. Se você já pagou, confirme se sua conta usa o mesmo endereço do checkout.</div>';
@@ -1446,22 +1522,37 @@ function initCheckoutSuccess() {
   const title = document.querySelector("#successTitle");
   const message = document.querySelector("#successMessage");
   const icon = document.querySelector("#successIcon");
-  const sessionId = new URLSearchParams(window.location.search).get("session_id");
+  const params = new URLSearchParams(window.location.search);
+  const isMercadoPago = params.get("provider") === "mercado_pago";
+  const sessionId = params.get("session_id");
+  const paymentId = params.get("payment_id") || params.get("collection_id");
+  const externalReference = params.get("external_reference");
+  const providerName = isMercadoPago ? "Mercado Pago" : "Stripe";
+  const transactionId = isMercadoPago
+    ? `mercado_pago:${paymentId || "missing"}`
+    : sessionId;
   const fail = () => {
     icon.textContent = "!";
     title.textContent = "Não foi possível confirmar.";
-    message.textContent = "Consulte o pagamento na Stripe ou abra um chamado antes de tentar novamente.";
+    message.textContent = `Consulte o pagamento no ${providerName} ou abra um chamado antes de tentar novamente.`;
     card.dataset.state = "error";
   };
-  if (!sessionId) return fail();
-  fetch(`/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`, { credentials: "include" })
+  if (
+    (isMercadoPago && (!paymentId || !externalReference)) ||
+    (!isMercadoPago && !sessionId)
+  )
+    return fail();
+  const lookupUrl = isMercadoPago
+    ? `/api/mercado-pago-payment?payment_id=${encodeURIComponent(paymentId)}&external_reference=${encodeURIComponent(externalReference)}`
+    : `/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`;
+  fetch(lookupUrl, { credentials: "include" })
     .then(async (response) => ({ response, data: await readJsonResponse(response) }))
     .then(({ response, data }) => {
       if (!response.ok) throw new Error(data.error || "session_lookup_error");
       if (data.paymentStatus === "paid") {
         writeCart([]);
         updateCartCount();
-        trackPurchaseOnce(sessionId, {
+        trackPurchaseOnce(transactionId, {
           value: Number(data.amountTotal || 0) / 100,
           currency: String(data.currency || "brl").toUpperCase(),
           item_count: (data.products || []).reduce(
@@ -1473,6 +1564,7 @@ function initCheckoutSuccess() {
             .filter(Boolean)
             .join(","),
           fulfillment: data.fulfillment || "unknown",
+          payment_provider: isMercadoPago ? "mercado_pago" : "stripe",
         });
         icon.textContent = "✓";
         title.textContent = "Pagamento confirmado.";
@@ -1489,11 +1581,16 @@ function initCheckoutSuccess() {
           message.textContent = "Seu pagamento foi aprovado e a confirmação do pedido está em andamento. Se ele não aparecer na conta em alguns minutos, abra um chamado.";
         }
         card.dataset.state = "success";
-      } else {
+      } else if (data.paymentStatus === "pending") {
         icon.textContent = "…";
         title.textContent = "Pagamento em processamento.";
-        message.textContent = "A Stripe ainda está processando o pagamento. Atualize esta página em instantes.";
+        message.textContent = `O ${providerName} ainda está processando o pagamento. Atualize esta página em instantes.`;
         card.dataset.state = "pending";
+      } else {
+        icon.textContent = "!";
+        title.textContent = "Pagamento não aprovado.";
+        message.textContent = `O ${providerName} não informa um pagamento aprovado para este pedido. Volte ao carrinho ou fale com o suporte se houve cobrança.`;
+        card.dataset.state = "error";
       }
     })
     .catch(fail);
