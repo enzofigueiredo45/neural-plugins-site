@@ -31,9 +31,7 @@ const {
 } = require("./lib/catalog");
 const {
   getEmailConfig,
-  sendEmailVerificationEmail,
   sendOrderConfirmationEmail,
-  sendPasswordResetEmail,
   sendRecommendationEmail,
   sendSupportConfirmationEmail,
   sendSupportNotificationEmail,
@@ -150,91 +148,6 @@ async function sendEmailSafely(type, operation, details = {}) {
     logError(`transactional_email_${type}_error`, error, details.requestId);
     return { sent: false, error: true };
   }
-}
-
-async function enqueueOrderConfirmationEmail(checkoutId, fulfillment) {
-  const payload = JSON.stringify({
-    checkoutId,
-    email: fulfillment.buyerEmail,
-    products: fulfillment.products,
-    amountTotal: fulfillment.amountTotal,
-    currency: fulfillment.currency,
-  });
-  await db.run(
-    db.usePostgres
-      ? `INSERT INTO email_outbox (dedupe_key, email_type, payload)
-         VALUES ($1, 'order_confirmation', $2::jsonb)
-         ON CONFLICT (dedupe_key) DO NOTHING`
-      : `INSERT OR IGNORE INTO email_outbox (dedupe_key, email_type, payload)
-         VALUES (?, 'order_confirmation', ?)`,
-    [`order-confirmation:${checkoutId}`, payload],
-  );
-}
-
-async function processEmailOutbox(limit = 10, dedupeKey = null) {
-  if (!db || !(await ensureDatabaseReady()))
-    return { sent: 0, pending: 0, providerError: false };
-  const cappedLimit = Math.min(Math.max(Number(limit) || 1, 1), 25);
-  const rows = await db.query(
-    db.usePostgres
-      ? `SELECT id, dedupe_key, email_type, payload, attempts
-         FROM email_outbox
-         WHERE status = 'pending' AND available_at <= CURRENT_TIMESTAMP
-           AND ($1::text IS NULL OR dedupe_key = $1)
-         ORDER BY created_at ASC LIMIT $2`
-      : `SELECT id, dedupe_key, email_type, payload, attempts
-         FROM email_outbox
-         WHERE status = 'pending' AND datetime(available_at) <= CURRENT_TIMESTAMP
-           AND (? IS NULL OR dedupe_key = ?)
-         ORDER BY created_at ASC LIMIT ?`,
-    db.usePostgres
-      ? [dedupeKey, cappedLimit]
-      : [dedupeKey, dedupeKey, cappedLimit],
-  );
-  let sent = 0;
-  let providerError = false;
-  for (const job of rows) {
-    try {
-      const payload = typeof job.payload === "string"
-        ? JSON.parse(job.payload)
-        : job.payload;
-      if (job.email_type !== "order_confirmation")
-        throw new Error("Unsupported outbox email type");
-      const delivery = await sendOrderConfirmationEmail(payload);
-      if (!delivery?.sent) {
-        const providerMissing = delivery?.skipped === "RESEND_API_KEY";
-        providerError ||= !providerMissing;
-        const nextAttempt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-        await db.run(
-          db.usePostgres
-            ? "UPDATE email_outbox SET attempts = attempts + 1, available_at = $1, last_error = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3"
-            : "UPDATE email_outbox SET attempts = attempts + 1, available_at = ?, last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-          [nextAttempt, providerMissing ? "provider_not_configured" : "delivery_skipped", job.id],
-        );
-        continue;
-      }
-      await db.run(
-        db.usePostgres
-          ? "UPDATE email_outbox SET status = 'sent', attempts = attempts + 1, sent_at = CURRENT_TIMESTAMP, last_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1"
-          : "UPDATE email_outbox SET status = 'sent', attempts = attempts + 1, sent_at = CURRENT_TIMESTAMP, last_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [job.id],
-      );
-      sent += 1;
-    } catch (error) {
-      providerError = true;
-      const attempts = Number(job.attempts || 0) + 1;
-      const retryMinutes = Math.min(2 ** Math.min(attempts, 6), 60);
-      const nextAttempt = new Date(Date.now() + retryMinutes * 60 * 1000).toISOString();
-      await db.run(
-        db.usePostgres
-          ? "UPDATE email_outbox SET attempts = attempts + 1, available_at = $1, last_error = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3"
-          : "UPDATE email_outbox SET attempts = attempts + 1, available_at = ?, last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [nextAttempt, String(error?.message || "delivery_failed").slice(0, 160), job.id],
-      );
-      logError("email_outbox_delivery_error", error);
-    }
-  }
-  return { sent, pending: rows.length - sent, providerError };
 }
 
 let databaseReady = false;
@@ -382,7 +295,6 @@ const statelessApiPaths = new Set([
   "/api/catalog",
   "/api/public-config",
   "/api/checkout-session",
-  "/api/cron/email-outbox",
 ]);
 app.use("/api", (req, res, next) => {
   if (statelessApiPaths.has(req.originalUrl.split("?")[0])) return next();
@@ -527,10 +439,7 @@ app.get("/robots.txt", (req, res) => {
         "Disallow: /client-dashboard.html",
         "Disallow: /client-login.html",
         "Disallow: /client-register.html",
-        "Disallow: /forgot-password.html",
-        "Disallow: /reset-password.html",
         "Disallow: /success.html",
-        "Disallow: /verify-email.html",
         "Disallow: /api/",
         "",
         `Sitemap: ${canonicalUrl}/sitemap.xml`,
@@ -562,7 +471,6 @@ app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res
 const publicPages = new Set([
   "404.html", "index.html", "cart.html", "client-dashboard.html",
   "client-login.html", "client-register.html", "contact.html", "privacy.html",
-  "forgot-password.html", "reset-password.html", "verify-email.html",
   "googleab9c8b948f79ec49.html",
   "produto-fl-studio.html",
   "produto-neural-x.html", "produto-reaper.html", "success.html", "terms.html",
@@ -786,19 +694,9 @@ async function getUserSummaryByEmail(email) {
   if (!email) return null;
   return db.getOne(
     db.usePostgres
-      ? "SELECT id, email, role, name, mfa_enabled, email_verified_at, auth_version FROM users WHERE email = $1 LIMIT 1"
-      : "SELECT id, email, role, name, mfa_enabled, email_verified_at, auth_version FROM users WHERE email = ? LIMIT 1",
+      ? "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = $1 LIMIT 1"
+      : "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = ? LIMIT 1",
     [email],
-  );
-}
-
-async function getUserSummaryById(id) {
-  if (!Number.isInteger(Number(id))) return null;
-  return db.getOne(
-    db.usePostgres
-      ? "SELECT id, email, role, name, mfa_enabled, email_verified_at, auth_version FROM users WHERE id = $1 LIMIT 1"
-      : "SELECT id, email, role, name, mfa_enabled, email_verified_at, auth_version FROM users WHERE id = ? LIMIT 1",
-    [Number(id)],
   );
 }
 
@@ -806,8 +704,8 @@ async function getUserAuthByEmail(email) {
   if (!email) return null;
   return db.getOne(
     db.usePostgres
-      ? "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret, email_verified_at, auth_version FROM users WHERE email = $1 LIMIT 1"
-      : "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret, email_verified_at, auth_version FROM users WHERE email = ? LIMIT 1",
+      ? "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret FROM users WHERE email = $1 LIMIT 1"
+      : "SELECT id, email, password_hash, role, name, mfa_enabled, mfa_secret FROM users WHERE email = ? LIMIT 1",
     [email],
   );
 }
@@ -824,93 +722,16 @@ async function createUser(
       [email, hash, role, name, acceptedTerms],
     );
   }
-  await db.run(
+  return db.run(
     "INSERT INTO users (email, password_hash, role, name, terms_accepted_at) VALUES (?, ?, ?, ?, CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END)",
     [email, hash, role, name, acceptedTerms ? 1 : 0],
   );
-  return getUserSummaryByEmail(email);
 }
 
 function requireAuth(req, res, next) {
   if (!req.session.user)
     return res.status(401).json({ ok: false, error: "unauthorized" });
-  return getUserSummaryById(req.session.user.id)
-    .then((user) => {
-      if (
-        !user ||
-        user.email !== req.session.user.email ||
-        user.role !== req.session.user.role ||
-        Number(user.auth_version || 1) !== Number(req.session.user.authVersion || 1)
-      )
-        return req.session.destroy(() =>
-          res.status(401).json({ ok: false, error: "session_revoked" }),
-        );
-      req.authUser = user;
-      return next();
-    })
-    .catch(next);
-}
-
-function requireVerifiedEmail(req, res, next) {
-  if (!req.authUser?.email_verified_at)
-    return res.status(403).json({
-      ok: false,
-      error: "email_unverified",
-      email: req.authUser?.email || req.session.user?.email,
-    });
   return next();
-}
-
-function accountTokenHash(token) {
-  return createHash("sha256").update(String(token || "")).digest("hex");
-}
-
-function isAccountToken(value) {
-  return /^[A-Za-z0-9_-]{40,128}$/.test(String(value || ""));
-}
-
-async function createAccountToken(userId, purpose, ttlMs) {
-  const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + ttlMs);
-  await db.run(
-    db.usePostgres
-      ? "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL"
-      : "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND purpose = ? AND used_at IS NULL",
-    [userId, purpose],
-  );
-  await db.run(
-    db.usePostgres
-      ? "INSERT INTO account_tokens (user_id, purpose, token_hash, expires_at) VALUES ($1, $2, $3, $4)"
-      : "INSERT INTO account_tokens (user_id, purpose, token_hash, expires_at) VALUES (?, ?, ?, ?)",
-    [userId, purpose, accountTokenHash(token), expiresAt.toISOString()],
-  );
-  return token;
-}
-
-async function getValidAccountToken(token, purpose) {
-  if (!isAccountToken(token)) return null;
-  return db.getOne(
-    db.usePostgres
-      ? `SELECT t.id AS token_id, u.id, u.email, u.name, u.role, u.email_verified_at, u.auth_version
-         FROM account_tokens t JOIN users u ON u.id = t.user_id
-         WHERE t.token_hash = $1 AND t.purpose = $2 AND t.used_at IS NULL AND t.expires_at > CURRENT_TIMESTAMP
-         LIMIT 1`
-      : `SELECT t.id AS token_id, u.id, u.email, u.name, u.role, u.email_verified_at, u.auth_version
-         FROM account_tokens t JOIN users u ON u.id = t.user_id
-         WHERE t.token_hash = ? AND t.purpose = ? AND t.used_at IS NULL AND datetime(t.expires_at) > CURRENT_TIMESTAMP
-         LIMIT 1`,
-    [accountTokenHash(token), purpose],
-  );
-}
-
-async function consumeAccountToken(tokenId) {
-  const result = await db.run(
-    db.usePostgres
-      ? "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = $1 AND used_at IS NULL RETURNING id"
-      : "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL",
-    [tokenId],
-  );
-  return db.usePostgres ? Boolean(result?.id) : Number(result?.changes || 0) === 1;
 }
 
 function saveSession(req) {
@@ -959,18 +780,6 @@ function getOrderAccessStatus(product) {
   return "Pagamento confirmado · entrega por e-mail em até 4h";
 }
 
-async function resolveCheckoutUserId(checkout, buyerEmail) {
-  const referenceId = Number.parseInt(checkout.client_reference_id, 10);
-  if (!Number.isInteger(referenceId) || referenceId < 1) return null;
-  const user = await getUserSummaryById(referenceId);
-  if (
-    !user?.email_verified_at ||
-    String(user.email || "").toLowerCase() !== buyerEmail
-  )
-    return null;
-  return Number(user.id);
-}
-
 async function persistPaidCheckout(checkout) {
   if (checkout.payment_status !== "paid")
     return {
@@ -986,7 +795,6 @@ async function persistPaidCheckout(checkout) {
     .trim()
     .toLowerCase();
   if (!buyerEmail) throw new Error("Paid checkout session has no customer email");
-  const checkoutUserId = await resolveCheckoutUserId(checkout, buyerEmail);
 
   const catalog = getProductCatalog();
   const lineItems = checkout.line_items?.data || [];
@@ -1022,21 +830,21 @@ async function persistPaidCheckout(checkout) {
       amount,
       quantity,
       product.image,
+      product.accessUrl,
       checkout.id,
       priceId,
-      checkoutUserId,
     ];
     await db.run(
       db.usePostgres
-        ? "INSERT INTO orders (buyer_email, product_id, product, status, price, quantity, image, stripe_session_id, stripe_price_id, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING"
-        : "INSERT OR IGNORE INTO orders (buyer_email, product_id, product, status, price, quantity, image, stripe_session_id, stripe_price_id, user_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ? "INSERT INTO orders (buyer_email, product_id, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING"
+        : "INSERT OR IGNORE INTO orders (buyer_email, product_id, product, status, price, quantity, image, download_url, stripe_session_id, stripe_price_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
       values,
     );
     await db.run(
       db.usePostgres
-        ? "UPDATE orders SET product_id = $1, status = $2, user_id = COALESCE(user_id, $3) WHERE stripe_session_id = $4 AND stripe_price_id = $5"
-        : "UPDATE orders SET product_id = ?, status = ?, user_id = COALESCE(user_id, ?) WHERE stripe_session_id = ? AND stripe_price_id = ?",
-      [product.id, status, checkoutUserId, checkout.id, priceId],
+        ? "UPDATE orders SET product_id = $1, status = $2, download_url = COALESCE(download_url, $3) WHERE stripe_session_id = $4 AND stripe_price_id = $5"
+        : "UPDATE orders SET product_id = ?, status = ?, download_url = COALESCE(download_url, ?) WHERE stripe_session_id = ? AND stripe_price_id = ?",
+      [product.id, status, product.accessUrl, checkout.id, priceId],
     );
   }
   return {
@@ -1053,7 +861,7 @@ async function persistPaidCheckout(checkout) {
       id: product.id,
       name: product.name,
       quantity,
-      accessMode: product.accessMode,
+      accessUrl: product.accessUrl,
     })),
     amountTotal: checkout.amount_total,
     currency: checkout.currency,
@@ -1068,11 +876,17 @@ async function fulfillCheckoutSession(sessionId) {
   });
   const fulfillment = await persistPaidCheckout(checkout);
   if (fulfillment.recorded) {
-    const dedupeKey = `order-confirmation:${checkout.id}`;
-    await enqueueOrderConfirmationEmail(checkout.id, fulfillment);
-    const delivery = await processEmailOutbox(1, dedupeKey);
-    if (delivery.providerError)
-      throw new Error("Order confirmation remains queued after provider error");
+    await sendEmailSafely(
+      "order_confirmation",
+      () => sendOrderConfirmationEmail({
+        checkoutId: checkout.id,
+        email: fulfillment.buyerEmail,
+        products: fulfillment.products,
+        amountTotal: fulfillment.amountTotal,
+        currency: fulfillment.currency,
+      }),
+      { checkoutSessionId: checkout.id },
+    );
   }
   return fulfillment;
 }
@@ -1160,9 +974,8 @@ app.post(
       return res.status(400).json({ ok: false, error: "captcha_failed" });
     if (await getUserSummaryByEmail(email))
       return res.status(409).json({ ok: false, error: "email_taken" });
-    let user;
     try {
-      user = await createUser(
+      await createUser(
         email,
         await bcrypt.hash(String(password), 12),
         "client",
@@ -1174,146 +987,12 @@ app.post(
         return res.status(409).json({ ok: false, error: "email_taken" });
       throw error;
     }
-    const verificationToken = await createAccountToken(
-      user.id,
-      "verify_email",
-      24 * 60 * 60 * 1000,
-    );
-    const emailDelivery = await sendEmailSafely(
-      "email_verification",
-      () => sendEmailVerificationEmail({ email, name, token: verificationToken }),
-      { requestId: req.requestId },
-    );
-    return res.status(201).json({
-      ok: true,
-      verificationRequired: true,
-      emailSent: Boolean(emailDelivery?.sent),
-    });
-  }),
-);
-
-app.post(
-  "/api/email-verification/resend",
-  accountLimiter,
-  asyncHandler(requireDatabase),
-  asyncHandler(async (req, res) => {
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    if (isValidEmail(email)) {
-      const user = await getUserSummaryByEmail(email);
-      if (user && !user.email_verified_at) {
-        const token = await createAccountToken(
-          user.id,
-          "verify_email",
-          24 * 60 * 60 * 1000,
-        );
-        await sendEmailSafely(
-          "email_verification",
-          () => sendEmailVerificationEmail({
-            email: user.email,
-            name: user.name,
-            token,
-          }),
-          { requestId: req.requestId },
-        );
-      }
-    }
-    return res.status(202).json({
-      ok: true,
-      deliveryConfigured: Boolean(getEmailConfig().apiKey),
-    });
-  }),
-);
-
-app.post(
-  "/api/email-verification/confirm",
-  accountLimiter,
-  asyncHandler(requireDatabase),
-  asyncHandler(async (req, res) => {
-    const token = String(req.body?.token || "");
-    const user = await getValidAccountToken(token, "verify_email");
-    if (!user)
-      return res.status(400).json({ ok: false, error: "invalid_or_expired_token" });
-    if (!(await consumeAccountToken(user.token_id)))
-      return res.status(400).json({ ok: false, error: "invalid_or_expired_token" });
-    await db.run(
-      db.usePostgres
-        ? "UPDATE users SET email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id = $1"
-        : "UPDATE users SET email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [user.id],
-    );
     await sendEmailSafely(
       "welcome",
-      () => sendWelcomeEmail({ email: user.email, name: user.name }),
+      () => sendWelcomeEmail({ email, name }),
       { requestId: req.requestId },
     );
-    logEvent("email_verified", { requestId: req.requestId, userId: user.id });
-    return res.json({ ok: true, email: user.email });
-  }),
-);
-
-app.post(
-  "/api/password/forgot",
-  accountLimiter,
-  asyncHandler(requireDatabase),
-  asyncHandler(async (req, res) => {
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    if (isValidEmail(email)) {
-      const user = await getUserSummaryByEmail(email);
-      if (user) {
-        const token = await createAccountToken(
-          user.id,
-          "password_reset",
-          30 * 60 * 1000,
-        );
-        await sendEmailSafely(
-          "password_reset",
-          () => sendPasswordResetEmail({
-            email: user.email,
-            name: user.name,
-            token,
-          }),
-          { requestId: req.requestId },
-        );
-      }
-    }
-    return res.status(202).json({
-      ok: true,
-      deliveryConfigured: Boolean(getEmailConfig().apiKey),
-    });
-  }),
-);
-
-app.post(
-  "/api/password/reset",
-  accountLimiter,
-  asyncHandler(requireDatabase),
-  asyncHandler(async (req, res) => {
-    const token = String(req.body?.token || "");
-    const newPassword = String(req.body?.newPassword || "");
-    if (!isStrongPassword(newPassword))
-      return res.status(400).json({ ok: false, error: "weak_password" });
-    const user = await getValidAccountToken(token, "password_reset");
-    if (!user)
-      return res.status(400).json({ ok: false, error: "invalid_or_expired_token" });
-    const hash = await bcrypt.hash(newPassword, 12);
-    if (!(await consumeAccountToken(user.token_id)))
-      return res.status(400).json({ ok: false, error: "invalid_or_expired_token" });
-    await db.run(
-      db.usePostgres
-        ? "UPDATE users SET password_hash = $1, email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), auth_version = auth_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
-        : "UPDATE users SET password_hash = ?, email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), auth_version = auth_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [hash, user.id],
-    );
-    await db.run(
-      db.usePostgres
-        ? "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND used_at IS NULL"
-        : "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL",
-      [user.id],
-    );
-    if (req.session?.user)
-      await new Promise((resolve) => req.session.destroy(() => resolve()));
-    logEvent("password_reset", { requestId: req.requestId, userId: user.id });
-    return res.json({ ok: true });
+    return res.status(201).json({ ok: true });
   }),
 );
 
@@ -1374,12 +1053,7 @@ app.post(
     await new Promise((resolve, reject) =>
       req.session.regenerate((err) => (err ? reject(err) : resolve())),
     );
-    req.session.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      authVersion: Number(user.auth_version || 1),
-    };
+    req.session.user = { id: user.id, email: user.email, role: user.role };
     req.session.csrfToken = randomUUID();
     await saveSession(req);
     return res.json({ ok: true, role: user.role });
@@ -1473,12 +1147,7 @@ app.post(
     await new Promise((resolve, reject) =>
       req.session.regenerate((err) => (err ? reject(err) : resolve())),
     );
-    req.session.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      authVersion: Number(user.auth_version || 1),
-    };
+    req.session.user = { id: user.id, email: user.email, role: user.role };
     req.session.csrfToken = randomUUID();
     await saveSession(req);
     logEvent("mfa_disabled", { requestId: req.requestId, userId: user.id });
@@ -1512,7 +1181,6 @@ app.get(
         role: req.session.user.role,
         name: user?.name || "Cliente Neural X",
         mfaEnabled: Boolean(user?.mfa_enabled),
-        emailVerified: Boolean(user?.email_verified_at),
       },
     });
   }),
@@ -1568,19 +1236,14 @@ app.post(
     const hash = await bcrypt.hash(newPassword, 12);
     await db.run(
       db.usePostgres
-        ? "UPDATE users SET password_hash = $1, auth_version = auth_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
-        : "UPDATE users SET password_hash = ?, auth_version = auth_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        ? "UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
+        : "UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       [hash, user.id],
     );
     await new Promise((resolve, reject) =>
       req.session.regenerate((err) => (err ? reject(err) : resolve())),
     );
-    req.session.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      authVersion: Number(user.auth_version || 1) + 1,
-    };
+    req.session.user = { id: user.id, email: user.email, role: user.role };
     req.session.csrfToken = randomUUID();
     await saveSession(req);
     return res.json({ ok: true, csrfToken: req.session.csrfToken });
@@ -1595,14 +1258,13 @@ app.post(
     const name = String(req.body?.name || "").trim();
     const email = String(req.body?.email || "").trim().toLowerCase();
     const interest = String(req.body?.interest || "");
-    const recommendationConsent = req.body?.recommendationConsent === true;
     const marketingConsent = req.body?.marketingConsent === true;
     if (
       name.length < 2 ||
       name.length > 80 ||
       !isValidEmail(email) ||
       !leadInterests.has(interest) ||
-      !recommendationConsent
+      !marketingConsent
     )
       return res.status(400).json({ ok: false, error: "invalid_lead" });
     if (!(await verifyCaptcha(req.body?.captcha, "lead")))
@@ -1613,8 +1275,6 @@ app.post(
       email,
       name,
       interest,
-      db.usePostgres ? marketingConsent : marketingConsent ? 1 : 0,
-      ...(db.usePostgres ? [] : [marketingConsent ? 1 : 0]),
       attribution.utm_source || null,
       attribution.utm_medium || null,
       attribution.utm_campaign || null,
@@ -1625,12 +1285,12 @@ app.post(
     ];
     await db.run(
       db.usePostgres
-        ? `INSERT INTO leads (email, name, interest, recommendation_requested_at, marketing_consent_at, marketing_opt_in, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
-           VALUES ($1,$2,$3,CURRENT_TIMESTAMP,CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END,$4,$5,$6,$7,$8,$9,$10,$11)
-           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, interest = EXCLUDED.interest, status = 'Novo', recommendation_requested_at = CURRENT_TIMESTAMP, marketing_consent_at = CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END, marketing_opt_in = $4, utm_source = EXCLUDED.utm_source, utm_medium = EXCLUDED.utm_medium, utm_campaign = EXCLUDED.utm_campaign, utm_content = EXCLUDED.utm_content, utm_term = EXCLUDED.utm_term, landing_page = EXCLUDED.landing_page, referrer = EXCLUDED.referrer, updated_at = CURRENT_TIMESTAMP`
-        : `INSERT INTO leads (email, name, interest, recommendation_requested_at, marketing_consent_at, marketing_opt_in, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
-           VALUES (?,?,?,CURRENT_TIMESTAMP,CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END,?,?,?,?,?,?,?,?)
-           ON CONFLICT(email) DO UPDATE SET name = excluded.name, interest = excluded.interest, status = 'Novo', recommendation_requested_at = CURRENT_TIMESTAMP, marketing_consent_at = CASE WHEN excluded.marketing_opt_in = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, marketing_opt_in = excluded.marketing_opt_in, utm_source = excluded.utm_source, utm_medium = excluded.utm_medium, utm_campaign = excluded.utm_campaign, utm_content = excluded.utm_content, utm_term = excluded.utm_term, landing_page = excluded.landing_page, referrer = excluded.referrer, updated_at = CURRENT_TIMESTAMP`,
+        ? `INSERT INTO leads (email, name, interest, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, interest = EXCLUDED.interest, status = 'Novo', marketing_consent_at = CURRENT_TIMESTAMP, utm_source = EXCLUDED.utm_source, utm_medium = EXCLUDED.utm_medium, utm_campaign = EXCLUDED.utm_campaign, utm_content = EXCLUDED.utm_content, utm_term = EXCLUDED.utm_term, landing_page = EXCLUDED.landing_page, referrer = EXCLUDED.referrer, updated_at = CURRENT_TIMESTAMP`
+        : `INSERT INTO leads (email, name, interest, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
+           VALUES (?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(email) DO UPDATE SET name = excluded.name, interest = excluded.interest, status = 'Novo', marketing_consent_at = CURRENT_TIMESTAMP, utm_source = excluded.utm_source, utm_medium = excluded.utm_medium, utm_campaign = excluded.utm_campaign, utm_content = excluded.utm_content, utm_term = excluded.utm_term, landing_page = excluded.landing_page, referrer = excluded.referrer, updated_at = CURRENT_TIMESTAMP`,
       values,
     );
     const recommendation = leadInterests.get(interest);
@@ -1728,7 +1388,6 @@ app.get(
   "/api/support-tickets",
   asyncHandler(requireDatabase),
   requireAuth,
-  requireVerifiedEmail,
   asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
@@ -1744,110 +1403,36 @@ app.get(
   "/api/orders",
   asyncHandler(requireDatabase),
   requireAuth,
-  requireVerifiedEmail,
   asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
-        ? "SELECT id, product_id, product, status, price, quantity, image, created_at FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100"
-        : "SELECT id, product_id, product, status, price, quantity, image, created_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 100",
-      [req.authUser.id],
+        ? "SELECT id, product_id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = $1 ORDER BY created_at DESC LIMIT 100"
+        : "SELECT id, product_id, product, status, price, quantity, image, download_url, created_at FROM orders WHERE buyer_email = ? ORDER BY created_at DESC LIMIT 100",
+      [req.session.user.email],
     );
     const catalog = getProductCatalog();
     return res.json(
       rows.map((order) => {
         const currentProduct = catalog[order.product_id];
-        const accessMode = currentProduct?.accessMode || "pending";
+        const currentAccessUrl = currentProduct?.accessUrl || null;
+        const downloadUrl = order.download_url || currentAccessUrl;
+        const accessMode = currentProduct
+          ? currentProduct.accessMode === "pending" && order.download_url
+            ? "automatic"
+            : currentProduct.accessMode
+          : order.download_url
+            ? "automatic"
+            : "pending";
         return {
           ...order,
           status: currentProduct
             ? getOrderAccessStatus({ ...currentProduct, accessMode })
             : order.status,
           access_mode: accessMode,
-          access_url: currentProduct?.accessUrl
-            ? `/api/orders/${order.id}/access`
-            : null,
+          download_url: downloadUrl,
         };
       }),
     );
-  }),
-);
-
-app.post(
-  "/api/orders/claim",
-  accountLimiter,
-  asyncHandler(requireDatabase),
-  requireAuth,
-  requireVerifiedEmail,
-  asyncHandler(async (req, res) => {
-    const sessionId = String(req.body?.sessionId || "");
-    if (!stripeClient)
-      return res.status(503).json({ ok: false, error: "stripe_not_configured" });
-    if (!isStripeSessionId(sessionId))
-      return res.status(400).json({ ok: false, error: "invalid_session_id" });
-
-    const checkout = await stripeClient.checkout.sessions.retrieve(sessionId, {
-      expand: ["line_items.data.price.product"],
-    });
-    const buyerEmail = String(
-      checkout.customer_details?.email || checkout.customer_email || "",
-    ).trim().toLowerCase();
-    if (
-      checkout.metadata?.source !== "neural-x-site" ||
-      checkout.payment_status !== "paid" ||
-      buyerEmail !== String(req.authUser.email).toLowerCase()
-    )
-      return res.status(403).json({ ok: false, error: "order_claim_denied" });
-
-    await persistPaidCheckout(checkout);
-    const result = await db.run(
-      db.usePostgres
-        ? "UPDATE orders SET user_id = $1 WHERE stripe_session_id = $2 AND buyer_email = $3 AND (user_id IS NULL OR user_id = $1) RETURNING id"
-        : "UPDATE orders SET user_id = ? WHERE stripe_session_id = ? AND buyer_email = ? AND (user_id IS NULL OR user_id = ?)",
-      db.usePostgres
-        ? [req.authUser.id, sessionId, buyerEmail]
-        : [req.authUser.id, sessionId, buyerEmail, req.authUser.id],
-    );
-    logEvent("order_claimed", {
-      requestId: req.requestId,
-      userId: req.authUser.id,
-      checkoutSessionId: sessionId,
-    });
-    return res.json({
-      ok: true,
-      claimed: db.usePostgres ? Boolean(result?.id) : Number(result?.changes || 0) > 0,
-    });
-  }),
-);
-
-app.get(
-  "/api/orders/:orderId/access",
-  asyncHandler(requireDatabase),
-  requireAuth,
-  requireVerifiedEmail,
-  asyncHandler(async (req, res) => {
-    const orderId = Number.parseInt(req.params.orderId, 10);
-    if (!Number.isInteger(orderId) || orderId < 1)
-      return res.status(400).json({ ok: false, error: "invalid_order_id" });
-    const order = await db.getOne(
-      db.usePostgres
-        ? "SELECT id, product_id FROM orders WHERE id = $1 AND user_id = $2 LIMIT 1"
-        : "SELECT id, product_id FROM orders WHERE id = ? AND user_id = ? LIMIT 1",
-      [orderId, req.authUser.id],
-    );
-    if (!order)
-      return res.status(404).json({ ok: false, error: "order_not_found" });
-    const product = getProductCatalog()[order.product_id];
-    if (!product?.accessUrl)
-      return res.status(409).json({ ok: false, error: "access_pending" });
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Referrer-Policy", "no-referrer");
-    logEvent("product_access_opened", {
-      requestId: req.requestId,
-      userId: req.authUser.id,
-      orderId,
-      productId: order.product_id,
-    });
-    return res.redirect(302, product.accessUrl);
   }),
 );
 
@@ -1989,21 +1574,11 @@ app.get(
       if (checkout.metadata?.source !== "neural-x-site")
         return res.status(404).json({ ok: false, error: "session_not_found" });
       let fulfillment = "not_paid";
-      let emailStatus = "not_applicable";
       if (checkout.payment_status === "paid") {
         try {
           if (!db || !(await ensureDatabaseReady()))
             throw new Error("Fulfillment database is not ready");
           const fulfillmentResult = await persistPaidCheckout(checkout);
-          await enqueueOrderConfirmationEmail(checkout.id, fulfillmentResult);
-          await processEmailOutbox(1, `order-confirmation:${checkout.id}`);
-          const emailJob = await db.getOne(
-            db.usePostgres
-              ? "SELECT status FROM email_outbox WHERE dedupe_key = $1 LIMIT 1"
-              : "SELECT status FROM email_outbox WHERE dedupe_key = ? LIMIT 1",
-            [`order-confirmation:${checkout.id}`],
-          );
-          emailStatus = emailJob?.status === "sent" ? "sent" : "queued";
           fulfillment = fulfillmentResult.accessReady
             ? "ready"
             : fulfillmentResult.accessRequestRequired
@@ -2028,7 +1603,6 @@ app.get(
         amountTotal: checkout.amount_total,
         currency: checkout.currency,
         fulfillment,
-        emailStatus,
         products: (checkout.line_items?.data || []).map((item, index) => {
           const product = resolveLineItemProduct(
             item,
@@ -2050,26 +1624,6 @@ app.get(
 );
 
 app.get(
-  "/api/cron/email-outbox",
-  asyncHandler(async (req, res) => {
-    const cronSecret = String(process.env.CRON_SECRET || "");
-    const authorization = String(req.get("authorization") || "");
-    const expected = `Bearer ${cronSecret}`;
-    const authorized =
-      cronSecret.length >= 32 &&
-      authorization.length === expected.length &&
-      timingSafeEqual(Buffer.from(authorization), Buffer.from(expected));
-    if (!authorized)
-      return res.status(cronSecret ? 401 : 503).json({
-        ok: false,
-        error: cronSecret ? "unauthorized" : "cron_not_configured",
-      });
-    const result = await processEmailOutbox(25);
-    return res.json({ ok: true, ...result });
-  }),
-);
-
-app.get(
   "/api/health",
   asyncHandler(async (req, res) => {
     const [databaseInitialized, redisConnected, stripeCatalogHealthy] = await Promise.all([
@@ -2081,15 +1635,10 @@ app.get(
     ]);
     let databaseHealthy = false;
     let redisHealthy = false;
-    let pendingEmailJobs = null;
     if (databaseInitialized && db) {
       try {
         await db.query("SELECT 1 AS ok");
         databaseHealthy = true;
-        const outbox = await db.getOne(
-          "SELECT COUNT(*) AS count FROM email_outbox WHERE status = 'pending'",
-        );
-        pendingEmailJobs = Number(outbox?.count || 0);
       } catch (error) {
         logError("database_health_error", error, req.requestId);
       }
@@ -2113,12 +1662,7 @@ app.get(
         database: databaseHealthy ? "ok" : "unavailable",
         redis: redisHealthy ? "ok" : isProduction ? "unavailable" : "optional",
         stripe: stripeCatalogHealthy ? "ok" : "unavailable",
-        email: emailConfig.apiKey
-          ? "configured"
-          : "required_for_account_activation",
-      },
-      operations: {
-        pendingEmailJobs,
+        email: emailConfig.apiKey ? "configured" : "optional",
       },
       configuration: {
         valid: runtimeConfig.errors.length === 0,

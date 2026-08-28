@@ -39,6 +39,7 @@
             "@type": "OnlineStore",
             "@id": "https://neural-plugins-site.vercel.app/#store",
             "name": "Neural X",
+            "legalName": "Neural X Inc.",
             "url": "https://neural-plugins-site.vercel.app/",
             "description": "Loja online de plugins, DAWs e ferramentas digitais para músicos.",
             "logo": "https://neural-plugins-site.vercel.app/assets/favicon.svg"
@@ -97,9 +98,9 @@
           <h1>Comece pelo seu <em>próximo som.</em></h1>
           <p class="lead">Selecione uma tarefa. A vitrine muda na hora para mostrar a ferramenta, o preço e a demonstração mais úteis para você.</p>
           <div class="hero-selector" role="tablist" aria-label="Escolha seu objetivo musical">
-            <button class="hero-selector-button" id="heroTabGuitar" type="button" role="tab" aria-selected="true" aria-controls="heroOffer" tabindex="0" data-hero-choice="guitar">Guitarra</button>
-            <button class="hero-selector-button" id="heroTabBeats" type="button" role="tab" aria-selected="false" aria-controls="heroOffer" tabindex="-1" data-hero-choice="beats">Beats</button>
-            <button class="hero-selector-button" id="heroTabRecording" type="button" role="tab" aria-selected="false" aria-controls="heroOffer" tabindex="-1" data-hero-choice="recording">Gravação</button>
+            <button class="hero-selector-button" type="button" role="tab" aria-selected="true" data-hero-choice="guitar">Guitarra</button>
+            <button class="hero-selector-button" type="button" role="tab" aria-selected="false" data-hero-choice="beats">Beats</button>
+            <button class="hero-selector-button" type="button" role="tab" aria-selected="false" data-hero-choice="recording">Gravação</button>
           </div>
           <dl class="hero-facts" aria-label="Informações rápidas da loja">
             <div><dt>Entrega</dt><dd>Digital por e-mail em até 4h</dd></div>
@@ -107,7 +108,7 @@
             <div><dt>Pagamento</dt><dd>Checkout seguro pela Stripe</dd></div>
           </dl>
         </div>
-        <article class="hero-visual hero-offer" id="heroOffer" role="tabpanel" aria-labelledby="heroTabGuitar" aria-live="polite" tabindex="0">
+        <article class="hero-visual hero-offer" id="heroOffer" aria-live="polite">
           <div class="hero-offer-meter" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
           <figure class="hero-offer-media">
             <img id="heroProductImage" src="./assets/neural-dsp/archetype-john-mayer-x.png" width="900" height="508" alt="Interface do plugin Archetype: John Mayer X" fetchpriority="high">
@@ -275,16 +276,15 @@
               <div class="button-row"><a class="button primary" id="recommendationLink" href="#produtos">Conhecer produto</a><button class="button ghost" id="changeRecommendation" type="button">Mudar objetivo</button></div>
               <form class="lead-form recommendation-email" id="leadForm" hidden novalidate>
                 <input id="leadInterest" name="interest" type="hidden">
-                <p><strong>Quer guardar a recomendação?</strong><br><small>O envio desta recomendação é transacional. Conteúdos e ofertas são uma escolha separada.</small></p>
+                <p><strong>Quer guardar a recomendação?</strong><br><small>O envio por e-mail e os conteúdos são opcionais. Seu resultado acima não depende disso.</small></p>
                 <div class="field-group"><label for="leadName">Primeiro nome</label><input id="leadName" name="name" type="text" autocomplete="given-name" minlength="2" maxlength="80" required placeholder="Como podemos chamar você?"></div>
                 <div class="field-group"><label for="leadEmail">E-mail</label><input id="leadEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com"></div>
-                <label class="consent"><input name="recommendationConsent" type="checkbox" required><span>Solicito o envio desta recomendação para o e-mail informado. Li a <a href="./privacy.html">política de privacidade</a>.</span></label>
-                <label class="consent"><input name="marketingConsent" type="checkbox"><span>Também quero receber conteúdos e ofertas da Neural X. Posso cancelar quando quiser.</span></label>
+                <label class="consent"><input name="marketingConsent" type="checkbox" required><span>Quero receber esta recomendação, conteúdos e ofertas da Neural X. Li a <a href="./privacy.html">política de privacidade</a>.</span></label>
                 <p class="form-message" id="leadMessage" role="status" aria-live="polite"></p>
                 <button class="button secondary" type="submit">Enviar recomendação por e-mail</button>
                 <small class="lead-privacy-note">Consentimento separado. Cancele quando quiser.</small>
               </form>
-              <button class="recommendation-email-toggle" id="showRecommendationEmail" type="button">Receber esta recomendação por e-mail</button>
+              <button class="recommendation-email-toggle" id="showRecommendationEmail" type="button">Receber por e-mail e conteúdos opcionais</button>
             </section>
           </div>
         </div>
@@ -319,7 +319,7 @@
         <div class="footer-column"><strong>Ajuda</strong><a href="./guias.html">Guias</a><a href="./contact.html">Suporte</a><a href="#faq">Dúvidas frequentes</a><a href="./client-register.html">Criar conta</a></div>
         <div class="footer-column"><strong>Legal</strong><a href="./privacy.html">Privacidade</a><a href="./terms.html">Termos de compra</a></div>
       </div>
-      <div class="footer-bottom"><span>© 2026 Neural X</span><span>Marcas citadas pertencem aos respectivos titulares.</span></div>
+      <div class="footer-bottom"><span>© 2026 Neural X · Neural X Inc.</span><span>Marcas citadas pertencem aos respectivos titulares.</span></div>
     </footer>
     <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
     <script type="module" src="./main.js"></script>

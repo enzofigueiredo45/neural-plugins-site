@@ -36,7 +36,6 @@ test("reports missing production configuration by variable name only", () => {
     "RESEND_API_KEY",
     "EMAIL_FROM",
     "EMAIL_SUPPORT_TO",
-    "CRON_SECRET",
   ]);
 });
 
@@ -60,7 +59,6 @@ test("accepts a complete production configuration", () => {
       RESEND_API_KEY: "re_test",
       EMAIL_FROM: "Neural X <hello@example.com>",
       EMAIL_SUPPORT_TO: "support@example.com",
-      CRON_SECRET: "c".repeat(48),
     },
     true,
   );
@@ -104,7 +102,6 @@ test("allows an isolated Stripe test key on Vercel previews", () => {
       RESEND_API_KEY: "re_test",
       EMAIL_FROM: "Neural X <hello@example.com>",
       EMAIL_SUPPORT_TO: "support@example.com",
-      CRON_SECRET: "c".repeat(48),
     },
     true,
   );
@@ -152,7 +149,6 @@ test("validates requested access mode", () => {
     RESEND_API_KEY: "re_test",
     EMAIL_FROM: "Neural X <hello@example.com>",
     EMAIL_SUPPORT_TO: "support@example.com",
-    CRON_SECRET: "c".repeat(48),
   };
   assert.deepEqual(
     validateRuntimeConfig(
