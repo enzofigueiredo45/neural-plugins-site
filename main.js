@@ -20,6 +20,7 @@ const PRODUCTS = Object.freeze({
     name: "Coleção Neural DSP",
     licenseType: "Licença digital vinculada ao computador",
     price: 29.9,
+    paymentLink: "https://mpago.la/116GVoE",
     accessMode: "pending",
     image: "/assets/neural-dsp/archetype-john-mayer-x.png",
   },
@@ -29,6 +30,7 @@ const PRODUCTS = Object.freeze({
     edition: "2026",
     licenseType: "Licença digital vinculada ao computador",
     price: 19.9,
+    paymentLink: "https://mpago.la/2vmYcir",
     accessMode: "pending",
     image: "/assets/product-fl-studio.jpg",
   },
@@ -38,6 +40,7 @@ const PRODUCTS = Object.freeze({
     edition: "2026",
     licenseType: "Licença digital vinculada ao computador",
     price: 19.9,
+    paymentLink: "https://mpago.la/2GGbxw5",
     accessMode: "pending",
     image: "/assets/product-reaper.jpg",
   },
@@ -781,6 +784,8 @@ function initCart() {
   const clearButton = document.querySelector("#clearCart");
   const status = document.querySelector("#checkoutStatus");
   const fulfillmentNote = document.querySelector("#fulfillmentNote");
+  const pixButton = document.querySelector("#pixCheckoutButton");
+  const pixNote = document.querySelector("#pixCheckoutNote");
   void fetchCsrf();
 
   const render = () => {
@@ -798,6 +803,26 @@ function initCart() {
     );
     if (checkoutButton) checkoutButton.disabled = cart.length === 0;
     if (clearButton) clearButton.disabled = cart.length === 0;
+    const pixItem = cart.length === 1 && cart[0].quantity === 1 ? cart[0] : null;
+    const pixProduct = pixItem ? PRODUCTS[pixItem.id] : null;
+    const pixUrl = safeUrl(pixProduct?.paymentLink);
+    if (pixButton) {
+      pixButton.hidden = !pixUrl;
+      if (pixUrl) {
+        pixButton.href = pixUrl;
+        pixButton.dataset.productId = pixProduct.id;
+        pixButton.setAttribute("aria-label", `Pagar ${pixProduct.name} com Pix no Mercado Pago`);
+      } else {
+        pixButton.removeAttribute("href");
+        delete pixButton.dataset.productId;
+      }
+    }
+    if (pixNote) {
+      pixNote.hidden = cart.length === 0;
+      pixNote.textContent = pixUrl
+        ? "O Pix abre no Mercado Pago. Após pagar, guarde o comprovante; a confirmação e a liberação são conferidas manualmente em até 4 horas."
+        : "Para pagar por Pix, deixe apenas uma unidade de um produto no carrinho. A Stripe continua disponível para o carrinho completo.";
+    }
     if (fulfillmentNote) {
       fulfillmentNote.textContent =
         "O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
@@ -840,6 +865,19 @@ function initCart() {
     render();
     showToast("Carrinho limpo.");
     trackEvent("remove_from_cart", { action: "clear", ...cartMetrics(previous) });
+  });
+
+  pixButton?.addEventListener("click", () => {
+    const cart = readCart();
+    const product = PRODUCTS[pixButton.dataset.productId];
+    if (!product || cart.length !== 1 || cart[0].id !== product.id || cart[0].quantity !== 1) return;
+    trackEvent("begin_checkout", {
+      ...checkoutMetrics(cart),
+      payment_provider: "mercado_pago",
+      payment_method: "pix",
+      product_id: product.id,
+    });
+    if (status) status.textContent = "Abrindo o Pix no Mercado Pago em uma nova aba.";
   });
 
   checkoutButton?.addEventListener("click", async () => {

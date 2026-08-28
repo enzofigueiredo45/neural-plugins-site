@@ -2209,6 +2209,42 @@ input:disabled {
   letter-spacing: -0.06em;
 }
 
+.payment-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.payment-divider::before,
+.payment-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+}
+
+.pix-button {
+  border-color: rgba(0, 188, 212, 0.42);
+  background: #00bcd4;
+  color: #071012;
+}
+
+.pix-button:hover {
+  background: #34c9dc;
+}
+
+.pix-checkout-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
 .checkout-status {
   min-height: 1.2rem;
   margin: 0;
