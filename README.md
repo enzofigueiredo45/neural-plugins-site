@@ -44,6 +44,12 @@ O checkout não fixa `payment_method_types`: a Stripe seleciona dinamicamente os
 
 Cadastre na Stripe o webhook `POST /api/stripe-webhook` para os eventos `checkout.session.completed` e `checkout.session.async_payment_succeeded`, então salve o segredo de assinatura em `STRIPE_WEBHOOK_SECRET`. Adicione `store_product_id` (`neural-x`, `fl-studio` ou `reaper`) aos metadados dos Products e Prices. O processamento usa esse identificador estável e é idempotente por sessão/produto, continuando válido quando um Price ID for substituído.
 
+## Analytics e conversões
+
+Após o visitante aceitar a medição, o site envia ao Google Analytics 4 as etapas `view_item`, `add_to_cart`, `view_cart`, `begin_checkout`, `checkout_created`, `checkout_error`, `checkout_cancelled` e `purchase`. Os eventos incluem produto, valor, moeda e o provedor (`stripe` ou `mercado_pago`) quando aplicável. A compra só é registrada após a confirmação do pagamento pelo servidor e usa o identificador da transação para evitar duplicidade.
+
+O mesmo consentimento ativa a atribuição de compras do Google Ads. O site não envia o e-mail do comprador ao Google e não usa conversões otimizadas. O ID público do GA4 fica em `main.js`; chaves privadas e segredos continuam restritos às variáveis de produção.
+
 ## Liberação do produto
 
 Cada pedido pago é registrado mesmo se a URL de acesso ainda não estiver configurada. Quando a URL HTTPS está configurada, o e-mail de confirmação já inclui o link de download; quando não está, a confirmação informa que o link e as instruções serão enviados ao e-mail da compra em até 4 horas. A operação precisa cumprir esse prazo manualmente até que todos os links estejam configurados. Depois de adicionar a URL e fazer um novo deploy, pedidos antigos com `product_id` também passam a exibir o acesso sem edição manual do banco.
