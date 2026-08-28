@@ -3,7 +3,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const canonicalUrl = String(
-  process.env.SITE_URL || "https://neural-plugins-site.vercel.app",
+  process.env.SITE_URL || "https://neuralxplugins.com.br",
 ).replace(/\/$/, "");
 if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(canonicalUrl)) {
   throw new Error("SITE_URL precisa ser uma origem HTTPS válida, sem caminho.");
