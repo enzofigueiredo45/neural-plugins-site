@@ -134,6 +134,19 @@ test("Google Analytics measures the consented funnel and deduplicated purchases"
   assert.match(privacy, /sem enviar seu e-mail ao Google/);
 });
 
+test("mobile navigation and comparison remain compact and readable", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const styles = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+  assert.match(main, /nav\.toggleAttribute\("inert", mobileQuery\.matches && !nextOpen\)/);
+  assert.match(main, /event\.key !== "Escape"/);
+  assert.match(main, /!nav\.contains\(event\.target\)/);
+  assert.match(styles, /@media \(max-width: 820px\)[\s\S]*?\.main-nav \{[\s\S]*?position: absolute/);
+  assert.match(styles, /\.main-nav\[data-open="true"\][\s\S]*?pointer-events: auto/);
+  assert.match(styles, /@media \(max-width: 620px\)[\s\S]*?font-size: clamp\(2\.65rem, 11\.5vw, 3\.65rem\)/);
+  assert.match(styles, /\.product-comparison tbody tr \{[\s\S]*?grid-template-areas:/);
+  assert.match(styles, /\.product-comparison tbody tr > :nth-child\(5\)::before \{ content: "Preço"; \}/);
+});
+
 test("private commerce and account pages are not indexable", () => {
   for (const file of [
     "cart.html",
