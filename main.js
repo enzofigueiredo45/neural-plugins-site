@@ -909,7 +909,13 @@ async function postJson(url, body) {
     headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
     body: JSON.stringify(body),
   });
-  return { response, data: await readJsonResponse(response) };
+  const data = await readJsonResponse(response);
+  // Session rotation also rotates CSRF. Keep subsequent actions on the page
+  // usable, but never automatically replay account or payment mutations.
+  if (response.ok && typeof data.csrfToken === "string")
+    csrfRequest = Promise.resolve(data.csrfToken);
+  else if (data.error === "csrf_error") csrfRequest = null;
+  return { response, data };
 }
 
 const checkoutErrorMessages = {
@@ -1159,7 +1165,8 @@ const authMessages = {
   invalid_credentials: "E-mail ou senha incorretos.",
   account_locked: "Conta temporariamente bloqueada após várias tentativas. Tente mais tarde.",
   captcha_failed: "Não foi possível validar a segurança. Atualize a página e tente novamente.",
-  email_taken: "Já existe uma conta com este e-mail. Tente entrar.",
+  registration_unavailable: "Não foi possível concluir o cadastro com os dados informados. Confira os dados ou use a opção Entrar.",
+  csrf_error: "Sua sessão foi atualizada. Tente novamente; seus dados foram mantidos.",
   invalid_credentials_format: "Confira o nome e o e-mail informados.",
   weak_password: "Use pelo menos 8 caracteres com maiúscula, minúscula, número e símbolo.",
   database_not_ready: "Estamos restabelecendo a conexão. Aguarde alguns segundos e tente novamente.",
@@ -1227,6 +1234,7 @@ function initRegistration() {
   const submit = form.querySelector('button[type="submit"]');
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (submit.disabled) return;
     message.textContent = "";
     message.dataset.state = "";
     if (!form.reportValidity()) return;
@@ -1243,8 +1251,13 @@ function initRegistration() {
     try {
       submit.disabled = true;
       submit.textContent = "Criando conta…";
+      form.setAttribute("aria-busy", "true");
       const fields = form.elements;
-      const captcha = await getRecaptchaToken("register");
+      // Independent setup requests can run together while keeping CSRF required.
+      const [captcha] = await Promise.all([
+        getRecaptchaToken("register"),
+        fetchCsrf(),
+      ]);
       const { response, data } = await postJson("/api/register", {
         name: fields.namedItem("name").value.trim(),
         email: fields.namedItem("email").value.trim(),
@@ -1252,18 +1265,21 @@ function initRegistration() {
         acceptTerms: fields.namedItem("acceptTerms").checked,
         captcha,
       });
-      if (!response.ok) throw new Error(data.error || "registration_error");
-      message.textContent = "Conta criada. Redirecionando para o login…";
+      if (!response.ok || data.authenticated !== true)
+        throw new Error(data.error || "registration_error");
+      message.textContent = "Conta criada. Abrindo sua área do cliente…";
       message.dataset.state = "success";
-      window.setTimeout(() => {
-        window.location.assign(`./client-login.html?email=${encodeURIComponent(fields.namedItem("email").value.trim())}`);
-      }, 900);
+      // No email in the URL or artificial delay. The existing cart is preserved.
+      window.location.replace("./client-dashboard.html");
     } catch (error) {
       message.textContent = authMessages[error.message] || "Não foi possível criar sua conta agora.";
       message.dataset.state = "error";
     } finally {
-      submit.disabled = false;
-      submit.textContent = "Criar minha conta";
+      form.removeAttribute("aria-busy");
+      if (message.dataset.state !== "success") {
+        submit.disabled = false;
+        submit.textContent = "Criar minha conta";
+      }
     }
   });
 }
@@ -1469,9 +1485,11 @@ function initDashboard() {
   const loadAccount = async () => {
     try {
       const response = await fetch("/api/me", { credentials: "include" });
-      if (!response.ok) throw new Error("unauthorized");
+      if (response.status === 401) throw new Error("unauthorized");
+      if (!response.ok) throw new Error("account_unavailable");
       const data = await readJsonResponse(response);
       if (data.user?.role !== "client") throw new Error("invalid_role");
+      document.querySelector("#accountLoadError").hidden = true;
       profileName.value = data.user.name || "";
       profileEmail.value = data.user.email || "";
       welcomeName.textContent = (data.user.name || data.user.email).split(/\s+|@/)[0];
@@ -1490,8 +1508,10 @@ function initDashboard() {
       }
       setAvatar(data.user);
       return data.user;
-    } catch {
-      window.location.replace("./client-login.html");
+    } catch (error) {
+      if (["unauthorized", "invalid_role"].includes(error.message))
+        window.location.replace("./client-login.html");
+      else document.querySelector("#accountLoadError").hidden = false;
       return null;
     }
   };
@@ -1664,9 +1684,17 @@ function initDashboard() {
     window.location.replace("./client-login.html");
   });
 
-  loadAccount().then((user) => {
-    if (user) Promise.all([loadOrders(), loadTickets()]);
+  const refreshAccount = async () => {
+    const user = await loadAccount();
+    if (user) await Promise.all([loadOrders(), loadTickets()]);
+  };
+  document.querySelector("#retryAccountLoad")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    if (button.disabled) return;
+    button.disabled = true;
+    try { await refreshAccount(); } finally { button.disabled = false; }
   });
+  void refreshAccount();
 }
 
 function trackPurchaseOnce(sessionId, data) {
@@ -1846,7 +1874,9 @@ function applyQueryPrefill() {
 initAnalytics();
 initMeasurementConsent();
 captureAttribution();
-void syncPublicCatalog();
+// Account forms have no catalog prices to render. Avoid a needless request on
+// the critical signup/login path; the cart and product pages still synchronize.
+if (!document.querySelector("#registerForm, #loginForm")) void syncPublicCatalog();
 initNavigation();
 initPasswordToggles();
 initHeroSelector();
