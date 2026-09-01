@@ -163,7 +163,28 @@ function initAnalytics() {
   document.head.append(script);
 }
 
+function initGoogleConsentState() {
+  if (window.__neuralxGoogleConsentInitialized) return;
+  window.dataLayer = window.dataLayer || [];
+  window.gtag =
+    window.gtag ||
+    function googleTagQueue() {
+      window.dataLayer.push(arguments);
+    };
+  const granted = getMeasurementConsent() === "granted";
+  window.gtag("consent", "default", {
+    ad_storage: granted ? "granted" : "denied",
+    ad_user_data: "denied",
+    ad_personalization: "denied",
+    analytics_storage: granted ? "granted" : "denied",
+    wait_for_update: 500,
+  });
+  window.__neuralxGoogleConsentInitialized = true;
+}
+
 function loadGoogleMeasurementTag() {
+  initGoogleConsentState();
+  if (getMeasurementConsent() !== "granted") return;
   if (window.__neuralxGoogleAdsLoaded) {
     window.gtag?.("consent", "update", {
       ad_storage: "granted",
@@ -174,13 +195,7 @@ function loadGoogleMeasurementTag() {
     return;
   }
   window.__neuralxGoogleAdsLoaded = true;
-  window.dataLayer = window.dataLayer || [];
-  window.gtag =
-    window.gtag ||
-    function googleTagQueue() {
-      window.dataLayer.push(arguments);
-    };
-  window.gtag("consent", "default", {
+  window.gtag("consent", "update", {
     ad_storage: "granted",
     ad_user_data: "denied",
     ad_personalization: "denied",
@@ -273,6 +288,7 @@ function trackGoogleAdsPurchaseOnce(sessionId, data) {
 }
 
 function initMeasurementConsent() {
+  initGoogleConsentState();
   const consent = getMeasurementConsent();
   if (consent === "granted") loadGoogleMeasurementTag();
   else if (consent !== "denied") showMeasurementConsent();
