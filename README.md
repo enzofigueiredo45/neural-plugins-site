@@ -20,7 +20,7 @@ Copie `.env.example` para o painel de variáveis da hospedagem. Não commite `.e
 Variáveis mínimas:
 
 - `NODE_ENV=production`
-- `SITE_URL=https://seu-dominio.com`
+- `SITE_URL=https://neuralxplugins.com.br`
 - `SESSION_SECRET` com valor longo e único
 - `REDIS_URL` para sessões e rate limit de login
 - `DATABASE_URL` com Postgres em produção; sem essa variável o servidor cria `data.sqlite` para desenvolvimento local
@@ -48,7 +48,7 @@ Cadastre na Stripe o webhook `POST /api/stripe-webhook` para os eventos `checkou
 
 Após o visitante aceitar a medição, o site envia ao Google Analytics 4 as etapas `view_item`, `add_to_cart`, `view_cart`, `begin_checkout`, `checkout_created`, `checkout_error`, `checkout_cancelled` e `purchase`. Os eventos incluem produto, valor, moeda e o provedor (`stripe` ou `mercado_pago`) quando aplicável. A compra só é registrada após a confirmação do pagamento pelo servidor e usa o identificador da transação para evitar duplicidade.
 
-O mesmo consentimento ativa a atribuição de compras do Google Ads. O site não envia o e-mail do comprador ao Google e não usa conversões otimizadas. O ID público do GA4 fica em `main.js`; chaves privadas e segredos continuam restritos às variáveis de produção.
+O mesmo consentimento ativa a atribuição de compras do Google Ads. Depois de uma compra paga, e somente com consentimento, o site pode enviar um hash SHA-256 do e-mail do checkout para a medição de conversões otimizadas; o e-mail em texto não é enviado ao Google. O ID público do GA4 fica em `main.js`; chaves privadas e segredos continuam restritos às variáveis de produção.
 
 ## Liberação do produto
 
