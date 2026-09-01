@@ -1083,7 +1083,10 @@ const authMessages = {
   account_locked: "Conta temporariamente bloqueada após várias tentativas. Tente mais tarde.",
   captcha_failed: "Não foi possível validar a segurança. Atualize a página e tente novamente.",
   email_taken: "Já existe uma conta com este e-mail. Tente entrar.",
-  invalid_credentials_format: "Confira o e-mail e use uma senha forte com pelo menos 12 caracteres.",
+  invalid_credentials_format: "Confira o nome e o e-mail informados.",
+  weak_password: "Use pelo menos 8 caracteres com maiúscula, minúscula, número e símbolo.",
+  database_not_ready: "Estamos restabelecendo a conexão. Aguarde alguns segundos e tente novamente.",
+  session_store_not_ready: "Estamos restabelecendo a sessão. Aguarde alguns segundos e tente novamente.",
   terms_required: "Você precisa aceitar os termos e a política de privacidade.",
   mfa_failed: "Código de verificação inválido.",
 };
@@ -1131,7 +1134,7 @@ function initLogin() {
 
 function isStrongPassword(value) {
   return (
-    value.length >= 12 &&
+    value.length >= 8 &&
     value.length <= 128 &&
     /[a-z]/.test(value) &&
     /[A-Z]/.test(value) &&
@@ -1156,7 +1159,7 @@ function initRegistration() {
       return;
     }
     if (!isStrongPassword(form.password.value)) {
-      message.textContent = "Use 12 ou mais caracteres com maiúscula, minúscula, número e símbolo.";
+      message.textContent = authMessages.weak_password;
       message.dataset.state = "error";
       return;
     }
@@ -1224,7 +1227,8 @@ function initSupportForm() {
       const messages = {
         invalid_support_request: "Confira os campos e tente novamente.",
         captcha_failed: authMessages.captcha_failed,
-        database_not_ready: "O atendimento está temporariamente indisponível. Tente novamente.",
+        database_not_ready: "Estamos restabelecendo a conexão. Seu texto foi mantido; aguarde alguns segundos e envie novamente.",
+        session_store_not_ready: authMessages.session_store_not_ready,
       };
       status.textContent = messages[error.message] || "Não foi possível enviar seu chamado agora.";
       status.dataset.state = "error";
@@ -1558,7 +1562,7 @@ function initDashboard() {
     const submit = form.querySelector('button[type="submit"]');
     if (!form.reportValidity()) return;
     if (!isStrongPassword(form.newPassword.value)) {
-      message.textContent = "A nova senha precisa de 12 caracteres, maiúscula, minúscula, número e símbolo.";
+      message.textContent = authMessages.weak_password;
       message.dataset.state = "error";
       return;
     }
@@ -1606,12 +1610,48 @@ function trackPurchaseOnce(sessionId, data) {
   trackGoogleAdsPurchaseOnce(sessionId, purchaseData);
 }
 
+function renderConfirmedAccess(products) {
+  const section = document.querySelector("#confirmedAccess");
+  const list = document.querySelector("#confirmedAccessList");
+  if (!section || !list) return;
+  list.replaceChildren();
+  for (const product of products || []) {
+    let url;
+    try {
+      url = new URL(product.accessUrl);
+      if (url.protocol !== "https:" || url.username || url.password) continue;
+    } catch {
+      continue;
+    }
+    const item = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = product.name || "Produto adquirido";
+    const link = document.createElement("a");
+    link.className = "button primary";
+    link.href = url.href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.dataset.productAccess = product.id || "";
+    link.textContent = product.accessMode === "request"
+      ? "Solicitar acesso ao produto"
+      : url.hostname === "drive.google.com"
+        ? "Abrir no Google Drive"
+        : "Acessar produto";
+    item.append(name, link);
+    list.append(item);
+  }
+  section.hidden = list.children.length === 0;
+}
+
 function initCheckoutSuccess() {
   const card = document.querySelector("[data-checkout-success]");
   if (!card) return;
   const title = document.querySelector("#successTitle");
   const message = document.querySelector("#successMessage");
   const icon = document.querySelector("#successIcon");
+  const retry = document.querySelector("#retryConfirmation");
+  let attempts = 0;
+  let retryTimer;
   const params = new URLSearchParams(window.location.search);
   const isMercadoPago = params.get("provider") === "mercado_pago";
   const sessionId = params.get("session_id");
@@ -1624,18 +1664,25 @@ function initCheckoutSuccess() {
   const fail = () => {
     icon.textContent = "!";
     title.textContent = "Não foi possível confirmar.";
-    message.textContent = `Consulte o pagamento no ${providerName} ou abra um chamado antes de tentar novamente.`;
+    message.textContent = `Não faça outro pagamento. Tente verificar novamente ou consulte o ${providerName}.`;
     card.dataset.state = "error";
+    if (retry) retry.hidden = false;
   };
   if (
     (isMercadoPago && (!paymentId || !externalReference)) ||
     (!isMercadoPago && !sessionId)
-  )
-    return fail();
+  ) {
+    fail();
+    if (retry) retry.hidden = true;
+    return;
+  }
   const lookupUrl = isMercadoPago
     ? `/api/mercado-pago-payment?payment_id=${encodeURIComponent(paymentId)}&external_reference=${encodeURIComponent(externalReference)}`
     : `/api/checkout-session?session_id=${encodeURIComponent(sessionId)}`;
-  fetch(lookupUrl, { credentials: "include" })
+  const confirmPayment = () => {
+    attempts += 1;
+    if (retry) retry.hidden = true;
+    return fetch(lookupUrl, { credentials: "include", cache: "no-store" })
     .then(async (response) => ({ response, data: await readJsonResponse(response) }))
     .then(({ response, data }) => {
       if (!response.ok) throw new Error(data.error || "session_lookup_error");
@@ -1666,24 +1713,28 @@ function initCheckoutSuccess() {
         });
         icon.textContent = "✓";
         title.textContent = "Pagamento confirmado.";
+        renderConfirmedAccess(data.products);
         const items = data.products?.map((item) => item.name).filter(Boolean).join(", ");
         if (data.fulfillment === "ready") {
           message.textContent = items
-            ? `${items}: o acesso foi liberado e a confirmação foi enviada ao e-mail da compra. Você também pode usar esse endereço na área do cliente.`
-            : "Seu acesso foi liberado e a confirmação foi enviada ao e-mail da compra.";
+            ? `${items}: acesse pelos links abaixo. Seus produtos também ficam na área do cliente, usando o e-mail da compra.`
+            : "Seu acesso foi liberado. Use os links abaixo ou entre na área do cliente com o e-mail da compra.";
         } else if (data.fulfillment === "request_required") {
-          message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
+          message.textContent = "Seu pedido foi registrado. Abra o link abaixo para solicitar acesso com o e-mail da compra. A liberação e as instruções de ativação seguem o prazo de até 4 horas.";
         } else if (data.fulfillment === "recorded_pending_access") {
           message.textContent = "Seu pedido foi registrado. O link de download e as instruções de ativação serão enviados ao e-mail da compra em até 4 horas.";
         } else {
           message.textContent = "Seu pagamento foi aprovado e a confirmação do pedido está em andamento. Se ele não aparecer na conta em alguns minutos, abra um chamado.";
         }
         card.dataset.state = "success";
-      } else if (data.paymentStatus === "pending") {
+        if (data.fulfillment === "pending") scheduleRetry();
+      } else if (data.paymentStatus === "pending" ||
+        (data.paymentStatus === "unpaid" && data.status === "complete")) {
         icon.textContent = "…";
         title.textContent = "Pagamento em processamento.";
-        message.textContent = `O ${providerName} ainda está processando o pagamento. Atualize esta página em instantes.`;
+        message.textContent = `O ${providerName} ainda está processando o pagamento. Vamos consultar novamente; não é necessário pagar outra vez.`;
         card.dataset.state = "pending";
+        scheduleRetry();
       } else {
         icon.textContent = "!";
         title.textContent = "Pagamento não aprovado.";
@@ -1692,6 +1743,17 @@ function initCheckoutSuccess() {
       }
     })
     .catch(fail);
+  };
+  function scheduleRetry() {
+    if (attempts < 3) retryTimer = window.setTimeout(confirmPayment, 2500);
+    else if (retry) retry.hidden = false;
+  }
+  retry?.addEventListener("click", () => {
+    window.clearTimeout(retryTimer);
+    attempts = 0;
+    void confirmPayment();
+  });
+  void confirmPayment();
 }
 
 function applyQueryPrefill() {

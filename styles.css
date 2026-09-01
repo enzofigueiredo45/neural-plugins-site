@@ -244,7 +244,10 @@ li {
 
 .menu-toggle {
   display: none;
+  position: relative;
+  flex: 0 0 auto;
   width: 2.85rem;
+  height: 2.85rem;
   aspect-ratio: 1;
   place-items: center;
   padding: 0;
@@ -259,15 +262,22 @@ li {
 .menu-toggle::before,
 .menu-toggle::after {
   content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 1rem;
-  height: 1px;
+  height: 2px;
+  transform: translate(-50%, -50%);
   background: currentColor;
   transition: transform 160ms ease, opacity 160ms ease;
 }
 
-.menu-toggle {
-  grid-template-rows: repeat(3, min-content);
-  gap: 0.25rem;
+.menu-toggle::before {
+  transform: translate(-50%, calc(-50% - 5px));
+}
+
+.menu-toggle::after {
+  transform: translate(-50%, calc(-50% + 5px));
 }
 
 .menu-toggle[aria-expanded="true"] span {
@@ -275,11 +285,11 @@ li {
 }
 
 .menu-toggle[aria-expanded="true"]::before {
-  transform: translateY(5px) rotate(45deg);
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .menu-toggle[aria-expanded="true"]::after {
-  transform: translateY(-5px) rotate(-45deg);
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .container {
@@ -2633,6 +2643,37 @@ input[type="file"]::file-selector-button {
 .status-card h1 {
   max-width: none;
   font-size: clamp(2.7rem, 7vw, 5.2rem);
+}
+
+.confirmed-access {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.confirmed-access[hidden],
+#retryConfirmation[hidden] {
+  display: none;
+}
+
+.confirmed-access h2 {
+  font-size: 1.4rem;
+}
+
+.confirmed-access ul {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.confirmed-access li {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .status-card p {
