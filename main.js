@@ -5,6 +5,8 @@ const STOREFRONT_VIEW_KEY = "neuralx_storefront_viewed";
 const PURCHASE_TRACKING_KEY = "neuralx_tracked_purchases";
 const GOOGLE_ADS_PURCHASE_TRACKING_KEY = "neuralx_google_ads_purchases";
 const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
+const MEASUREMENT_CONSENT_VERSION_KEY = "neuralx_measurement_consent_version";
+const MEASUREMENT_CONSENT_VERSION = "2";
 const GOOGLE_ADS_ID = "AW-10867942652";
 const GOOGLE_ANALYTICS_ID = "G-JY83B1EM8L";
 const GOOGLE_ADS_PURCHASE_DESTINATION =
@@ -174,7 +176,7 @@ function initGoogleConsentState() {
   const granted = getMeasurementConsent() === "granted";
   window.gtag("consent", "default", {
     ad_storage: granted ? "granted" : "denied",
-    ad_user_data: "denied",
+    ad_user_data: granted ? "granted" : "denied",
     ad_personalization: "denied",
     analytics_storage: granted ? "granted" : "denied",
     wait_for_update: 500,
@@ -188,7 +190,7 @@ function loadGoogleMeasurementTag() {
   if (window.__neuralxGoogleAdsLoaded) {
     window.gtag?.("consent", "update", {
       ad_storage: "granted",
-      ad_user_data: "denied",
+      ad_user_data: "granted",
       ad_personalization: "denied",
       analytics_storage: "granted",
     });
@@ -214,7 +216,11 @@ function loadGoogleMeasurementTag() {
 
 function getMeasurementConsent() {
   try {
-    return localStorage.getItem(MEASUREMENT_CONSENT_KEY) || "";
+    const value = localStorage.getItem(MEASUREMENT_CONSENT_KEY) || "";
+    const version = localStorage.getItem(MEASUREMENT_CONSENT_VERSION_KEY) || "";
+    // Re-ask visitors who accepted the older wording before enhanced conversions.
+    if (value === "granted" && version !== MEASUREMENT_CONSENT_VERSION) return "";
+    return value;
   } catch {
     return "";
   }
@@ -223,6 +229,7 @@ function getMeasurementConsent() {
 function setMeasurementConsent(value) {
   try {
     localStorage.setItem(MEASUREMENT_CONSENT_KEY, value);
+    localStorage.setItem(MEASUREMENT_CONSENT_VERSION_KEY, MEASUREMENT_CONSENT_VERSION);
   } catch {}
 }
 
@@ -234,7 +241,7 @@ function showMeasurementConsent() {
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Preferências de medição");
   panel.innerHTML = `
-    <div><strong>Medição e anúncios</strong><p>Com sua permissão, usamos o Google Analytics para entender o funil e a tag do Google Ads para atribuir compras. Não enviamos seu e-mail ao Google.</p><a href="./privacy.html">Ver política de privacidade</a></div>
+    <div><strong>Medição e anúncios</strong><p>Com sua permissão, usamos o Google Analytics para entender o funil e a tag do Google Ads para atribuir compras. Depois de uma compra, o e-mail do checkout pode virar um identificador protegido (hash) para melhorar a medição; o e-mail em texto não é enviado ao Google.</p><a href="./privacy.html">Ver política de privacidade</a></div>
     <div class="measurement-consent-actions"><button class="button primary compact" type="button" data-measurement-accept>Aceitar medição</button><button class="button ghost compact" type="button" data-measurement-essential>Somente essenciais</button></div>`;
   panel.querySelector("[data-measurement-accept]")?.addEventListener("click", () => {
     setMeasurementConsent("granted");
@@ -259,7 +266,7 @@ function showMeasurementConsent() {
   document.body.append(panel);
 }
 
-function trackGoogleAdsPurchaseOnce(sessionId, data) {
+function trackGoogleAdsPurchaseOnce(sessionId, data = {}) {
   if (getMeasurementConsent() !== "granted") {
     pendingGoogleAdsPurchase = { sessionId, data };
     return;
@@ -272,7 +279,52 @@ function trackGoogleAdsPurchaseOnce(sessionId, data) {
       ? tracked.filter((value) => typeof value === "string")
       : [];
     if (sessions.includes(sessionId)) return;
+
+    const rawHash = data?.userData?.sha256_email_address;
+    const sha256Email =
+      typeof rawHash === "string" && /^[a-f0-9]{64}$/i.test(rawHash)
+        ? rawHash.toLowerCase()
+        : "";
+
+    // Fetch the hash only after consent. The endpoint never returns the raw email.
+    if (
+      !sha256Email &&
+      !data.enhancedConversionLookupAttempted &&
+      data.enhancedConversionLookup
+    ) {
+      const userDataUrl = new URL(
+        data.enhancedConversionLookup,
+        window.location.origin,
+      );
+      userDataUrl.searchParams.set("include_user_data", "1");
+      fetch(userDataUrl.href, { credentials: "include", cache: "no-store" })
+        .then(async (response) => ({
+          response,
+          data: await readJsonResponse(response),
+        }))
+        .then(({ response, data: lookupData }) => {
+          if (!response.ok) throw new Error(lookupData.error || "user_data_lookup_error");
+          trackGoogleAdsPurchaseOnce(sessionId, {
+            ...data,
+            userData: lookupData.userData,
+            enhancedConversionLookupAttempted: true,
+          });
+        })
+        .catch(() =>
+          trackGoogleAdsPurchaseOnce(sessionId, {
+            ...data,
+            enhancedConversionLookupAttempted: true,
+          }),
+        );
+      return;
+    }
+
     loadGoogleMeasurementTag();
+    if (sha256Email) {
+      window.gtag("set", "user_data", {
+        sha256_email_address: sha256Email,
+      });
+    }
     window.gtag("event", "conversion", {
       send_to: GOOGLE_ADS_PURCHASE_DESTINATION,
       value: Number(data.value || 0),
@@ -297,6 +349,7 @@ function initMeasurementConsent() {
     ?.addEventListener("click", () => {
       try {
         localStorage.removeItem(MEASUREMENT_CONSENT_KEY);
+        localStorage.removeItem(MEASUREMENT_CONSENT_VERSION_KEY);
       } catch {}
       window.gtag?.("consent", "update", {
         ad_storage: "denied",
@@ -1726,6 +1779,7 @@ function initCheckoutSuccess() {
             })),
           fulfillment: data.fulfillment || "unknown",
           payment_provider: isMercadoPago ? "mercado_pago" : "stripe",
+          enhancedConversionLookup: lookupUrl,
         });
         icon.textContent = "✓";
         title.textContent = "Pagamento confirmado.";
