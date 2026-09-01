@@ -1321,7 +1321,7 @@ details p {
   margin-inline: auto;
   padding: clamp(3rem, 7vw, 5.5rem) clamp(1rem, 4vw, 2.4rem) 2.2rem;
   display: grid;
-  grid-template-columns: minmax(15rem, 1.4fr) repeat(3, minmax(8rem, 0.6fr));
+  grid-template-columns: minmax(15rem, 1.4fr) repeat(4, minmax(8rem, 0.6fr));
   gap: 2.2rem;
 }
 
@@ -1350,6 +1350,10 @@ details p {
 
 .footer-column a:hover {
   color: var(--paper);
+}
+
+.social-content-actions {
+  justify-content: center;
 }
 
 .footer-bottom {
@@ -2882,7 +2886,7 @@ input[type="file"]::file-selector-button {
   }
 
   .footer-grid {
-    grid-template-columns: 1.4fr 1fr 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .footer-brand {
