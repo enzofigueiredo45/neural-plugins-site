@@ -668,6 +668,13 @@ function isValidEmail(value) {
   return email.length > 0 && email.length <= 254 && /^\S+@\S+\.\S+$/.test(email);
 }
 
+function hashEnhancedConversionEmail(value) {
+  const email = String(value || "").trim().toLowerCase();
+  return isValidEmail(email)
+    ? createHash("sha256").update(email, "utf8").digest("hex")
+    : "";
+}
+
 function isStrongPassword(value) {
   const password = String(value || "");
   return (
@@ -2123,6 +2130,16 @@ app.get(
         checkout.metadata?.cart,
         responseCatalog,
       );
+      const includeUserData = String(req.query.include_user_data || "") === "1";
+      const enhancedEmailHash =
+        includeUserData && checkout.payment_status === "paid"
+          ? hashEnhancedConversionEmail(
+              checkout.customer_details?.email || checkout.customer_email,
+            )
+          : "";
+      const userData = enhancedEmailHash
+        ? { sha256_email_address: enhancedEmailHash }
+        : null;
       return res.json({
         ok: true,
         status: checkout.status,
@@ -2130,8 +2147,9 @@ app.get(
         amountTotal: checkout.amount_total,
         currency: checkout.currency,
         fulfillment,
+        ...(userData ? { userData } : {}),
         products: (checkout.line_items?.data || []).map((item, index) => {
-          const product = resolveLineItemProduct(
+            const product = resolveLineItemProduct(
             item,
             responseCatalog,
             responseMetadataCart[index],
@@ -2168,6 +2186,14 @@ app.get(
       });
     try {
       const result = await processMercadoPagoPayment(paymentId, reference);
+      const includeUserData = String(req.query.include_user_data || "") === "1";
+      const enhancedEmailHash =
+        includeUserData && result.paymentStatus === "paid"
+          ? hashEnhancedConversionEmail(result.buyerEmail)
+          : "";
+      const userData = enhancedEmailHash
+        ? { sha256_email_address: enhancedEmailHash }
+        : null;
       return res.json({
         ok: true,
         provider: "mercado_pago",
