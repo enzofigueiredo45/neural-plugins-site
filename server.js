@@ -18,6 +18,7 @@ const cookieParser = require("cookie-parser");
 const { createClient } = require("redis");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
+const { createDatabaseReadiness } = require("./lib/database-readiness");
 const {
   isStripePriceId,
   isStripeSessionId,
@@ -156,30 +157,12 @@ async function sendEmailSafely(type, operation, details = {}) {
   }
 }
 
-let databaseReady = false;
-let databaseReadyPromise = null;
-let lastDatabaseAttempt = 0;
-async function ensureDatabaseReady() {
-  if (!db) return false;
-  if (databaseReady) return true;
-  if (databaseReadyPromise) return databaseReadyPromise;
-  if (Date.now() - lastDatabaseAttempt < 5_000) return false;
-  lastDatabaseAttempt = Date.now();
-  databaseReadyPromise = db
-    .initSqlite()
-    .then(() => {
-      databaseReady = true;
-      return true;
+const ensureDatabaseReady = db
+  ? createDatabaseReadiness({
+      initialize: () => db.initSqlite(),
+      onError: (error) => logError("database_init_error", error),
     })
-    .catch((err) => {
-      logError("database_init_error", err);
-      return false;
-    })
-    .finally(() => {
-      databaseReadyPromise = null;
-    });
-  return databaseReadyPromise;
-}
+  : async () => false;
 void ensureDatabaseReady();
 
 // Redis and session store
@@ -688,7 +671,7 @@ function isValidEmail(value) {
 function isStrongPassword(value) {
   const password = String(value || "");
   return (
-    password.length >= 12 &&
+    password.length >= 8 &&
     password.length <= 128 &&
     /[a-z]/.test(password) &&
     /[A-Z]/.test(password) &&
@@ -970,8 +953,8 @@ async function persistMercadoPagoPayment(payment) {
   )
     throw mercadoPagoProcessingError("duplicate_payment_reference", 409);
 
-  const terminalOrderStatus = getMercadoPagoOrderStatus(providerStatus);
   if (providerStatus !== "approved") {
+    const terminalOrderStatus = getMercadoPagoOrderStatus(providerStatus);
     if (terminalOrderStatus)
       await db.run(
         db.usePostgres
@@ -1061,6 +1044,7 @@ async function persistMercadoPagoPayment(payment) {
       name: product.name,
       quantity,
       accessUrl: product.accessUrl,
+      accessMode: product.accessMode,
     })),
     amountTotal: Number(checkoutRow.amount_total),
     currency: checkoutRow.currency,
@@ -1249,6 +1233,7 @@ async function persistPaidCheckout(checkout) {
       name: product.name,
       quantity,
       accessUrl: product.accessUrl,
+      accessMode: product.accessMode,
     })),
     amountTotal: checkout.amount_total,
     currency: checkout.currency,
@@ -2113,11 +2098,14 @@ app.get(
       if (checkout.metadata?.source !== "neural-x-site")
         return res.status(404).json({ ok: false, error: "session_not_found" });
       let fulfillment = "not_paid";
+      let deliveredProducts = [];
       if (checkout.payment_status === "paid") {
         try {
           if (!db || !(await ensureDatabaseReady()))
             throw new Error("Fulfillment database is not ready");
           const fulfillmentResult = await persistPaidCheckout(checkout);
+          if (fulfillmentResult.recorded)
+            deliveredProducts = fulfillmentResult.products;
           fulfillment = fulfillmentResult.accessReady
             ? "ready"
             : fulfillmentResult.accessRequestRequired
@@ -2152,6 +2140,10 @@ app.get(
             id: product?.id || "",
             name: product?.name || item.description,
             quantity: item.quantity,
+            // A session ID alone never unlocks a product: Stripe must confirm
+            // payment and the order must be persisted before returning access.
+            accessUrl: deliveredProducts.find((entry) => entry.id === product?.id)?.accessUrl || null,
+            accessMode: deliveredProducts.find((entry) => entry.id === product?.id)?.accessMode || "pending",
           };
         }),
       });
@@ -2184,10 +2176,12 @@ app.get(
         amountTotal: result.amountTotal,
         currency: result.currency,
         fulfillment: result.fulfillment,
-        products: result.products.map(({ id, name, quantity }) => ({
+        products: result.products.map(({ id, name, quantity, accessUrl, accessMode }) => ({
           id,
           name,
           quantity,
+          accessUrl: result.paymentStatus === "paid" && result.recorded ? accessUrl : null,
+          accessMode: result.paymentStatus === "paid" && result.recorded ? accessMode : "pending",
         })),
       });
     } catch (error) {
