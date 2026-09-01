@@ -462,7 +462,11 @@ app.get("/sitemap.xml", (req, res) => {
 
 // Publish only intentional web assets. Serving the repository root would also
 // expose backend source, package metadata and operational documentation.
-app.use("/assets", express.static(path.join(root, "assets"), { dotfiles: "deny" }));
+app.use("/assets", express.static(path.join(root, "assets"), {
+  dotfiles: "deny",
+  maxAge: "1h",
+  setHeaders: (res) => res.setHeader("Cache-Control", "public, max-age=3600, s-maxage=86400"),
+}));
 app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res) =>
   res.sendFile(path.join(root, req.path.slice(1))),
 );
@@ -745,10 +749,11 @@ async function createUser(
       [email, hash, role, name, acceptedTerms],
     );
   }
-  return db.run(
+  const inserted = await db.run(
     "INSERT INTO users (email, password_hash, role, name, terms_accepted_at) VALUES (?, ?, ?, ?, CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END)",
     [email, hash, role, name, acceptedTerms ? 1 : 0],
   );
+  return { id: inserted.lastID, email, role, name };
 }
 
 function requireAuth(req, res, next) {
@@ -761,6 +766,17 @@ function saveSession(req) {
   return new Promise((resolve, reject) =>
     req.session.save((err) => (err ? reject(err) : resolve())),
   );
+}
+
+async function establishUserSession(req, user) {
+  // Rotate the anonymous session before authenticating and persist it before
+  // responding. Never use an email lookup to authenticate a duplicate signup.
+  await new Promise((resolve, reject) =>
+    req.session.regenerate((err) => (err ? reject(err) : resolve())),
+  );
+  req.session.user = { id: user.id, email: user.email, role: user.role };
+  req.session.csrfToken = randomUUID();
+  await saveSession(req);
 }
 
 function getMfaEncryptionKey() {
@@ -1354,27 +1370,37 @@ app.post(
       return res.status(400).json({ ok: false, error: "weak_password" });
     if (!(await verifyCaptcha(captcha, "register")))
       return res.status(400).json({ ok: false, error: "captcha_failed" });
+    // Perform the expensive work on both paths to avoid the old fast duplicate
+    // response. Automatic sign-in still makes success distinguishable; this is
+    // enumeration reduction, not a substitute for email-ownership verification.
+    const passwordHash = await bcrypt.hash(String(password), 12);
     if (await getUserSummaryByEmail(email))
-      return res.status(409).json({ ok: false, error: "email_taken" });
+      return res.status(400).json({ ok: false, error: "registration_unavailable" });
+    let user;
     try {
-      await createUser(
+      user = await createUser(
         email,
-        await bcrypt.hash(String(password), 12),
+        passwordHash,
         "client",
         name,
         true,
       );
     } catch (error) {
       if (error?.code === "23505" || error?.code === "SQLITE_CONSTRAINT")
-        return res.status(409).json({ ok: false, error: "email_taken" });
+        return res.status(400).json({ ok: false, error: "registration_unavailable" });
       throw error;
     }
+    await establishUserSession(req, user);
     await sendEmailSafely(
       "welcome",
       () => sendWelcomeEmail({ email, name }),
       { requestId: req.requestId },
     );
-    return res.status(201).json({ ok: true });
+    return res.status(201).json({
+      ok: true,
+      authenticated: true,
+      csrfToken: req.session.csrfToken,
+    });
   }),
 );
 
@@ -1432,13 +1458,8 @@ app.post(
         : "UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       [user.id],
     );
-    await new Promise((resolve, reject) =>
-      req.session.regenerate((err) => (err ? reject(err) : resolve())),
-    );
-    req.session.user = { id: user.id, email: user.email, role: user.role };
-    req.session.csrfToken = randomUUID();
-    await saveSession(req);
-    return res.json({ ok: true, role: user.role });
+    await establishUserSession(req, user);
+    return res.json({ ok: true, role: user.role, csrfToken: req.session.csrfToken });
   }),
 );
 

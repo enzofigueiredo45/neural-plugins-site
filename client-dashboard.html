@@ -18,6 +18,10 @@
         <article class="summary-card"><span class="summary-icon" aria-hidden="true">✓</span><div><strong id="securityStatus">Verificando</strong><small>segurança da conta</small></div></article>
         <article class="summary-card"><span class="summary-icon" aria-hidden="true">?</span><div><strong id="ticketCount">—</strong><small>chamados de suporte</small></div></article>
       </section>
+      <div class="form-message" id="accountLoadError" data-state="error" role="alert" hidden>
+        <p>Não foi possível carregar sua conta agora. Tente novamente sem sair da sessão.</p>
+        <button class="button secondary compact" id="retryAccountLoad" type="button">Tentar novamente</button>
+      </div>
 
       <section class="dashboard-grid">
         <div class="dashboard-stack">
