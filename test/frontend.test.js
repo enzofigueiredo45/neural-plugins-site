@@ -114,7 +114,8 @@ test("Google Ads purchase tracking requires consent and preserves transaction va
   assert.match(main, /getMeasurementConsent\(\) !== "granted"/);
   assert.match(main, /transaction_id: sessionId/);
   assert.match(main, /value: Number\(data\.value \|\| 0\)/);
-  assert.match(privacy, /Depois do consentimento de medição[\s\S]*conversões otimizadas/);
+  assert.match(privacy, /Não ativamos conversões otimizadas sem consentimento/);
+  assert.match(privacy, /quando houver consentimento e uma compra paga/);
   assert.match(main, /MEASUREMENT_CONSENT_VERSION = "2"/);
   assert.match(main, /include_user_data/);
   assert.match(main, /sha256_email_address/);
@@ -134,7 +135,7 @@ test("Google Analytics measures the consented funnel and deduplicated purchases"
   assert.match(main, /"checkout_error"/);
   assert.match(main, /"checkout_cancelled"/);
   assert.match(privacy, /Google Analytics mede páginas e etapas do funil/);
-  assert.match(privacy, /o e-mail em texto não é enviado ao Google/);
+  assert.match(privacy, /sem enviar seu e-mail ao Google em texto legível/);
 });
 
 test("mobile navigation and comparison remain compact and readable", () => {

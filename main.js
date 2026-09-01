@@ -807,6 +807,14 @@ function initFunnelInteractions() {
         placement: contentCta.dataset.placement || "content",
       });
     }
+    const socialLink = event.target.closest("[data-social-network]");
+    if (socialLink instanceof HTMLAnchorElement) {
+      trackEvent("social_profile_click", {
+        social_network: socialLink.dataset.socialNetwork || "unknown",
+        destination: socialLink.href,
+        placement: socialLink.closest("footer") ? "footer" : "social_content",
+      });
+    }
   });
   document.querySelectorAll("details").forEach((details) => {
     details.addEventListener("toggle", () => {
