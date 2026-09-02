@@ -10,7 +10,7 @@ test("runtime dependencies expose the session and routing APIs used by productio
 
   const express = require("express");
   const app = express();
-  assert.doesNotThrow(() => app.get(["/", /^\\/[^/]+\\.html$/], () => {}));
+  assert.doesNotThrow(() => app.get(["/", /^\/[^/]+\.html$/], () => {}));
 });
 
 const CONFIG_KEYS = [
