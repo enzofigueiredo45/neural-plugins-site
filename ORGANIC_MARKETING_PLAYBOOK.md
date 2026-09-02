@@ -9,14 +9,14 @@ Este documento transforma a auditoria do site, do Metricool e da pesquisa de mer
 | Ativo | Estado verificado | Próxima ação |
 |---|---|---|
 | Instagram | Conectado ao Metricool como `neural_x_plugins` | Confirmar bio, link, categoria e botão de contato no app |
-| TikTok | Conectado ao Metricool como `Neural X` | Confirmar o @ público e revisar conta de criador, bio e link |
+| TikTok | Conectado ao Metricool; perfil público `@neural_x_audio` confirmado | Revisar no aplicativo a conta de criador, bio e link |
 | YouTube | Conectado pelo canal `UCqRb4Nc9aO4DDCCe9ZxGlqg` | Revisar descrição, banner, links e playlists |
 | Facebook | Não conectado e não necessário para o primeiro ciclo | Criar apenas quando houver conteúdo e rotina para mantê-lo |
 | Google Ads | Conta `2991549925` conectada ao Metricool; sem gasto/conversão no período consultado | Corrigir a configuração no Ads quando o navegador estiver estável; não ativar mídia paga antes do rastreamento validado |
 | Metricool | Marca `neural_x_plugins`, fuso `America/Sao_Paulo` | Usar como painel social; validar GA4/Stripe para receita |
 | Agendamentos | Nenhum agendamento apareceu no Metricool para 01–30/09/2026 | Não considerar posts agendados até aparecerem no calendário da ferramenta ou da rede |
 
-O conector confirma integração, não confirma que todos os perfis estão completos, em modo profissional ou com bio perfeita. Essa revisão final precisa ser feita dentro de cada aplicativo. O endereço público do TikTok também não será adivinhado.
+O conector confirma integração, não confirma que todos os perfis estão completos, em modo profissional ou com bio perfeita. Essa revisão final precisa ser feita dentro de cada aplicativo. Perfil público confirmado: <https://www.tiktok.com/@neural_x_audio>.
 
 ## 2. Oportunidade de mercado
 
