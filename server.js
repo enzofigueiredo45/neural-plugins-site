@@ -3,7 +3,9 @@ const databaseUrl = process.env.DATABASE_URL || "";
 const path = require("path");
 const helmet = require("helmet");
 const session = require("express-session");
-const { default: RedisStore } = require("connect-redis");
+const connectRedis = require("connect-redis");
+const RedisStore =
+  connectRedis.RedisStore || connectRedis.default || connectRedis;
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcrypt");
 const {
@@ -477,7 +479,7 @@ const publicPages = new Set([
   "produto-fl-studio.html",
   "produto-neural-x.html", "produto-reaper.html", "success.html", "terms.html",
 ]);
-app.get(["/", "/*.html"], (req, res, next) => {
+app.get(["/", /^\/[^/]+\.html$/], (req, res, next) => {
   const page = req.path === "/" ? "index.html" : req.path.slice(1);
   if (!publicPages.has(page)) return next();
   return res.sendFile(path.join(root, page));

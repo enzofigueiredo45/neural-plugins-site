@@ -3,6 +3,16 @@ const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 
+test("runtime dependencies expose the session and routing APIs used by production", () => {
+  const connectRedis = require("connect-redis");
+  const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
+  assert.equal(typeof RedisStore, "function");
+
+  const express = require("express");
+  const app = express();
+  assert.doesNotThrow(() => app.get(["/", /^\\/[^/]+\\.html$/], () => {}));
+});
+
 const CONFIG_KEYS = [
   "SESSION_SECRET",
   "REDIS_URL",
