@@ -230,7 +230,7 @@ test("purchase measurement is server-confirmed for Stripe and Mercado Pago", () 
   assert.match(main, /`\/api\/checkout-session\?session_id=/);
   assert.match(main, /`\/api\/mercado-pago-payment\?payment_id=/);
   assert.match(main, /if \(data\.paymentStatus === "paid"\)/);
-  assert.match(main, /if \(!sessions\.includes\(sessionId\)\) \{\s*trackEvent\("purchase", purchaseData\)/);
+  assert.match(main, /if \(!sessions\.includes\(sessionId\) && !measuredPurchases\.has\(sessionId\)\) \{\s*if \(trackEvent\("purchase", purchaseData\)\)/);
   assert.match(main, /payment_provider: isMercadoPago \? "mercado_pago" : "stripe"/);
 });
 

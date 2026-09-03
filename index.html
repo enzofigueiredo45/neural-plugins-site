@@ -102,6 +102,7 @@
           <p class="eyebrow">Escolha pelo que você quer produzir</p>
           <h1>Comece pelo seu <em>próximo som.</em></h1>
           <p class="lead">Selecione uma tarefa. A vitrine muda na hora para mostrar a ferramenta, o preço e a demonstração mais úteis para você.</p>
+          <p><a class="inline-link" href="#recomendacao" data-content-cta="recommendation" data-content-id="home" data-placement="hero">Não sabe qual escolher? Veja uma recomendação sem cadastro.</a></p>
           <div class="hero-selector" role="tablist" aria-label="Escolha seu objetivo musical">
             <button class="hero-selector-button" type="button" role="tab" aria-selected="true" data-hero-choice="guitar">Guitarra</button>
             <button class="hero-selector-button" type="button" role="tab" aria-selected="false" data-hero-choice="beats">Beats</button>
@@ -297,6 +298,7 @@
               <div class="button-row"><a class="button primary" id="recommendationLink" href="#produtos">Conhecer produto</a><button class="button ghost" id="changeRecommendation" type="button">Mudar objetivo</button></div>
               <form class="lead-form recommendation-email" id="leadForm" hidden novalidate>
                 <input id="leadInterest" name="interest" type="hidden">
+                <div class="lead-trap" aria-hidden="true"><label for="leadWebsite">Deixe este campo vazio</label><input id="leadWebsite" name="companyWebsite" type="text" tabindex="-1" autocomplete="off"></div>
                 <p><strong>Quer guardar a recomendação?</strong><br><small>O envio por e-mail e os conteúdos são opcionais. Seu resultado acima não depende disso.</small></p>
                 <div class="field-group"><label for="leadName">Primeiro nome</label><input id="leadName" name="name" type="text" autocomplete="given-name" minlength="2" maxlength="80" required placeholder="Como podemos chamar você?"></div>
                 <div class="field-group"><label for="leadEmail">E-mail</label><input id="leadEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com"></div>

@@ -1660,6 +1660,10 @@ app.post(
   leadLimiter,
   asyncHandler(requireDatabase),
   asyncHandler(async (req, res) => {
+    // Low-friction spam signal, in addition to CSRF, rate limiting and the
+    // optional CAPTCHA. Never create a lead or email from a filled honeypot.
+    if (String(req.body?.companyWebsite || "").trim())
+      return res.status(400).json({ ok: false, error: "invalid_lead" });
     const name = String(req.body?.name || "").trim();
     const email = String(req.body?.email || "").trim().toLowerCase();
     const interest = String(req.body?.interest || "");
