@@ -2,7 +2,7 @@ const CART_KEY = "neuralx_cart";
 const ATTRIBUTION_KEY = "neuralx_attribution";
 const FUNNEL_ID_KEY = "neuralx_funnel_id";
 const STOREFRONT_VIEW_KEY = "neuralx_storefront_viewed";
-const PURCHASE_TRACKING_KEY = "neuralx_tracked_purchases";
+const PURCHASE_TRACKING_KEY = "neuralx_ga4_purchases_v2";
 const GOOGLE_ADS_PURCHASE_TRACKING_KEY = "neuralx_google_ads_purchases";
 const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
 const MEASUREMENT_CONSENT_VERSION_KEY = "neuralx_measurement_consent_version";
@@ -16,6 +16,11 @@ const PAGE_VARIANT =
   document.documentElement.dataset.pageVariant ||
   "default";
 let pendingGoogleAdsPurchase = null;
+let pendingAnalyticsPurchase = null;
+let currentAttribution = {};
+let currentPageMeasured = false;
+const measuredPurchases = new Set();
+const ATTRIBUTION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const ATTRIBUTION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
 const PRODUCTS = Object.freeze({
   "neural-x": {
@@ -199,13 +204,18 @@ function loadGoogleMeasurementTag() {
   window.__neuralxGoogleAdsLoaded = true;
   window.gtag("consent", "update", {
     ad_storage: "granted",
-    ad_user_data: "denied",
+    ad_user_data: "granted",
     ad_personalization: "denied",
     analytics_storage: "granted",
   });
   window.gtag("js", new Date());
   window.gtag("config", GOOGLE_ADS_ID);
-  window.gtag("config", GOOGLE_ANALYTICS_ID, { send_page_view: true });
+  window.gtag("config", GOOGLE_ANALYTICS_ID, {
+    send_page_view: true,
+    ...measurementPageContext(),
+    allow_google_signals: false,
+    allow_ad_personalization_signals: false,
+  });
   if (document.querySelector('script[data-google-ads-tag="true"]')) return;
   const script = document.createElement("script");
   script.async = true;
@@ -245,7 +255,13 @@ function showMeasurementConsent() {
     <div class="measurement-consent-actions"><button class="button primary compact" type="button" data-measurement-accept>Aceitar medição</button><button class="button ghost compact" type="button" data-measurement-essential>Somente essenciais</button></div>`;
   panel.querySelector("[data-measurement-accept]")?.addEventListener("click", () => {
     setMeasurementConsent("granted");
+    captureAttribution();
     loadGoogleMeasurementTag();
+    trackCurrentPageView();
+    if (pendingAnalyticsPurchase) {
+      const { sessionId, data } = pendingAnalyticsPurchase;
+      trackPurchaseOnce(sessionId, data);
+    }
     if (pendingGoogleAdsPurchase) {
       const { sessionId, data } = pendingGoogleAdsPurchase;
       trackGoogleAdsPurchaseOnce(sessionId, data);
@@ -255,6 +271,8 @@ function showMeasurementConsent() {
   panel.querySelector("[data-measurement-essential]")?.addEventListener("click", () => {
     setMeasurementConsent("denied");
     pendingGoogleAdsPurchase = null;
+    pendingAnalyticsPurchase = null;
+    clearMeasurementStorage();
     window.gtag?.("consent", "update", {
       ad_storage: "denied",
       ad_user_data: "denied",
@@ -340,6 +358,7 @@ function trackGoogleAdsPurchaseOnce(sessionId, data = {}) {
 }
 
 function initMeasurementConsent() {
+  captureAttribution();
   initGoogleConsentState();
   const consent = getMeasurementConsent();
   if (consent === "granted") loadGoogleMeasurementTag();
@@ -357,11 +376,16 @@ function initMeasurementConsent() {
         ad_personalization: "denied",
         analytics_storage: "denied",
       });
+      clearMeasurementStorage();
+      pendingAnalyticsPurchase = null;
+      pendingGoogleAdsPurchase = null;
+      currentPageMeasured = false;
       showMeasurementConsent();
     });
 }
 
 function trackEvent(name, data = {}) {
+  if (getMeasurementConsent() !== "granted") return false;
   try {
     const attribution = readAttribution();
     const safeData = Object.fromEntries(
@@ -372,12 +396,16 @@ function trackEvent(name, data = {}) {
         utm_source: attribution.utm_source || "direct",
         utm_medium: attribution.utm_medium || "none",
         utm_campaign: attribution.utm_campaign || "none",
+        utm_content: attribution.utm_content || "none",
         ...data,
       })
+        .filter(([key]) => !/^(?:email|phone|password|customer_email|user_data|sha256_email_address|session_id|token|access_url|download_url)$/i.test(key))
         .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
+        .filter(([, value]) => typeof value !== "string" || !/@|%40/i.test(value))
         .map(([key, value]) => [key.slice(0, 64), typeof value === "string" ? value.slice(0, 255) : value]),
     );
-    window.va?.("event", { name: String(name).slice(0, 64), data: safeData });
+    // GA4 is the funnel's source of truth. Vercel custom events require a paid
+    // plan, so the free setup must not depend on them or queue them silently.
     if (getMeasurementConsent() === "granted") {
       loadGoogleMeasurementTag();
       const items = Array.isArray(data.items)
@@ -396,10 +424,12 @@ function trackEvent(name, data = {}) {
         : undefined;
       window.gtag?.("event", String(name).slice(0, 40), {
         ...safeData,
+        ...measurementPageContext(),
         ...(items?.length ? { items } : {}),
       });
     }
-  } catch {}
+    return true;
+  } catch { return false; }
 }
 
 function getFunnelId() {
@@ -419,40 +449,104 @@ function getFunnelId() {
 const externalReferrerPath = (value) => {
   try {
     const url = new URL(value);
-    return url.origin === window.location.origin ? "" : `${url.origin}${url.pathname}`.slice(0, 400);
+    return url.origin === window.location.origin || !/^https?:$/.test(url.protocol)
+      ? "" : url.origin.slice(0, 400);
   } catch {
     return "";
   }
 };
 
+function normalizeCampaignValue(value, field) {
+  const text = String(value || "").trim().slice(0, 100);
+  if (!/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,99}$/u.test(text)
+      || /\d{10,}|(?:sk|rk|cs)_(?:test|live)_|whsec_/i.test(text)) return "";
+  if (field === "utm_source") {
+    const source = text.toLowerCase();
+    return ({ ig: "instagram", insta: "instagram", tt: "tiktok", yt: "youtube" })[source] || source;
+  }
+  if (field === "utm_medium") {
+    const medium = text.toLowerCase();
+    return ["organic_social", "social_media", "social-media", "social_network", "social-network"].includes(medium)
+      ? "social" : medium;
+  }
+  return text;
+}
+
+function measurementPageContext() {
+  const url = new URL(window.location.href);
+  const safeParams = new URLSearchParams();
+  for (const field of ATTRIBUTION_FIELDS) {
+    const value = normalizeCampaignValue(url.searchParams.get(field), field);
+    if (value) safeParams.set(field, value);
+  }
+  // Preserve validated advertising click identifiers, never checkout, login or
+  // email query parameters. Do not change the visitor's actual address bar.
+  for (const field of ["gclid", "gbraid", "wbraid"]) {
+    const value = url.searchParams.get(field) || "";
+    if (/^[A-Za-z0-9_-]{1,256}$/.test(value)) safeParams.set(field, value);
+  }
+  url.search = safeParams.toString();
+  url.hash = "";
+  let referrer = "";
+  try {
+    const parsed = new URL(document.referrer);
+    if (/^https?:$/.test(parsed.protocol)) referrer = `${parsed.origin}/`;
+  } catch {}
+  return { page_location: url.href.slice(0, 1000), page_referrer: referrer };
+}
+
+function clearMeasurementStorage() {
+  try { localStorage.removeItem(ATTRIBUTION_KEY); } catch {}
+  try {
+    sessionStorage.removeItem(FUNNEL_ID_KEY);
+    sessionStorage.removeItem(STOREFRONT_VIEW_KEY);
+  } catch {}
+  currentAttribution = {};
+}
+
 function captureAttribution() {
   try {
     const params = new URLSearchParams(window.location.search);
-    const previous = JSON.parse(localStorage.getItem(ATTRIBUTION_KEY) || "{}");
+    const granted = getMeasurementConsent() === "granted";
+    let previous = {};
+    if (granted) {
+      try { previous = JSON.parse(localStorage.getItem(ATTRIBUTION_KEY) || "{}"); } catch {}
+    } else {
+      try { localStorage.removeItem(ATTRIBUTION_KEY); } catch {}
+    }
+    const firstSeen = Date.parse(previous?.first_seen_at || "");
+    if (!previous || Array.isArray(previous) || !Number.isFinite(firstSeen)
+        || firstSeen > Date.now() || Date.now() - firstSeen > ATTRIBUTION_MAX_AGE_MS) previous = {};
     const campaign = {};
     ATTRIBUTION_FIELDS.forEach((field) => {
-      const value = params.get(field)?.trim().slice(0, 120);
+      const value = normalizeCampaignValue(params.get(field), field);
       if (value) campaign[field] = value;
     });
-    const referrer = externalReferrerPath(document.referrer) || previous.referrer;
+    const newCampaign = Object.keys(campaign).length > 0;
+    const previousCampaign = {};
+    if (!newCampaign) ATTRIBUTION_FIELDS.forEach((field) => {
+      const value = normalizeCampaignValue(previous[field], field);
+      if (value) previousCampaign[field] = value;
+    });
+    const referrer = externalReferrerPath(document.referrer)
+      || (!newCampaign ? externalReferrerPath(previous.referrer) : "");
     const next = {
-      ...previous,
+      ...previousCampaign,
       ...campaign,
       referrer: referrer || undefined,
-      landing_page: previous.landing_page || window.location.pathname.slice(0, 400),
-      first_seen_at: previous.first_seen_at || new Date().toISOString(),
+      landing_page: !newCampaign && previous.landing_page
+        ? String(previous.landing_page).split(/[?#]/)[0].slice(0, 400)
+        : window.location.pathname.slice(0, 400),
+      first_seen_at: !newCampaign && previous.first_seen_at
+        ? previous.first_seen_at : new Date().toISOString(),
     };
-    localStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(next));
+    currentAttribution = next;
+    if (granted) localStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(next));
   } catch {}
 }
 
 function readAttribution() {
-  try {
-    const value = JSON.parse(localStorage.getItem(ATTRIBUTION_KEY) || "{}");
-    return value && typeof value === "object" ? value : {};
-  } catch {
-    return {};
-  }
+  return { ...currentAttribution };
 }
 
 const readJsonResponse = async (response) => {
@@ -731,6 +825,7 @@ function trackOfferSelection(productId, placement = "page") {
 }
 
 function trackStorefrontViewOnce(entryPoint) {
+  if (getMeasurementConsent() !== "granted") return;
   try {
     if (sessionStorage.getItem(STOREFRONT_VIEW_KEY)) return;
     sessionStorage.setItem(STOREFRONT_VIEW_KEY, "1");
@@ -761,7 +856,9 @@ function initProductButtons() {
   });
 }
 
-function initFunnelInteractions() {
+function trackCurrentPageView() {
+  if (getMeasurementConsent() !== "granted" || currentPageMeasured) return;
+  currentPageMeasured = true;
   const productId = document.body.dataset.productId;
   const product = PRODUCTS[productId];
   const contentId = document.body.dataset.contentId;
@@ -788,6 +885,11 @@ function initFunnelInteractions() {
       page_path: window.location.pathname,
     });
   }
+}
+
+function initFunnelInteractions() {
+  trackCurrentPageView();
+  const contentId = document.body.dataset.contentId;
   document.addEventListener("click", (event) => {
     const offer = event.target.closest("[data-offer-select]");
     if (offer)
@@ -1411,6 +1513,7 @@ function initLeadForm() {
   void fetchCsrf();
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (submit.disabled) return;
     message.replaceChildren();
     message.dataset.state = "";
     if (!form.reportValidity()) return;
@@ -1418,6 +1521,7 @@ function initLeadForm() {
     const interest = fields.namedItem("interest").value;
     try {
       submit.disabled = true;
+      form.setAttribute("aria-busy", "true");
       submit.textContent = "Enviando recomendação…";
       const captcha = await getRecaptchaToken("lead");
       const { response, data } = await postJson("/api/leads", {
@@ -1425,6 +1529,7 @@ function initLeadForm() {
         email: fields.namedItem("email").value.trim(),
         interest,
         marketingConsent: fields.namedItem("marketingConsent").checked,
+        companyWebsite: fields.namedItem("companyWebsite")?.value || "",
         attribution: readAttribution(),
         captcha,
       });
@@ -1447,6 +1552,7 @@ function initLeadForm() {
           : "Não foi possível registrar seu interesse agora. Tente novamente.";
       message.dataset.state = "error";
     } finally {
+      form.removeAttribute("aria-busy");
       submit.disabled = false;
       submit.textContent = "Enviar recomendação por e-mail";
     }
@@ -1699,19 +1805,30 @@ function initDashboard() {
 
 function trackPurchaseOnce(sessionId, data) {
   const purchaseData = { ...data, transaction_id: sessionId };
+  if (getMeasurementConsent() !== "granted") {
+    // Keep only this server-confirmed purchase in this page's memory while the
+    // visitor decides. A denied choice discards it; no pre-consent storage.
+    if (getMeasurementConsent() !== "denied")
+      pendingAnalyticsPurchase = { sessionId, data };
+    return;
+  }
+  let sessions = [];
   try {
     const tracked = JSON.parse(localStorage.getItem(PURCHASE_TRACKING_KEY) || "[]");
-    const sessions = Array.isArray(tracked) ? tracked.filter((value) => typeof value === "string") : [];
-    if (!sessions.includes(sessionId)) {
-      trackEvent("purchase", purchaseData);
-      localStorage.setItem(
-        PURCHASE_TRACKING_KEY,
-        JSON.stringify([...sessions.slice(-19), sessionId]),
-      );
+    sessions = Array.isArray(tracked) ? tracked.filter((value) => typeof value === "string") : [];
+  } catch {}
+  if (!sessions.includes(sessionId) && !measuredPurchases.has(sessionId)) {
+    if (trackEvent("purchase", purchaseData)) {
+      measuredPurchases.add(sessionId);
+      try {
+        localStorage.setItem(
+          PURCHASE_TRACKING_KEY,
+          JSON.stringify([...sessions.slice(-19), sessionId]),
+        );
+      } catch {}
     }
-  } catch {
-    trackEvent("purchase", purchaseData);
   }
+  pendingAnalyticsPurchase = null;
   trackGoogleAdsPurchaseOnce(sessionId, purchaseData);
 }
 

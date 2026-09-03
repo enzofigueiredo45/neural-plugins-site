@@ -136,6 +136,20 @@ test("account → support → both checkouts → confirmed access, with isolated
   assert.equal(tickets.status, 200);
   assert.equal(tickets.data.length, 1);
 
+  const lead = { name: account.name, email: account.email, interest: "guitar", marketingConsent: true, companyWebsite: "", attribution: { utm_source: "instagram", utm_medium: "social", utm_campaign: "qa_isolated" } };
+  const capturedLead = await request("/api/leads", lead);
+  assert.equal(capturedLead.status, 201);
+  assert.equal(capturedLead.data.emailSent, false, "isolated QA cannot send real email");
+  assert.equal(capturedLead.data.recommendation.id, "neural-x");
+  const botLead = await request("/api/leads", { ...lead, email: "bot@example.invalid", companyWebsite: "https://spam.invalid" });
+  assert.equal(botLead.status, 400);
+  const noConsent = await request("/api/leads", { ...lead, email: "no-consent@example.invalid", marketingConsent: false });
+  assert.equal(noConsent.status, 400);
+  const leadRows = await db.query("SELECT email, marketing_consent_at, utm_source FROM leads");
+  assert.equal(leadRows.length, 1, "honeypot and missing consent must not create leads");
+  assert.equal(leadRows[0].utm_source, "instagram");
+  assert.ok(leadRows[0].marketing_consent_at);
+
   const cart = [{ id: "neural-x", quantity: 1 }, { id: "fl-studio", quantity: 1 }, { id: "reaper", quantity: 1 }];
   const checkout = await request("/api/create-checkout-session", { cart });
   assert.equal(checkout.status, 200);

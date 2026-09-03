@@ -1674,6 +1674,15 @@ details p {
   margin-bottom: 0.2rem;
 }
 
+.lead-trap {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .lead-privacy-note {
   color: var(--muted);
   font-size: 0.7rem;
