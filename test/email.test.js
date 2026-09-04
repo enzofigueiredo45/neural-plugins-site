@@ -65,7 +65,7 @@ test("recommendation email remains safe without a configured provider", async ()
   assert.equal(result.skipped, "RESEND_API_KEY");
 });
 
-test("requested recommendation has non-personal campaign tags and a privacy cancellation route", async (t) => {
+test("requested recommendation has non-personal campaign tags and one-click unsubscribe", async (t) => {
   let payload;
   t.mock.method(globalThis, "fetch", async (url, options) => {
     assert.equal(url, "https://api.resend.com/emails");
@@ -75,13 +75,33 @@ test("requested recommendation has non-personal campaign tags and a privacy canc
   await sendRecommendationEmail({
     email: "qa@example.invalid", name: "Cliente QA",
     recommendation: { id: "neural-x", name: "Coleção Neural DSP", url: "/produto-neural-x.html", reason: "Escolha informada." },
+    marketingConsent: true,
+    unsubscribeUrl: "https://neuralx.example/unsubscribe.html?token=opaque-token",
+    oneClickUnsubscribeUrl: "https://neuralx.example/api/marketing/unsubscribe?token=opaque-token",
   }, { SITE_URL: "https://neuralx.example", RESEND_API_KEY: "test-fixture-not-a-real-key" });
-  const cta = payload.text.match(/Veja: (https:\/\/\S+?)\. Para/)[1];
+  const cta = payload.text.match(/Veja: (https:\/\/\S+?)\. Você/)[1];
   const url = new URL(cta);
   assert.equal(url.searchParams.get("utm_medium"), "email");
   assert.equal(url.searchParams.get("utm_campaign"), "recomendacao_solicitada");
   assert.equal(url.searchParams.get("utm_content"), "neural-x");
   assert.doesNotMatch(cta, /qa|example.invalid|%40/);
-  assert.match(payload.html, /assunto=privacidade/);
-  assert.match(payload.text, /cancelamento/);
+  assert.match(payload.html, /unsubscribe\.html\?token=opaque-token/);
+  assert.equal(payload.headers["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
+  assert.match(payload.headers["List-Unsubscribe"], /\/api\/marketing\/unsubscribe\?token=opaque-token/);
+});
+
+test("recommendation-only email does not claim marketing permission", async (t) => {
+  let payload;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    payload = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ id: "isolated-email-fixture" }) };
+  });
+  await sendRecommendationEmail({
+    email: "qa@example.invalid",
+    name: "Cliente QA",
+    recommendation: { id: "compare", name: "Comparação", url: "/#produtos", reason: "Compare." },
+    marketingConsent: false,
+  }, { SITE_URL: "https://neuralx.example", RESEND_API_KEY: "test-fixture-not-a-real-key" });
+  assert.match(payload.text, /não foi inscrito em conteúdos ou ofertas/);
+  assert.equal(payload.headers, undefined);
 });

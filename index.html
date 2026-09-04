@@ -299,15 +299,15 @@
               <form class="lead-form recommendation-email" id="leadForm" hidden novalidate>
                 <input id="leadInterest" name="interest" type="hidden">
                 <div class="lead-trap" aria-hidden="true"><label for="leadWebsite">Deixe este campo vazio</label><input id="leadWebsite" name="companyWebsite" type="text" tabindex="-1" autocomplete="off"></div>
-                <p><strong>Quer guardar a recomendação?</strong><br><small>O envio por e-mail e os conteúdos são opcionais. Seu resultado acima não depende disso.</small></p>
+                <p><strong>Quer guardar a recomendação?</strong><br><small>Ao enviar, você receberá somente esta recomendação. Seu resultado acima não depende do cadastro.</small></p>
                 <div class="field-group"><label for="leadName">Primeiro nome</label><input id="leadName" name="name" type="text" autocomplete="given-name" minlength="2" maxlength="80" required placeholder="Como podemos chamar você?"></div>
                 <div class="field-group"><label for="leadEmail">E-mail</label><input id="leadEmail" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="voce@exemplo.com"></div>
-                <label class="consent"><input name="marketingConsent" type="checkbox" required><span>Quero receber esta recomendação, conteúdos e ofertas da Neural X. Li a <a href="./privacy.html">política de privacidade</a>.</span></label>
+                <label class="consent"><input name="marketingConsent" type="checkbox"><span>Também quero receber conteúdos, comparações e ofertas da Neural X. Li a <a href="./privacy.html">política de privacidade</a>.</span></label>
                 <p class="form-message" id="leadMessage" role="status" aria-live="polite"></p>
                 <button class="button secondary" type="submit">Enviar recomendação por e-mail</button>
-                <small class="lead-privacy-note">Consentimento separado. Cancele quando quiser.</small>
+                <small class="lead-privacy-note">Marketing é opcional e separado do envio da recomendação. Cancele com o link presente nos e-mails.</small>
               </form>
-              <button class="recommendation-email-toggle" id="showRecommendationEmail" type="button">Receber por e-mail e conteúdos opcionais</button>
+              <button class="recommendation-email-toggle" id="showRecommendationEmail" type="button">Receber esta recomendação por e-mail</button>
             </section>
           </div>
         </div>

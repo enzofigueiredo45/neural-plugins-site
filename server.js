@@ -41,6 +41,10 @@ const {
   sendWelcomeEmail,
 } = require("./lib/email");
 const {
+  createUnsubscribeToken,
+  readUnsubscribeToken,
+} = require("./lib/marketing-consent");
+const {
   createPreference: createMercadoPagoPreference,
   getPayment: getMercadoPagoPayment,
   isMercadoPagoPaymentId,
@@ -295,6 +299,7 @@ const statelessApiPaths = new Set([
   "/api/public-config",
   "/api/checkout-session",
   "/api/mercado-pago-payment",
+  "/api/marketing/unsubscribe",
 ]);
 app.use("/api", (req, res, next) => {
   if (statelessApiPaths.has(req.originalUrl.split("?")[0])) return next();
@@ -352,7 +357,7 @@ app.use("/api", (req, res, next) => {
 // CSRF protection for state-changing API requests.
 app.use((req, res, next) => {
   const safeMethod = ["GET", "HEAD", "OPTIONS"].includes(req.method);
-  if (safeMethod) return next();
+  if (safeMethod || statelessApiPaths.has(req.path)) return next();
   if (!req.session)
     return res.status(503).json({
       ok: false,
@@ -421,6 +426,12 @@ const leadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+const unsubscribeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 const accountLimiter = rateLimit({
   windowMs: 30 * 60 * 1000,
   max: 5,
@@ -475,6 +486,8 @@ app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res
 const publicPages = new Set([
   "404.html", "index.html", "cart.html", "client-dashboard.html",
   "client-login.html", "client-register.html", "contact.html", "privacy.html",
+  "checklist-software-musical.html", "guia-escolher-daw.html",
+  "guia-plugins-guitarra.html", "guias.html", "unsubscribe.html",
   "googleab9c8b948f79ec49.html",
   "produto-fl-studio.html",
   "produto-neural-x.html", "produto-reaper.html", "success.html", "terms.html",
@@ -679,6 +692,10 @@ function hashEnhancedConversionEmail(value) {
   return isValidEmail(email)
     ? createHash("sha256").update(email, "utf8").digest("hex")
     : "";
+}
+
+function marketingTokenSecret() {
+  return process.env.UNSUBSCRIBE_SECRET || process.env.SESSION_SECRET || "development-only-marketing-secret";
 }
 
 function isStrongPassword(value) {
@@ -1672,8 +1689,7 @@ app.post(
       name.length < 2 ||
       name.length > 80 ||
       !isValidEmail(email) ||
-      !leadInterests.has(interest) ||
-      !marketingConsent
+      !leadInterests.has(interest)
     )
       return res.status(400).json({ ok: false, error: "invalid_lead" });
     if (!(await verifyCaptcha(req.body?.captcha, "lead")))
@@ -1684,6 +1700,7 @@ app.post(
       email,
       name,
       interest,
+      marketingConsent,
       attribution.utm_source || null,
       attribution.utm_medium || null,
       attribution.utm_campaign || null,
@@ -1694,25 +1711,71 @@ app.post(
     ];
     await db.run(
       db.usePostgres
-        ? `INSERT INTO leads (email, name, interest, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, interest = EXCLUDED.interest, status = 'Novo', marketing_consent_at = CURRENT_TIMESTAMP, utm_source = EXCLUDED.utm_source, utm_medium = EXCLUDED.utm_medium, utm_campaign = EXCLUDED.utm_campaign, utm_content = EXCLUDED.utm_content, utm_term = EXCLUDED.utm_term, landing_page = EXCLUDED.landing_page, referrer = EXCLUDED.referrer, updated_at = CURRENT_TIMESTAMP`
-        : `INSERT INTO leads (email, name, interest, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
-           VALUES (?,?,?,?,?,?,?,?,?,?)
-           ON CONFLICT(email) DO UPDATE SET name = excluded.name, interest = excluded.interest, status = 'Novo', marketing_consent_at = CURRENT_TIMESTAMP, utm_source = excluded.utm_source, utm_medium = excluded.utm_medium, utm_campaign = excluded.utm_campaign, utm_content = excluded.utm_content, utm_term = excluded.utm_term, landing_page = excluded.landing_page, referrer = excluded.referrer, updated_at = CURRENT_TIMESTAMP`,
-      values,
+        ? `INSERT INTO leads (email, name, interest, marketing_opt_in, marketing_consent_at, marketing_consent_version, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
+           VALUES ($1,$2,$3,$4,CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END,CASE WHEN $4 THEN 'lead-form-v2' ELSE NULL END,$5,$6,$7,$8,$9,$10,$11)
+           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, interest = EXCLUDED.interest, status = 'Novo', marketing_opt_in = EXCLUDED.marketing_opt_in, marketing_consent_at = EXCLUDED.marketing_consent_at, marketing_consent_version = EXCLUDED.marketing_consent_version, marketing_unsubscribed_at = CASE WHEN EXCLUDED.marketing_opt_in THEN NULL WHEN leads.marketing_opt_in THEN CURRENT_TIMESTAMP ELSE leads.marketing_unsubscribed_at END, utm_source = EXCLUDED.utm_source, utm_medium = EXCLUDED.utm_medium, utm_campaign = EXCLUDED.utm_campaign, utm_content = EXCLUDED.utm_content, utm_term = EXCLUDED.utm_term, landing_page = EXCLUDED.landing_page, referrer = EXCLUDED.referrer, updated_at = CURRENT_TIMESTAMP`
+        : `INSERT INTO leads (email, name, interest, marketing_opt_in, marketing_consent_version, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
+           VALUES (?,?,?,?,CASE WHEN ? THEN 'lead-form-v2' ELSE NULL END,?,?,?,?,?,?,?)
+           ON CONFLICT(email) DO UPDATE SET name = excluded.name, interest = excluded.interest, status = 'Novo', marketing_opt_in = excluded.marketing_opt_in, marketing_consent_at = CASE WHEN excluded.marketing_opt_in THEN CURRENT_TIMESTAMP ELSE leads.marketing_consent_at END, marketing_consent_version = excluded.marketing_consent_version, marketing_unsubscribed_at = CASE WHEN excluded.marketing_opt_in THEN NULL WHEN leads.marketing_opt_in THEN CURRENT_TIMESTAMP ELSE leads.marketing_unsubscribed_at END, utm_source = excluded.utm_source, utm_medium = excluded.utm_medium, utm_campaign = excluded.utm_campaign, utm_content = excluded.utm_content, utm_term = excluded.utm_term, landing_page = excluded.landing_page, referrer = excluded.referrer, updated_at = CURRENT_TIMESTAMP`,
+      db.usePostgres ? values : [
+        email,
+        name,
+        interest,
+        marketingConsent ? 1 : 0,
+        marketingConsent ? 1 : 0,
+        ...values.slice(4),
+      ],
     );
     const recommendation = leadInterests.get(interest);
+    let unsubscribeUrl = "";
+    let oneClickUnsubscribeUrl = "";
+    if (marketingConsent) {
+      const token = createUnsubscribeToken(email, marketingTokenSecret());
+      unsubscribeUrl = `${canonicalUrl}/unsubscribe.html?token=${encodeURIComponent(token)}`;
+      oneClickUnsubscribeUrl = `${canonicalUrl}/api/marketing/unsubscribe?token=${encodeURIComponent(token)}`;
+    }
     const emailDelivery = await sendEmailSafely(
       "recommendation",
-      () => sendRecommendationEmail({ email, name, recommendation }),
+      () => sendRecommendationEmail({
+        email,
+        name,
+        recommendation,
+        marketingConsent,
+        unsubscribeUrl,
+        oneClickUnsubscribeUrl,
+      }),
       { requestId: req.requestId },
     );
     return res.status(201).json({
       ok: true,
       recommendation,
+      marketingOptIn: marketingConsent,
       emailSent: Boolean(emailDelivery?.sent),
     });
+  }),
+);
+
+app.post(
+  "/api/marketing/unsubscribe",
+  unsubscribeLimiter,
+  asyncHandler(requireDatabase),
+  asyncHandler(async (req, res) => {
+    const token = String(req.body?.token || req.query?.token || "");
+    const email = readUnsubscribeToken(token, marketingTokenSecret());
+    if (!email)
+      return res.status(400).json({
+        ok: false,
+        error: "invalid_unsubscribe_token",
+        requestId: req.requestId,
+      });
+    await db.run(
+      db.usePostgres
+        ? "UPDATE leads SET marketing_opt_in = FALSE, marketing_unsubscribed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE email = $1"
+        : "UPDATE leads SET marketing_opt_in = 0, marketing_unsubscribed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
+      [email],
+    );
+    logEvent("marketing_unsubscribe", { requestId: req.requestId });
+    return res.json({ ok: true });
   }),
 );
 

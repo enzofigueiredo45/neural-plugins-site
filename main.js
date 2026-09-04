@@ -1535,7 +1535,9 @@ function initLeadForm() {
       });
       if (!response.ok) throw new Error(data.error || "lead_error");
       message.textContent = data.emailSent
-        ? "Recomendação enviada. Confira sua caixa de entrada."
+        ? data.marketingOptIn
+          ? "Recomendação enviada. Conteúdos e ofertas foram autorizados; cada e-mail terá descadastro."
+          : "Recomendação enviada. Você não foi inscrito em marketing."
         : "Preferência registrada, mas o e-mail não pôde ser enviado agora. Sua recomendação continua disponível acima.";
       message.dataset.state = data.emailSent ? "success" : "error";
       trackEvent("generate_lead", {
@@ -1546,7 +1548,7 @@ function initLeadForm() {
       fields.namedItem("interest").value = interest;
     } catch (error) {
       message.textContent = error.message === "invalid_lead"
-        ? "Confira seu nome, e-mail e o consentimento de comunicação."
+        ? "Confira seu nome e e-mail."
         : error.message === "captcha_failed"
           ? authMessages.captcha_failed
           : "Não foi possível registrar seu interesse agora. Tente novamente.";
@@ -1555,6 +1557,43 @@ function initLeadForm() {
       form.removeAttribute("aria-busy");
       submit.disabled = false;
       submit.textContent = "Enviar recomendação por e-mail";
+    }
+  });
+}
+
+function initUnsubscribe() {
+  const form = document.querySelector("#unsubscribeForm");
+  if (!form) return;
+  const message = document.querySelector("#unsubscribeMessage");
+  const submit = form.querySelector('button[type="submit"]');
+  const token = new URLSearchParams(window.location.search).get("token") || "";
+  if (!token) {
+    submit.disabled = true;
+    message.textContent = "Abra o link de descadastro recebido em um e-mail da Neural X.";
+    message.dataset.state = "error";
+    return;
+  }
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (submit.disabled) return;
+    try {
+      submit.disabled = true;
+      submit.textContent = "Cancelando…";
+      const response = await fetch("/api/marketing/unsubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data.error || "unsubscribe_error");
+      message.textContent = "Descadastro concluído. Você não receberá novos conteúdos ou ofertas.";
+      message.dataset.state = "success";
+      submit.hidden = true;
+    } catch {
+      message.textContent = "Este link não é válido. Use o link do e-mail mais recente ou fale com o suporte.";
+      message.dataset.state = "error";
+      submit.disabled = false;
+      submit.textContent = "Cancelar conteúdos e ofertas";
     }
   });
 }
@@ -2006,6 +2045,7 @@ initRegistration();
 initSupportForm();
 initRecommendation();
 initLeadForm();
+initUnsubscribe();
 initDashboard();
 initCheckoutSuccess();
 applyQueryPrefill();
