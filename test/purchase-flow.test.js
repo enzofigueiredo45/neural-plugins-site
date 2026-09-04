@@ -144,11 +144,26 @@ test("account → support → both checkouts → confirmed access, with isolated
   const botLead = await request("/api/leads", { ...lead, email: "bot@example.invalid", companyWebsite: "https://spam.invalid" });
   assert.equal(botLead.status, 400);
   const noConsent = await request("/api/leads", { ...lead, email: "no-consent@example.invalid", marketingConsent: false });
-  assert.equal(noConsent.status, 400);
-  const leadRows = await db.query("SELECT email, marketing_consent_at, utm_source FROM leads");
-  assert.equal(leadRows.length, 1, "honeypot and missing consent must not create leads");
-  assert.equal(leadRows[0].utm_source, "instagram");
-  assert.ok(leadRows[0].marketing_consent_at);
+  assert.equal(noConsent.status, 201, "requested recommendation must not require marketing consent");
+  assert.equal(noConsent.data.marketingOptIn, false);
+  let leadRows = await db.query("SELECT email, marketing_opt_in, marketing_consent_at, marketing_unsubscribed_at, utm_source FROM leads ORDER BY email");
+  assert.equal(leadRows.length, 2, "honeypot must be rejected while no-consent recommendations remain deliverable");
+  const optedInLead = leadRows.find((row) => row.email === account.email);
+  const recommendationOnlyLead = leadRows.find((row) => row.email === "no-consent@example.invalid");
+  assert.equal(optedInLead.utm_source, "instagram");
+  assert.equal(Number(optedInLead.marketing_opt_in), 1);
+  assert.equal(Number(recommendationOnlyLead.marketing_opt_in), 0);
+
+  const { createUnsubscribeToken } = require("../lib/marketing-consent");
+  const unsubscribe = await request("/api/marketing/unsubscribe", {
+    token: createUnsubscribeToken(account.email, process.env.SESSION_SECRET),
+  });
+  assert.equal(unsubscribe.status, 200);
+  assert.equal(unsubscribe.data.ok, true);
+  leadRows = await db.query("SELECT marketing_opt_in, marketing_unsubscribed_at FROM leads WHERE email = ?", [account.email]);
+  assert.equal(Number(leadRows[0].marketing_opt_in), 0);
+  assert.ok(leadRows[0].marketing_unsubscribed_at);
+  assert.equal((await request("/api/marketing/unsubscribe", { token: "invalid" })).status, 400);
 
   const cart = [{ id: "neural-x", quantity: 1 }, { id: "fl-studio", quantity: 1 }, { id: "reaper", quantity: 1 }];
   const checkout = await request("/api/create-checkout-session", { cart });

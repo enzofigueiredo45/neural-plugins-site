@@ -260,15 +260,18 @@ test("recommendation is immediate and optional email capture has separate consen
   assert.match(index, /Ver recomendação sem cadastro/);
   assert.match(index, /id="recommendationResult" hidden/);
   assert.match(index, /id="leadForm" hidden/);
-  assert.match(index, /name="marketingConsent"[^>]*required/);
-  assert.match(index, /Consentimento separado/);
+  assert.match(index, /name="marketingConsent" type="checkbox"/);
+  assert.doesNotMatch(index, /name="marketingConsent"[^>]*required/);
+  assert.match(index, /Marketing é opcional e separado/);
   assert.match(index, /href="\.\/privacy\.html"/);
   assert.match(main, /function initRecommendation\(\)/);
   assert.match(main, /trackEvent\("view_recommendation"/);
   assert.match(server, /"\/api\/leads"/);
   assert.match(server, /sendRecommendationEmail/);
+  assert.match(server, /"\/api\/marketing\/unsubscribe"/);
   assert.match(database, /CREATE TABLE IF NOT EXISTS leads/);
-  assert.match(privacy, /cancelar o consentimento/);
+  assert.match(database, /marketing_opt_in/);
+  assert.match(privacy, /cancelado automaticamente pelo link de descadastro/);
 });
 
 test("homepage has an interactive production selector and a non-numbered studio strip", () => {
