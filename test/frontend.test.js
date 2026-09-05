@@ -337,6 +337,22 @@ test("FL Studio and REAPER identify the confirmed 2026 edition", () => {
   assert.match(main, /name: "REAPER 2026"/);
 });
 
+test("Neural DSP catalog identifies the included Gojira edition accurately", () => {
+  const page = fs.readFileSync(path.join(root, "produto-neural-x.html"), "utf8");
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const sitemapScript = fs.readFileSync(
+    path.join(root, "scripts", "generate-sitemap.js"),
+    "utf8",
+  );
+  const sources = [page, index, server, sitemapScript];
+
+  assert.match(page, /<h3>Gojira<\/h3>/);
+  for (const source of sources) {
+    assert.doesNotMatch(source, /Gojira X/i);
+  }
+});
+
 test("product pages and cart disclose the computer-bound digital license", () => {
   for (const file of [
     "produto-neural-x.html",
