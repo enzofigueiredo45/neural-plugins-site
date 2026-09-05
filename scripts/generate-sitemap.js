@@ -17,7 +17,7 @@ const pages = [
     changefreq: "weekly",
     images: [
       "/assets/neural-dsp/archetype-john-mayer-x.png",
-      "/assets/neural-dsp/archetype-gojira-x.png",
+      "/assets/neural-dsp/morgan-amps-suite.png",
       "/assets/neural-dsp/parallax-x.png",
       "/assets/neural-dsp/mantra.png",
     ],

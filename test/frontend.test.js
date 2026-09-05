@@ -350,7 +350,20 @@ test("Neural DSP catalog identifies the included Gojira edition accurately", () 
   assert.match(page, /<h3>Gojira<\/h3>/);
   for (const source of sources) {
     assert.doesNotMatch(source, /Gojira X/i);
+    assert.doesNotMatch(source, /archetype-gojira-x\.png/i);
   }
+  assert.match(page, /Gojira incluído nesta oferta é a versão sem X/);
+});
+
+test("free compatibility checklist works without lead capture and avoids certification promises", () => {
+  const page = fs.readFileSync(path.join(root, "checklist-software-musical.html"), "utf8");
+  const script = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(page, /id="compatibilityChecklist"/);
+  assert.equal((page.match(/type="checkbox"/g) || []).length, 6);
+  assert.match(page, /não testa o computador nem certifica compatibilidade/);
+  assert.match(page, /sem cadastro obrigatório/);
+  assert.match(script, /checklist_complete/);
+  assert.match(script, /checklist_download/);
 });
 
 test("product pages and cart disclose the computer-bound digital license", () => {

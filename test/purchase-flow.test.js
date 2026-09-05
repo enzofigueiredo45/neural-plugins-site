@@ -153,6 +153,12 @@ test("account → support → both checkouts → confirmed access, with isolated
   assert.equal(optedInLead.utm_source, "instagram");
   assert.equal(Number(optedInLead.marketing_opt_in), 1);
   assert.equal(Number(recommendationOnlyLead.marketing_opt_in), 0);
+  assert.equal(recommendationOnlyLead.marketing_consent_at, null);
+  const repeated = await request("/api/leads", { ...lead, marketingConsent: false });
+  assert.equal(repeated.status, 201);
+  const preserved = await db.getOne("SELECT marketing_opt_in, marketing_consent_at FROM leads WHERE email = ?", [account.email]);
+  assert.equal(Number(preserved.marketing_opt_in), 1);
+  assert.equal(preserved.marketing_consent_at, optedInLead.marketing_consent_at);
 
   const { createUnsubscribeToken } = require("../lib/marketing-consent");
   const unsubscribe = await request("/api/marketing/unsubscribe", {
@@ -163,6 +169,9 @@ test("account → support → both checkouts → confirmed access, with isolated
   leadRows = await db.query("SELECT marketing_opt_in, marketing_unsubscribed_at FROM leads WHERE email = ?", [account.email]);
   assert.equal(Number(leadRows[0].marketing_opt_in), 0);
   assert.ok(leadRows[0].marketing_unsubscribed_at);
+  const afterUnsubscribe = await request("/api/leads", { ...lead, marketingConsent: false });
+  assert.equal(afterUnsubscribe.status, 201);
+  assert.equal(Number((await db.getOne("SELECT marketing_opt_in FROM leads WHERE email = ?", [account.email])).marketing_opt_in), 0);
   assert.equal((await request("/api/marketing/unsubscribe", { token: "invalid" })).status, 400);
 
   const cart = [{ id: "neural-x", quantity: 1 }, { id: "fl-studio", quantity: 1 }, { id: "reaper", quantity: 1 }];

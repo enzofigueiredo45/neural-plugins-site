@@ -1434,6 +1434,42 @@ function initSupportForm() {
   });
 }
 
+function initCompatibilityChecklist() {
+  const fieldset = document.querySelector("#compatibilityChecklist");
+  if (!fieldset) return;
+  const boxes = [...fieldset.querySelectorAll('input[type="checkbox"]')];
+  const progress = document.querySelector("#checklistProgress");
+  const download = document.querySelector("#downloadChecklist");
+  let started = false;
+  let completed = false;
+  fieldset.addEventListener("change", () => {
+    const count = boxes.filter((box) => box.checked).length;
+    progress.textContent = `${count} de ${boxes.length} verificações marcadas.${count === boxes.length ? " Lista revisada. Confirme dúvidas sobre o produto com o suporte." : ""}`;
+    if (count && !started) {
+      started = true;
+      trackEvent("checklist_start", { content_id: "music-software-checklist" });
+    }
+    if (count === boxes.length && !completed) {
+      completed = true;
+      trackEvent("checklist_complete", { content_id: "music-software-checklist" });
+    }
+  });
+  download.hidden = false;
+  download.addEventListener("click", () => {
+    const lines = boxes.map((box) => `${box.checked ? "[x]" : "[ ]"} ${box.closest("label").textContent.trim()}`);
+    const text = ["NEURAL X — CHECKLIST DE SOFTWARE MUSICAL", "", ...lines, "", "A lista não testa o computador nem certifica compatibilidade.", "Confira edição, licença e requisitos com o fornecedor antes de pagar.", "Guia: https://neuralxplugins.com.br/checklist-software-musical.html", "Suporte: https://neuralxplugins.com.br/contact.html"].join("\n");
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "neural-x-checklist-software-musical.txt";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    trackEvent("checklist_download", { content_id: "music-software-checklist", format: "txt" });
+  });
+}
+
 function initRecommendation() {
   const form = document.querySelector("#recommendationForm");
   const result = document.querySelector("#recommendationResult");
@@ -1537,12 +1573,14 @@ function initLeadForm() {
       message.textContent = data.emailSent
         ? data.marketingOptIn
           ? "Recomendação enviada. Conteúdos e ofertas foram autorizados; cada e-mail terá descadastro."
-          : "Recomendação enviada. Você não foi inscrito em marketing."
+          : "Recomendação enviada. Este envio não adiciona marketing nem altera inscrições anteriores."
         : "Preferência registrada, mas o e-mail não pôde ser enviado agora. Sua recomendação continua disponível acima.";
       message.dataset.state = data.emailSent ? "success" : "error";
       trackEvent("generate_lead", {
         interest,
         recommended_product: data.recommendation?.id || "compare",
+        email_delivery: data.emailSent ? "accepted" : "not_sent",
+        marketing_requested: Boolean(data.marketingOptIn),
       });
       form.reset();
       fields.namedItem("interest").value = interest;
@@ -2043,6 +2081,7 @@ initCart();
 initLogin();
 initRegistration();
 initSupportForm();
+initCompatibilityChecklist();
 initRecommendation();
 initLeadForm();
 initUnsubscribe();

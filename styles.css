@@ -1624,6 +1624,32 @@ details p {
   background: #0b0b09;
 }
 
+.plugin-tile > .plugin-edition-note {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1.77;
+  color: var(--acid);
+  font-size: 1.35rem;
+  font-weight: 700;
+  background: #181815;
+}
+
+.checklist-tool fieldset {
+  border: 0;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+
+.checklist-tool .consent {
+  padding: 0.65rem 0;
+  align-items: flex-start;
+}
+
+.checklist-tool .button {
+  margin: 0.35rem 0.5rem 0.35rem 0;
+  white-space: normal;
+}
+
 .plugin-tile > div {
   min-height: 7.4rem;
   padding: 1.1rem 1.15rem 1.25rem;
