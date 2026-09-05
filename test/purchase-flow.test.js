@@ -153,6 +153,21 @@ test("account → support → both checkouts → confirmed access, with isolated
   assert.equal(optedInLead.utm_source, "instagram");
   assert.equal(Number(optedInLead.marketing_opt_in), 1);
   assert.equal(Number(recommendationOnlyLead.marketing_opt_in), 0);
+  assert.equal(recommendationOnlyLead.marketing_consent_at, null);
+
+  const repeatedRecommendation = await request("/api/leads", {
+    ...lead,
+    marketingConsent: false,
+  });
+  assert.equal(repeatedRecommendation.status, 201);
+  leadRows = await db.query(
+    "SELECT marketing_opt_in, marketing_consent_at, marketing_consent_version, marketing_unsubscribed_at FROM leads WHERE email = ?",
+    [account.email],
+  );
+  assert.equal(Number(leadRows[0].marketing_opt_in), 1);
+  assert.ok(leadRows[0].marketing_consent_at);
+  assert.equal(leadRows[0].marketing_consent_version, "lead-form-v2");
+  assert.equal(leadRows[0].marketing_unsubscribed_at, null);
 
   const { createUnsubscribeToken } = require("../lib/marketing-consent");
   const unsubscribe = await request("/api/marketing/unsubscribe", {
