@@ -102,6 +102,21 @@ test("recommendation-only email does not claim marketing permission", async (t) 
     recommendation: { id: "compare", name: "Comparação", url: "/#produtos", reason: "Compare." },
     marketingConsent: false,
   }, { SITE_URL: "https://neuralx.example", RESEND_API_KEY: "test-fixture-not-a-real-key" });
-  assert.match(payload.text, /não foi inscrito em conteúdos ou ofertas/);
+  assert.match(payload.text, /não adiciona marketing nem altera inscrições anteriores/);
   assert.equal(payload.headers, undefined);
+});
+
+test("separate recommendation requests can be resent without colliding idempotency keys", async (t) => {
+  const keys = [];
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    keys.push(options.headers["Idempotency-Key"]);
+    return { ok: true, json: async () => ({ id: "isolated-email-fixture" }) };
+  });
+  const input = { email: "qa@example.invalid", name: "QA", recommendation: { id: "compare" } };
+  const env = { SITE_URL: "https://neuralx.example", RESEND_API_KEY: "test-fixture-not-a-real-key" };
+  await sendRecommendationEmail({ ...input, requestId: "request-1" }, env);
+  await sendRecommendationEmail({ ...input, requestId: "request-1" }, env);
+  await sendRecommendationEmail({ ...input, requestId: "request-2" }, env);
+  assert.equal(keys[0], keys[1], "a retry of the same payload stays idempotent");
+  assert.notEqual(keys[0], keys[2], "a new requested delivery is not suppressed");
 });

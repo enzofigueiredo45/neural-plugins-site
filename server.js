@@ -21,6 +21,7 @@ const { createClient } = require("redis");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
 const { createDatabaseReadiness } = require("./lib/database-readiness");
+const { saveLead } = require("./lib/lead-storage");
 const {
   isStripePriceId,
   isStripeSessionId,
@@ -78,7 +79,7 @@ const indexablePages = [
     changefreq: "weekly",
     images: [
       "/assets/neural-dsp/archetype-john-mayer-x.png",
-      "/assets/neural-dsp/archetype-gojira-x.png",
+      "/assets/neural-dsp/morgan-amps-suite.png",
       "/assets/neural-dsp/parallax-x.png",
       "/assets/neural-dsp/mantra.png",
     ],
@@ -1696,36 +1697,7 @@ app.post(
       return res.status(400).json({ ok: false, error: "captcha_failed" });
 
     const attribution = normalizeAttribution(req.body?.attribution);
-    const values = [
-      email,
-      name,
-      interest,
-      marketingConsent,
-      attribution.utm_source || null,
-      attribution.utm_medium || null,
-      attribution.utm_campaign || null,
-      attribution.utm_content || null,
-      attribution.utm_term || null,
-      attribution.landing_page || null,
-      attribution.referrer || null,
-    ];
-    await db.run(
-      db.usePostgres
-        ? `INSERT INTO leads (email, name, interest, marketing_opt_in, marketing_consent_at, marketing_consent_version, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
-           VALUES ($1,$2,$3,$4,CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END,CASE WHEN $4 THEN 'lead-form-v2' ELSE NULL END,$5,$6,$7,$8,$9,$10,$11)
-           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, interest = EXCLUDED.interest, status = 'Novo', marketing_opt_in = EXCLUDED.marketing_opt_in, marketing_consent_at = EXCLUDED.marketing_consent_at, marketing_consent_version = EXCLUDED.marketing_consent_version, marketing_unsubscribed_at = CASE WHEN EXCLUDED.marketing_opt_in THEN NULL WHEN leads.marketing_opt_in THEN CURRENT_TIMESTAMP ELSE leads.marketing_unsubscribed_at END, utm_source = EXCLUDED.utm_source, utm_medium = EXCLUDED.utm_medium, utm_campaign = EXCLUDED.utm_campaign, utm_content = EXCLUDED.utm_content, utm_term = EXCLUDED.utm_term, landing_page = EXCLUDED.landing_page, referrer = EXCLUDED.referrer, updated_at = CURRENT_TIMESTAMP`
-        : `INSERT INTO leads (email, name, interest, marketing_opt_in, marketing_consent_version, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer)
-           VALUES (?,?,?,?,CASE WHEN ? THEN 'lead-form-v2' ELSE NULL END,?,?,?,?,?,?,?)
-           ON CONFLICT(email) DO UPDATE SET name = excluded.name, interest = excluded.interest, status = 'Novo', marketing_opt_in = excluded.marketing_opt_in, marketing_consent_at = CASE WHEN excluded.marketing_opt_in THEN CURRENT_TIMESTAMP ELSE leads.marketing_consent_at END, marketing_consent_version = excluded.marketing_consent_version, marketing_unsubscribed_at = CASE WHEN excluded.marketing_opt_in THEN NULL WHEN leads.marketing_opt_in THEN CURRENT_TIMESTAMP ELSE leads.marketing_unsubscribed_at END, utm_source = excluded.utm_source, utm_medium = excluded.utm_medium, utm_campaign = excluded.utm_campaign, utm_content = excluded.utm_content, utm_term = excluded.utm_term, landing_page = excluded.landing_page, referrer = excluded.referrer, updated_at = CURRENT_TIMESTAMP`,
-      db.usePostgres ? values : [
-        email,
-        name,
-        interest,
-        marketingConsent ? 1 : 0,
-        marketingConsent ? 1 : 0,
-        ...values.slice(4),
-      ],
-    );
+    await saveLead(db, { email, name, interest, marketingConsent, attribution });
     const recommendation = leadInterests.get(interest);
     let unsubscribeUrl = "";
     let oneClickUnsubscribeUrl = "";
@@ -1743,6 +1715,7 @@ app.post(
         marketingConsent,
         unsubscribeUrl,
         oneClickUnsubscribeUrl,
+        requestId: req.requestId,
       }),
       { requestId: req.requestId },
     );
