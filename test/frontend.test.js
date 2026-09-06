@@ -292,11 +292,13 @@ test("free checklist landing captures only the required email and keeps marketin
 
 test("checkout exposes the refund policy before opening the payment provider", () => {
   const cart = fs.readFileSync(path.join(root, "cart.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const policyPosition = cart.indexOf('class="checkout-policy"');
   const checkoutPosition = cart.indexOf('id="checkoutButton"');
   assert.ok(policyPosition > -1 && policyPosition < checkoutPosition);
   assert.match(cart, /prazo legal de 7 dias/);
   assert.match(cart, /href="\.\/terms\.html#reembolso"/);
+  assert.match(main, /if \(!rawValue\) return fallback/);
 });
 
 test("performance and Clarity measurement remain consent gated", () => {
