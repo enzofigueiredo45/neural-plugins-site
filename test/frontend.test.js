@@ -306,6 +306,8 @@ test("digital delivery timing is consistent and activation claims stay qualified
   const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
   const email = fs.readFileSync(path.join(root, "lib/email.js"), "utf8");
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  assert.doesNotMatch(index, /ativação simples no computador/i);
+  assert.match(index, /Ativação informada por produto/);
   assert.match(main, /link de download e as instruções de ativação/);
   assert.match(server, /instruções correspondentes ao produto e à edição/);
   assert.match(email, /Links de download/);
