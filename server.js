@@ -121,6 +121,7 @@ const indexablePages = [
     priority: "0.8",
     changefreq: "monthly",
   },
+  { path: "/gratis.html", priority: "0.9", changefreq: "monthly" },
   { path: "/contact.html", priority: "0.6", changefreq: "monthly" },
   { path: "/privacy.html", priority: "0.4", changefreq: "yearly" },
   { path: "/terms.html", priority: "0.4", changefreq: "yearly" },
@@ -240,6 +241,7 @@ app.use(
           "https://www.google.com",
           "https://www.gstatic.com",
           "https://www.googletagmanager.com",
+          "https://www.clarity.ms",
         ],
         styleSrc: ["'self'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -253,6 +255,7 @@ app.use(
           "https://region1.google-analytics.com",
           "https://www.googleadservices.com",
           "https://googleads.g.doubleclick.net",
+          "https://*.clarity.ms",
         ],
         frameSrc: ["https://www.google.com", "https://recaptcha.google.com"],
         frameAncestors: ["'none'"],
@@ -495,7 +498,7 @@ app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res
 const publicPages = new Set([
   "404.html", "index.html", "cart.html", "client-dashboard.html",
   "client-login.html", "client-register.html", "verify-email.html", "contact.html", "privacy.html",
-  "checklist-software-musical.html", "guia-escolher-daw.html",
+  "checklist-software-musical.html", "gratis.html", "guia-escolher-daw.html",
   "guia-plugins-guitarra.html", "guias.html", "unsubscribe.html",
   "googleab9c8b948f79ec49.html",
   "produto-fl-studio.html",
@@ -665,6 +668,12 @@ const supportCategories = new Map([
   ["other", "Outro assunto"],
 ]);
 const leadInterests = new Map([
+  ["guide", {
+    id: "guide",
+    name: "Checklist gratuito para software musical",
+    url: "/checklist-software-musical.html",
+    reason: "Use a lista para conferir sistema, formato, licença, ativação, reinstalação, suporte e pagamento antes de escolher.",
+  }],
   ["guitar", {
     id: "neural-x",
     name: "Coleção Neural DSP",
@@ -1435,6 +1444,7 @@ async function handleStripeWebhook(req, res, next) {
 app.get("/api/public-config", (req, res) =>
   res.json({
     recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || "",
+    clarityProjectId: process.env.CLARITY_PROJECT_ID || "",
     mercadoPagoCheckoutEnabled: isMercadoPagoConfigured(),
   }),
 );
@@ -1835,7 +1845,7 @@ app.post(
     const interest = String(req.body?.interest || "");
     const marketingConsent = req.body?.marketingConsent === true;
     if (
-      name.length < 2 ||
+      (name.length > 0 && name.length < 2) ||
       name.length > 80 ||
       !isValidEmail(email) ||
       !leadInterests.has(interest)

@@ -496,6 +496,29 @@ a:focus-visible {
   transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
+.lead-magnet-hero {
+  min-height: calc(100vh - 9rem);
+  align-items: center;
+}
+
+.lead-magnet-card {
+  align-self: center;
+  max-width: 34rem;
+}
+
+.lead-magnet-card h2 {
+  margin: 0.35rem 0 0.8rem;
+}
+
+.lead-magnet-card .lead-form {
+  margin-top: 1.25rem;
+}
+
+.lead-magnet-direct {
+  margin: 1rem 0 0;
+  text-align: center;
+}
+
 .hero-selector-button:hover,
 .hero-selector-button:focus-visible {
   color: var(--paper);
@@ -2301,6 +2324,32 @@ input:disabled {
   font-size: 0.76rem;
   line-height: 1.5;
   text-align: center;
+}
+
+.checkout-policy {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1rem 0;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.checkout-policy strong {
+  color: var(--paper);
+}
+
+.checkout-policy a,
+.lead-result-link {
+  color: var(--paper);
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: var(--acid-dark);
+  text-underline-offset: 0.2rem;
 }
 
 .fulfillment-note {

@@ -170,6 +170,55 @@ function initAnalytics() {
   document.head.append(script);
 }
 
+function initSpeedInsights() {
+  if (getMeasurementConsent() !== "granted") return;
+  const allowedPaths = new Set([
+    "/",
+    "/index.html",
+    "/produto-neural-x.html",
+    "/produto-fl-studio.html",
+    "/produto-reaper.html",
+    "/guias.html",
+    "/guia-plugins-guitarra.html",
+    "/guia-escolher-daw.html",
+    "/checklist-software-musical.html",
+    "/gratis.html",
+  ]);
+  if (!allowedPaths.has(window.location.pathname)) return;
+  window.si = window.si || function speedInsightsQueue() {
+    (window.siq = window.siq || []).push(arguments);
+  };
+  if (document.querySelector('script[src="/_vercel/speed-insights/script.js"]')) return;
+  const script = document.createElement("script");
+  script.defer = true;
+  script.src = "/_vercel/speed-insights/script.js";
+  document.head.append(script);
+}
+
+async function initClarity() {
+  if (getMeasurementConsent() !== "granted") return;
+  let clarityProjectId = "";
+  try {
+    ({ clarityProjectId = "" } = await getPublicConfig());
+  } catch {
+    return;
+  }
+  if (!/^[a-z0-9]{8,32}$/i.test(String(clarityProjectId || ""))) return;
+  window.clarity = window.clarity || function clarityQueue() {
+    (window.clarity.q = window.clarity.q || []).push(arguments);
+  };
+  window.clarity("consentv2", {
+    ad_Storage: "denied",
+    analytics_Storage: "granted",
+  });
+  if (document.querySelector("script[data-clarity-tag='true']")) return;
+  const script = document.createElement("script");
+  script.async = true;
+  script.dataset.clarityTag = "true";
+  script.src = `https://www.clarity.ms/tag/${encodeURIComponent(clarityProjectId)}`;
+  document.head.append(script);
+}
+
 function initGoogleConsentState() {
   if (window.__neuralxGoogleConsentInitialized) return;
   window.dataLayer = window.dataLayer || [];
@@ -257,6 +306,8 @@ function showMeasurementConsent() {
     setMeasurementConsent("granted");
     captureAttribution();
     loadGoogleMeasurementTag();
+    initSpeedInsights();
+    void initClarity();
     trackCurrentPageView();
     if (pendingAnalyticsPurchase) {
       const { sessionId, data } = pendingAnalyticsPurchase;
@@ -361,7 +412,11 @@ function initMeasurementConsent() {
   captureAttribution();
   initGoogleConsentState();
   const consent = getMeasurementConsent();
-  if (consent === "granted") loadGoogleMeasurementTag();
+  if (consent === "granted") {
+    loadGoogleMeasurementTag();
+    initSpeedInsights();
+    void initClarity();
+  }
   else if (consent !== "denied") showMeasurementConsent();
   document
     .querySelector("[data-reset-measurement-consent]")
@@ -375,6 +430,10 @@ function initMeasurementConsent() {
         ad_user_data: "denied",
         ad_personalization: "denied",
         analytics_storage: "denied",
+      });
+      window.clarity?.("consentv2", {
+        ad_Storage: "denied",
+        analytics_Storage: "denied",
       });
       clearMeasurementStorage();
       pendingAnalyticsPurchase = null;
@@ -1559,10 +1618,12 @@ function initLeadForm() {
     try {
       submit.disabled = true;
       form.setAttribute("aria-busy", "true");
-      submit.textContent = "Enviando recomendação…";
+      submit.textContent = interest === "guide"
+        ? "Enviando checklist…"
+        : "Enviando recomendação…";
       const captcha = await getRecaptchaToken("lead");
       const { response, data } = await postJson("/api/leads", {
-        name: fields.namedItem("name").value.trim(),
+        name: fields.namedItem("name")?.value.trim() || "",
         email: fields.namedItem("email").value.trim(),
         interest,
         marketingConsent: fields.namedItem("marketingConsent").checked,
@@ -1571,12 +1632,25 @@ function initLeadForm() {
         captcha,
       });
       if (!response.ok) throw new Error(data.error || "lead_error");
-      message.textContent = data.emailSent
-        ? data.marketingOptIn
-          ? "Recomendação enviada. Conteúdos e ofertas foram autorizados; cada e-mail terá descadastro."
-          : "Recomendação enviada. Este envio não adiciona marketing nem altera inscrições anteriores."
-        : "Preferência registrada, mas o e-mail não pôde ser enviado agora. Sua recomendação continua disponível acima.";
+      message.textContent = interest === "guide"
+        ? data.emailSent
+          ? data.marketingOptIn
+            ? "Checklist enviado. Conteúdos e ofertas também foram autorizados; cada e-mail terá descadastro."
+            : "Checklist enviado. Este envio não adiciona marketing nem altera inscrições anteriores."
+          : "E-mail registrado, mas o envio não pôde ser concluído agora. O checklist continua disponível abaixo."
+        : data.emailSent
+          ? data.marketingOptIn
+            ? "Recomendação enviada. Conteúdos e ofertas foram autorizados; cada e-mail terá descadastro."
+            : "Recomendação enviada. Este envio não adiciona marketing nem altera inscrições anteriores."
+          : "Preferência registrada, mas o e-mail não pôde ser enviado agora. Sua recomendação continua disponível acima.";
       message.dataset.state = data.emailSent ? "success" : "error";
+      if (interest === "guide") {
+        const guideLink = document.createElement("a");
+        guideLink.className = "inline-link lead-result-link";
+        guideLink.href = "./checklist-software-musical.html";
+        guideLink.textContent = "Abrir o checklist gratuito agora";
+        message.append(document.createElement("br"), guideLink);
+      }
       trackEvent("generate_lead", {
         interest,
         recommended_product: data.recommendation?.id || "compare",
