@@ -61,6 +61,7 @@ test("Google discovery files cover every public page and product image", () => {
     "/guia-plugins-guitarra.html",
     "/guia-escolher-daw.html",
     "/checklist-software-musical.html",
+    "/gratis.html",
     "/contact.html",
     "/privacy.html",
     "/terms.html",
@@ -272,6 +273,44 @@ test("recommendation is immediate and optional email capture has separate consen
   assert.match(database, /CREATE TABLE IF NOT EXISTS leads/);
   assert.match(database, /marketing_opt_in/);
   assert.match(privacy, /cancelado automaticamente pelo link de descadastro/);
+});
+
+test("free checklist landing captures only the required email and keeps marketing optional", () => {
+  const page = fs.readFileSync(path.join(root, "gratis.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  assert.match(page, /id="leadForm"/);
+  assert.match(page, /name="interest" type="hidden" value="guide"/);
+  assert.match(page, /name="email"[^>]*required/);
+  assert.doesNotMatch(page, /name="name"/);
+  assert.match(page, /name="marketingConsent" type="checkbox"/);
+  assert.doesNotMatch(page, /name="marketingConsent"[^>]*required/);
+  assert.match(page, /Prefiro abrir sem informar e-mail/);
+  assert.match(main, /Abrir o checklist gratuito agora/);
+  assert.match(server, /\["guide", \{/);
+});
+
+test("checkout exposes the refund policy before opening the payment provider", () => {
+  const cart = fs.readFileSync(path.join(root, "cart.html"), "utf8");
+  const policyPosition = cart.indexOf('class="checkout-policy"');
+  const checkoutPosition = cart.indexOf('id="checkoutButton"');
+  assert.ok(policyPosition > -1 && policyPosition < checkoutPosition);
+  assert.match(cart, /prazo legal de 7 dias/);
+  assert.match(cart, /href="\.\/terms\.html#reembolso"/);
+});
+
+test("performance and Clarity measurement remain consent gated", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const policy = fs.readFileSync(path.join(root, "privacy.html"), "utf8");
+  assert.match(main, /function initSpeedInsights\(\)/);
+  assert.match(main, /\/_vercel\/speed-insights\/script\.js/);
+  assert.match(main, /function initClarity\(\)/);
+  assert.match(main, /getMeasurementConsent\(\) !== "granted"/);
+  assert.match(main, /analytics_Storage: "granted"/);
+  assert.match(main, /ad_Storage: "denied"/);
+  assert.match(server, /CLARITY_PROJECT_ID/);
+  assert.match(policy, /Clarity é carregado somente após essa mesma permissão/);
 });
 
 test("homepage has an interactive production selector and a non-numbered studio strip", () => {

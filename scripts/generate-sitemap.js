@@ -48,6 +48,7 @@ const pages = [
     images: ["/assets/product-fl-studio.jpg", "/assets/product-reaper.jpg"],
   },
   { path: "/checklist-software-musical.html", priority: "0.8", changefreq: "monthly" },
+  { path: "/gratis.html", priority: "0.9", changefreq: "monthly" },
   { path: "/contact.html", priority: "0.6", changefreq: "monthly" },
   { path: "/privacy.html", priority: "0.4", changefreq: "yearly" },
   { path: "/terms.html", priority: "0.4", changefreq: "yearly" },

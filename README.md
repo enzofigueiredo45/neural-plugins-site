@@ -29,6 +29,7 @@ Variáveis mínimas:
 - `STRIPE_PRICE_NEURAL_X`, `STRIPE_PRICE_FL_STUDIO`, `STRIPE_PRICE_REAPER`
 - `STRIPE_WEBHOOK_SECRET` para registrar pedidos pagos de forma idempotente
 - `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO` e `EMAIL_SUPPORT_TO` para confirmações automáticas de cadastro, pagamento e chamados. `EMAIL_FROM` precisa usar um domínio verificado no Resend em produção; `onboarding@resend.dev` serve apenas para testes.
+- `CLARITY_PROJECT_ID` é opcional. Quando configurado, o Clarity só é carregado depois do consentimento de medição e recebe consentimento para analytics, sem consentimento para anúncios.
 - `PRODUCT_ACCESS_URL_NEURAL_X`, `PRODUCT_ACCESS_URL_FL_STUDIO`, `PRODUCT_ACCESS_URL_REAPER` para incluir o link de cada produto no e-mail de confirmação e na biblioteca. Aceitam somente URLs HTTPS sem usuário ou senha embutidos; enquanto estiverem vazias, o pedido informa entrega por e-mail em até 4 horas.
 - `PRODUCT_ACCESS_MODE_*` pode ser `automatic` para acesso direto ou `request` quando o link do Drive pede identificação. No segundo caso, o cliente é orientado a usar o mesmo e-mail informado na compra.
 
