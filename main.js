@@ -141,8 +141,10 @@ const escapeHtml = (value) =>
   );
 
 const safeUrl = (value, fallback = "") => {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return fallback;
   try {
-    const url = new URL(String(value || ""), window.location.origin);
+    const url = new URL(rawValue, window.location.origin);
     if (url.origin === window.location.origin || url.protocol === "https:")
       return url.href;
   } catch {}
