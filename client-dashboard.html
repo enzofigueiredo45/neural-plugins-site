@@ -22,6 +22,12 @@
         <p>Não foi possível carregar sua conta agora. Tente novamente sem sair da sessão.</p>
         <button class="button secondary compact" id="retryAccountLoad" type="button">Tentar novamente</button>
       </div>
+      <section class="form-card verification-panel" id="emailVerificationPanel" aria-labelledby="email-verification-title" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">Proteção da biblioteca</p><h2 id="email-verification-title">Confirme seu e-mail</h2></div></div>
+        <p class="form-intro">Antes de mostrar pedidos, links de acesso ou chamados, precisamos confirmar que este endereço pertence a você.</p>
+        <button class="button primary" id="resendEmailVerification" type="button">Reenviar link de confirmação</button>
+        <p id="emailVerificationMessage" class="form-message" role="status" aria-live="polite"></p>
+      </section>
 
       <section class="dashboard-grid">
         <div class="dashboard-stack">

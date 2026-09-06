@@ -4,6 +4,7 @@ const {
   escapeHtml,
   getEmailConfig,
   sendEmail,
+  sendEmailVerificationEmail,
   sendOrderConfirmationEmail,
   sendRecommendationEmail,
 } = require("../lib/email");
@@ -48,6 +49,24 @@ test("order confirmation remains safe without a configured provider", async () =
   }, { SITE_URL: "https://example.com" });
   assert.equal(result.sent, false);
   assert.equal(result.skipped, "RESEND_API_KEY");
+});
+
+test("verification email uses a fragment token and a request-scoped idempotency key", async (t) => {
+  let request;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    request = options;
+    return { ok: true, json: async () => ({ id: "isolated-email-fixture" }) };
+  });
+  await sendEmailVerificationEmail({
+    email: "qa@example.invalid",
+    name: "Cliente QA",
+    verificationUrl: "https://neuralx.example/verify-email.html#token=opaque_token_value_that_is_long_enough_123456",
+    requestId: "request-one",
+  }, { SITE_URL: "https://neuralx.example", RESEND_API_KEY: "test-fixture-not-a-real-key" });
+  const payload = JSON.parse(request.body);
+  assert.match(payload.text, /verify-email\.html#token=/);
+  assert.doesNotMatch(payload.text, /verify-email\.html\?token=/);
+  assert.match(request.headers["Idempotency-Key"], /^neural-x-/);
 });
 
 test("recommendation email remains safe without a configured provider", async () => {

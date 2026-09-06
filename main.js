@@ -26,7 +26,7 @@ const PRODUCTS = Object.freeze({
   "neural-x": {
     id: "neural-x",
     name: "Coleção Neural DSP",
-    licenseType: "Licença digital vinculada ao computador",
+    licenseType: "Licença digital; confirme a modalidade de ativação antes da compra",
     price: 29.9,
     paymentLink: "https://mpago.la/116GVoE",
     accessMode: "pending",
@@ -36,7 +36,7 @@ const PRODUCTS = Object.freeze({
     id: "fl-studio",
     name: "FL Studio 2026",
     edition: "2026",
-    licenseType: "Licença digital vinculada ao computador",
+    licenseType: "Licença digital; confirme a modalidade de ativação antes da compra",
     price: 19.9,
     paymentLink: "https://mpago.la/2vmYcir",
     accessMode: "pending",
@@ -46,7 +46,7 @@ const PRODUCTS = Object.freeze({
     id: "reaper",
     name: "REAPER 2026",
     edition: "2026",
-    licenseType: "Licença digital vinculada ao computador",
+    licenseType: "Licença digital; confirme a modalidade de ativação antes da compra",
     price: 19.9,
     paymentLink: "https://mpago.la/2GGbxw5",
     accessMode: "pending",
@@ -1275,6 +1275,7 @@ const authMessages = {
   session_store_not_ready: "Estamos restabelecendo a sessão. Aguarde alguns segundos e tente novamente.",
   terms_required: "Você precisa aceitar os termos e a política de privacidade.",
   mfa_failed: "Código de verificação inválido.",
+  invalid_verification_token: "Este link é inválido, expirou ou já foi usado.",
 };
 
 function initLogin() {
@@ -1636,6 +1637,33 @@ function initUnsubscribe() {
   });
 }
 
+function initEmailVerification() {
+  const message = document.querySelector("#verifyEmailMessage");
+  if (!message) return;
+  const continueLink = document.querySelector("#verifyEmailContinue");
+  const token = new URLSearchParams(window.location.hash.slice(1)).get("token") || "";
+  // The secret arrives in the URL fragment, which browsers do not send to the
+  // server or referrer. Remove it from local history before any interaction.
+  if (window.location.hash)
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  if (!/^[A-Za-z0-9_-]{40,160}$/.test(token)) {
+    message.textContent = authMessages.invalid_verification_token;
+    message.dataset.state = "error";
+    return;
+  }
+  void postJson("/api/account/email-verification", { token })
+    .then(({ response, data }) => {
+      if (!response.ok) throw new Error(data.error || "verification_error");
+      message.textContent = "E-mail confirmado. Sua biblioteca e seus chamados estão protegidos.";
+      message.dataset.state = "success";
+      continueLink.hidden = false;
+    })
+    .catch((error) => {
+      message.textContent = authMessages[error.message] || "Não foi possível confirmar este link.";
+      message.dataset.state = "error";
+    });
+}
+
 function initials(nameOrEmail) {
   return (
     String(nameOrEmail || "NX")
@@ -1660,6 +1688,8 @@ function initDashboard() {
   const productCount = document.querySelector("#productCount");
   const ticketCount = document.querySelector("#ticketCount");
   const securityStatus = document.querySelector("#securityStatus");
+  const verificationPanel = document.querySelector("#emailVerificationPanel");
+  const verificationMessage = document.querySelector("#emailVerificationMessage");
 
   const setAvatar = (user) => {
     avatarPreview.textContent = initials(user.name || user.email);
@@ -1676,7 +1706,12 @@ function initDashboard() {
       profileName.value = data.user.name || "";
       profileEmail.value = data.user.email || "";
       welcomeName.textContent = (data.user.name || data.user.email).split(/\s+|@/)[0];
-      securityStatus.textContent = data.user.mfaEnabled ? "MFA ativado" : "MFA disponível";
+      verificationPanel.hidden = Boolean(data.user.emailVerified);
+      securityStatus.textContent = !data.user.emailVerified
+        ? "E-mail pendente"
+        : data.user.mfaEnabled
+          ? "MFA ativado"
+          : "E-mail confirmado";
       const mfaButton = document.querySelector("#mfaSetup");
       const mfaDescription = document.querySelector("#mfaDescription");
       const mfaDisable = document.querySelector("#mfaDisable");
@@ -1728,6 +1763,27 @@ function initDashboard() {
       ordersList.innerHTML = '<div class="empty-state">Não foi possível carregar sua biblioteca agora.</div>';
     }
   };
+
+  document.querySelector("#resendEmailVerification")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    try {
+      button.disabled = true;
+      button.textContent = "Enviando…";
+      verificationMessage.textContent = "";
+      const { response, data } = await postJson("/api/account/email-verification/resend", {});
+      if (!response.ok) throw new Error(data.error || "verification_resend_error");
+      verificationMessage.textContent = data.verificationSent
+        ? "Novo link enviado. Confira também a caixa de spam."
+        : "O link não pôde ser enviado agora. Tente novamente ou fale com o suporte.";
+      verificationMessage.dataset.state = data.verificationSent ? "success" : "error";
+    } catch {
+      verificationMessage.textContent = "Não foi possível reenviar agora. Tente novamente em alguns minutos.";
+      verificationMessage.dataset.state = "error";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Reenviar link de confirmação";
+    }
+  });
 
   const loadTickets = async () => {
     try {
@@ -1869,7 +1925,13 @@ function initDashboard() {
 
   const refreshAccount = async () => {
     const user = await loadAccount();
-    if (user) await Promise.all([loadOrders(), loadTickets()]);
+    if (user?.emailVerified) await Promise.all([loadOrders(), loadTickets()]);
+    else if (user) {
+      productCount.textContent = "—";
+      ticketCount.textContent = "—";
+      ordersList.innerHTML = '<div class="empty-state">Confirme seu e-mail para abrir a biblioteca.</div>';
+      ticketList.innerHTML = '<div class="empty-state">Confirme seu e-mail para consultar seus chamados.</div>';
+    }
   };
   document.querySelector("#retryAccountLoad")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
@@ -2085,6 +2147,7 @@ initCompatibilityChecklist();
 initRecommendation();
 initLeadForm();
 initUnsubscribe();
+initEmailVerification();
 initDashboard();
 initCheckoutSuccess();
 applyQueryPrefill();
