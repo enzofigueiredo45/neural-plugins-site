@@ -290,7 +290,7 @@ test("homepage has an interactive production selector and a non-numbered studio 
   assert.match(styles, /\.signal-led/);
 });
 
-test("digital delivery and activation promise is consistent through purchase", () => {
+test("digital delivery timing is consistent and activation claims stay qualified", () => {
   for (const file of [
     "index.html",
     "produto-neural-x.html",
@@ -307,7 +307,7 @@ test("digital delivery and activation promise is consistent through purchase", (
   const email = fs.readFileSync(path.join(root, "lib/email.js"), "utf8");
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.match(main, /link de download e as instruções de ativação/);
-  assert.match(server, /link de download e as instruções de ativação/);
+  assert.match(server, /instruções correspondentes ao produto e à edição/);
   assert.match(email, /Links de download/);
   assert.match(email, /em até 4 horas/);
   assert.match(index, /"@type": "FAQPage"[\s\S]*link de download e as instruções de ativação[\s\S]*em até 4 horas/);
@@ -366,19 +366,31 @@ test("free compatibility checklist works without lead capture and avoids certifi
   assert.match(script, /checklist_download/);
 });
 
-test("product pages and cart disclose the computer-bound digital license", () => {
+test("product pages qualify unverified activation details before checkout", () => {
   for (const file of [
     "produto-neural-x.html",
     "produto-fl-studio.html",
     "produto-reaper.html",
   ]) {
     const html = fs.readFileSync(path.join(root, file), "utf8");
-    assert.match(html, /Licença digital vinculada ao computador/i);
+    assert.match(html, /confirme a modalidade/i);
+    assert.doesNotMatch(html, /ativação (?:simples|vinculada)|licença digital vinculada/i);
   }
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const terms = fs.readFileSync(path.join(root, "terms.html"), "utf8");
-  assert.match(main, /licenseType: "Licença digital vinculada ao computador"/);
-  assert.match(terms, /licenças ficam vinculadas ao computador usado na ativação/i);
+  assert.match(main, /licenseType: "Licença digital; confirme a modalidade de ativação antes da compra"/);
+  assert.match(terms, /confirme com o suporte antes do pagamento/i);
+  assert.doesNotMatch(terms, /licenças ficam vinculadas ao computador usado na ativação/i);
+});
+
+test("email verification page keeps its one-use token out of network URLs", () => {
+  const html = fs.readFileSync(path.join(root, "verify-email.html"), "utf8");
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  assert.match(html, /name="robots" content="noindex,nofollow"/);
+  assert.match(html, /name="referrer" content="no-referrer"/);
+  assert.match(main, /window\.location\.hash\.slice\(1\)/);
+  assert.match(main, /window\.history\.replaceState/);
+  assert.doesNotMatch(html, /\?token=/);
 });
 
 test("storefront identifies the business and preserves the legal refund window", () => {

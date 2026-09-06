@@ -21,6 +21,13 @@ const { createClient } = require("redis");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
 const { createDatabaseReadiness } = require("./lib/database-readiness");
+const { createCheckoutIdempotencyKey } = require("./lib/checkout-idempotency");
+const {
+  VERIFICATION_PURPOSE,
+  createAccountVerification,
+  hashAccountToken,
+  isAccountToken,
+} = require("./lib/account-verification");
 const { saveLead } = require("./lib/lead-storage");
 const {
   isStripePriceId,
@@ -35,11 +42,11 @@ const {
 } = require("./lib/catalog");
 const {
   getEmailConfig,
+  sendEmailVerificationEmail,
   sendOrderConfirmationEmail,
   sendRecommendationEmail,
   sendSupportConfirmationEmail,
   sendSupportNotificationEmail,
-  sendWelcomeEmail,
 } = require("./lib/email");
 const {
   createUnsubscribeToken,
@@ -451,6 +458,7 @@ app.get("/robots.txt", (req, res) => {
         "Disallow: /client-dashboard.html",
         "Disallow: /client-login.html",
         "Disallow: /client-register.html",
+        "Disallow: /verify-email.html",
         "Disallow: /success.html",
         "Disallow: /api/",
         "",
@@ -486,7 +494,7 @@ app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res
 );
 const publicPages = new Set([
   "404.html", "index.html", "cart.html", "client-dashboard.html",
-  "client-login.html", "client-register.html", "contact.html", "privacy.html",
+  "client-login.html", "client-register.html", "verify-email.html", "contact.html", "privacy.html",
   "checklist-software-musical.html", "guia-escolher-daw.html",
   "guia-plugins-guitarra.html", "guias.html", "unsubscribe.html",
   "googleab9c8b948f79ec49.html",
@@ -741,8 +749,8 @@ async function getUserSummaryByEmail(email) {
   if (!email) return null;
   return db.getOne(
     db.usePostgres
-      ? "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = $1 LIMIT 1"
-      : "SELECT id, email, role, name, mfa_enabled FROM users WHERE email = ? LIMIT 1",
+      ? "SELECT id, email, role, name, mfa_enabled, email_verified_at FROM users WHERE email = $1 LIMIT 1"
+      : "SELECT id, email, role, name, mfa_enabled, email_verified_at FROM users WHERE email = ? LIMIT 1",
     [email],
   );
 }
@@ -776,9 +784,85 @@ async function createUser(
   return { id: inserted.lastID, email, role, name };
 }
 
+async function issueEmailVerification(userId) {
+  const verification = createAccountVerification();
+  await db.run(
+    db.usePostgres
+      ? "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL"
+      : "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND purpose = ? AND used_at IS NULL",
+    [userId, VERIFICATION_PURPOSE],
+  );
+  await db.run(
+    db.usePostgres
+      ? "INSERT INTO account_tokens (user_id, purpose, token_hash, expires_at) VALUES ($1, $2, $3, $4)"
+      : "INSERT INTO account_tokens (user_id, purpose, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+    [
+      userId,
+      VERIFICATION_PURPOSE,
+      verification.tokenHash,
+      verification.expiresAt,
+    ],
+  );
+  return verification.token;
+}
+
+async function consumeEmailVerification(token) {
+  if (!isAccountToken(token)) return null;
+  const tokenHash = hashAccountToken(token);
+  if (db.usePostgres) {
+    return db.run(
+      `WITH claimed AS (
+        UPDATE account_tokens
+        SET used_at = CURRENT_TIMESTAMP
+        WHERE token_hash = $1
+          AND purpose = $2
+          AND used_at IS NULL
+          AND expires_at > CURRENT_TIMESTAMP
+        RETURNING user_id
+      )
+      UPDATE users
+      SET email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = (SELECT user_id FROM claimed)
+      RETURNING id, email, role, name, email_verified_at`,
+      [tokenHash, VERIFICATION_PURPOSE],
+    );
+  }
+  const stored = await db.getOne(
+    "SELECT id, user_id FROM account_tokens WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > CURRENT_TIMESTAMP LIMIT 1",
+    [tokenHash, VERIFICATION_PURPOSE],
+  );
+  if (!stored) return null;
+  const claimed = await db.run(
+    "UPDATE account_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL AND expires_at > CURRENT_TIMESTAMP",
+    [stored.id],
+  );
+  if (claimed?.changes !== 1) return null;
+  await db.run(
+    "UPDATE users SET email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [stored.user_id],
+  );
+  return db.getOne(
+    "SELECT id, email, role, name, email_verified_at FROM users WHERE id = ? LIMIT 1",
+    [stored.user_id],
+  );
+}
+
 function requireAuth(req, res, next) {
   if (!req.session.user)
     return res.status(401).json({ ok: false, error: "unauthorized" });
+  return next();
+}
+
+async function requireVerifiedAccount(req, res, next) {
+  const user = await getUserSummaryByEmail(req.session.user?.email);
+  if (!user?.email_verified_at)
+    return res.status(403).json({
+      ok: false,
+      error: "email_verification_required",
+      requestId: req.requestId,
+    });
+  req.verifiedUser = user;
   return next();
 }
 
@@ -1411,15 +1495,78 @@ app.post(
       throw error;
     }
     await establishUserSession(req, user);
-    await sendEmailSafely(
-      "welcome",
-      () => sendWelcomeEmail({ email, name }),
-      { requestId: req.requestId },
-    );
+    let verificationSent = false;
+    try {
+      const token = await issueEmailVerification(user.id);
+      const verificationUrl = `${canonicalUrl}/verify-email.html#token=${encodeURIComponent(token)}`;
+      const delivery = await sendEmailSafely(
+        "email_verification",
+        () =>
+          sendEmailVerificationEmail({
+            email,
+            name,
+            verificationUrl,
+            requestId: req.requestId,
+          }),
+        { requestId: req.requestId },
+      );
+      verificationSent = Boolean(delivery?.sent);
+    } catch (error) {
+      logError("email_verification_issue_error", error, req.requestId);
+    }
     return res.status(201).json({
       ok: true,
       authenticated: true,
+      emailVerified: false,
+      verificationSent,
       csrfToken: req.session.csrfToken,
+    });
+  }),
+);
+
+app.post(
+  "/api/account/email-verification",
+  accountLimiter,
+  asyncHandler(requireDatabase),
+  asyncHandler(async (req, res) => {
+    const user = await consumeEmailVerification(String(req.body?.token || ""));
+    if (!user)
+      return res.status(400).json({
+        ok: false,
+        error: "invalid_verification_token",
+        requestId: req.requestId,
+      });
+    logEvent("email_verified", { requestId: req.requestId, userId: user.id });
+    return res.json({ ok: true });
+  }),
+);
+
+app.post(
+  "/api/account/email-verification/resend",
+  accountLimiter,
+  asyncHandler(requireDatabase),
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = await getUserSummaryByEmail(req.session.user.email);
+    if (!user)
+      return res.status(401).json({ ok: false, error: "unauthorized" });
+    if (user.email_verified_at) return res.status(202).json({ ok: true });
+    const token = await issueEmailVerification(user.id);
+    const verificationUrl = `${canonicalUrl}/verify-email.html#token=${encodeURIComponent(token)}`;
+    const delivery = await sendEmailSafely(
+      "email_verification",
+      () =>
+        sendEmailVerificationEmail({
+          email: user.email,
+          name: user.name,
+          verificationUrl,
+          requestId: req.requestId,
+        }),
+      { requestId: req.requestId },
+    );
+    return res.status(202).json({
+      ok: true,
+      verificationSent: Boolean(delivery?.sent),
     });
   }),
 );
@@ -1604,6 +1751,7 @@ app.get(
         role: req.session.user.role,
         name: user?.name || "Cliente Neural X",
         mfaEnabled: Boolean(user?.mfa_enabled),
+        emailVerified: Boolean(user?.email_verified_at),
       },
     });
   }),
@@ -1833,6 +1981,7 @@ app.get(
   "/api/support-tickets",
   asyncHandler(requireDatabase),
   requireAuth,
+  asyncHandler(requireVerifiedAccount),
   asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
@@ -1848,6 +1997,7 @@ app.get(
   "/api/orders",
   asyncHandler(requireDatabase),
   requireAuth,
+  asyncHandler(requireVerifiedAccount),
   asyncHandler(async (req, res) => {
     const rows = await db.query(
       db.usePostgres
@@ -1950,42 +2100,42 @@ app.post(
         requestId: req.requestId,
       });
 
-    const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
-    const idempotencyKey = createHash("sha256")
-      .update(`${req.sessionID}:${JSON.stringify(lineItems)}:${bucket}`)
-      .digest("hex");
+    const checkoutPayload = {
+      mode: "payment",
+      locale: "pt-BR",
+      integration_identifier: "neural_x_qmvkzpta",
+      line_items: lineItems,
+      customer_email: req.session.user?.email || undefined,
+      client_reference_id: req.session.user?.id
+        ? String(req.session.user.id)
+        : undefined,
+      success_url: `${canonicalUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${canonicalUrl}/cart.html?checkout=cancelled`,
+      after_expiration: { recovery: { enabled: true } },
+      custom_text: {
+        submit: {
+          message: "Use um e-mail que você acessa. O link e as instruções correspondentes ao produto e à edição informados no pedido serão enviados a esse endereço em até 4 horas.",
+        },
+      },
+      metadata: {
+        source: "neural-x-site",
+        catalog_version: "2026-09-06",
+        license_type: "digital",
+        cart: JSON.stringify(
+          cart.map(({ id, quantity }) => ({ id, quantity })),
+        ),
+        ...attribution,
+      },
+    };
+    const idempotencyKey = createCheckoutIdempotencyKey({
+      sessionId: req.sessionID,
+      payload: checkoutPayload,
+    });
 
     try {
       const checkout = await stripeClient.checkout.sessions.create(
-        {
-          mode: "payment",
-          locale: "pt-BR",
-          integration_identifier: "neural_x_qmvkzpta",
-          line_items: lineItems,
-          customer_email: req.session.user?.email || undefined,
-          client_reference_id: req.session.user?.id
-            ? String(req.session.user.id)
-            : undefined,
-          success_url: `${canonicalUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${canonicalUrl}/cart.html?checkout=cancelled`,
-          after_expiration: { recovery: { enabled: true } },
-          custom_text: {
-            submit: {
-              message: "Use um e-mail que você acessa. O link de download e as instruções de ativação serão enviados a esse endereço em até 4 horas. A licença digital fica vinculada ao computador usado na ativação.",
-            },
-          },
-          metadata: {
-            source: "neural-x-site",
-            catalog_version: "2026-08-23",
-            license_type: "digital",
-            device_binding: "computer",
-            cart: JSON.stringify(
-              cart.map(({ id, quantity }) => ({ id, quantity })),
-            ),
-            ...attribution,
-          },
-        },
-        { idempotencyKey: `checkout-${idempotencyKey}` },
+        checkoutPayload,
+        { idempotencyKey },
       );
       logEvent("checkout_created", {
         requestId: req.requestId,

@@ -40,10 +40,14 @@ function registrationFixture(options = {}) {
       if (options.insertError) throw Object.assign(new Error("insert failed"), { code: options.insertError });
       return { id: 42, email, role, name };
     },
+    issueEmailVerification: async () => { events.push("issue-token"); return "verification-token"; },
+    canonicalUrl: "https://neuralx.example",
+    encodeURIComponent,
+    logError: () => { events.push("log-error"); },
     sendEmailSafely: async (_type, operation) => operation(),
-    sendWelcomeEmail: async () => { events.push("email"); return { sent: true }; },
+    sendEmailVerificationEmail: async () => { events.push("email"); return { sent: true }; },
   });
-  const route = server.slice(server.indexOf('app.post(\n  "/api/register"'), server.indexOf('app.post(\n  "/api/login/:role"'));
+  const route = server.slice(server.indexOf('app.post(\n  "/api/register"'), server.indexOf('app.post(\n  "/api/account/email-verification"'));
   vm.runInContext([fn(server, "isStrongPassword"), fn(server, "saveSession"), fn(server, "establishUserSession"), route].join("\n"), context);
   return { events, req, res, run: () => handler(req, res) };
 }
@@ -59,8 +63,10 @@ test("signup authenticates only the created user, rotates CSRF and saves before 
   assert.equal(fixture.req.session.user.email, account.email);
   assert.equal(fixture.req.session.user.role, "client");
   assert.equal(fixture.req.session.mfaTemp, undefined);
-  assert.deepEqual(fixture.events, ["hash", "lookup", "insert", "regenerate", "save", "email", "response"]);
-  assert.doesNotMatch(JSON.stringify(fixture.res.body), /email|password|name/);
+  assert.deepEqual(fixture.events, ["hash", "lookup", "insert", "regenerate", "save", "issue-token", "email", "response"]);
+  assert.equal(fixture.res.body.emailVerified, false);
+  assert.equal(fixture.res.body.verificationSent, true);
+  assert.doesNotMatch(JSON.stringify(fixture.res.body), /qa@example|Aa1!abcd|Cliente QA/);
 });
 
 test("duplicate signup does not reveal email_taken, authenticate, change a password or send email", async () => {

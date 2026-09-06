@@ -115,6 +115,26 @@ test("account → support → both checkouts → confirmed access, with isolated
   const me = await request("/api/me");
   assert.equal(me.status, 200, "new customer must already be signed in");
   assert.equal(me.data.user.email, account.email);
+  assert.equal(me.data.user.emailVerified, false);
+  assert.equal((await request("/api/orders")).status, 403, "an unverified address must not reveal a library");
+  assert.equal((await request("/api/support-tickets")).status, 403, "an unverified address must not reveal private tickets");
+  const userRow = await db.getOne("SELECT id FROM users WHERE email = ?", [account.email]);
+  const { createAccountVerification } = require("../lib/account-verification");
+  const expiredVerification = createAccountVerification(Date.parse("2000-01-01T00:00:00.000Z"));
+  await db.run(
+    "INSERT INTO account_tokens (user_id, purpose, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+    [userRow.id, expiredVerification.purpose, expiredVerification.tokenHash, expiredVerification.expiresAt],
+  );
+  assert.equal((await request("/api/account/email-verification", { token: expiredVerification.token })).status, 400);
+  assert.equal((await request("/api/account/email-verification", { token: "invalid" })).status, 400);
+  const validVerification = createAccountVerification();
+  await db.run(
+    "INSERT INTO account_tokens (user_id, purpose, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+    [userRow.id, validVerification.purpose, validVerification.tokenHash, validVerification.expiresAt],
+  );
+  assert.equal((await request("/api/account/email-verification", { token: validVerification.token })).status, 200);
+  assert.equal((await request("/api/account/email-verification", { token: validVerification.token })).status, 400, "verification tokens are one-use");
+  assert.equal((await request("/api/me")).data.user.emailVerified, true);
   const duplicate = await request("/api/register", account);
   assert.equal(duplicate.status, 400);
   assert.equal(duplicate.data.error, "registration_unavailable");
