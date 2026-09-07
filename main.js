@@ -31,7 +31,7 @@ const PRODUCTS = Object.freeze({
     price: 29.9,
     paymentLink: "https://mpago.la/116GVoE",
     accessMode: "pending",
-    image: "/assets/neural-dsp/archetype-john-mayer-x.png",
+    image: "/assets/neural-dsp/archetype-john-mayer-x.webp",
   },
   "fl-studio": {
     id: "fl-studio",
@@ -41,7 +41,7 @@ const PRODUCTS = Object.freeze({
     price: 19.9,
     paymentLink: "https://mpago.la/2vmYcir",
     accessMode: "pending",
-    image: "/assets/product-fl-studio.jpg",
+    image: "/assets/product-fl-studio.webp",
   },
   reaper: {
     id: "reaper",
@@ -51,7 +51,7 @@ const PRODUCTS = Object.freeze({
     price: 19.9,
     paymentLink: "https://mpago.la/2GGbxw5",
     accessMode: "pending",
-    image: "/assets/product-reaper.jpg",
+    image: "/assets/product-reaper.webp",
   },
 });
 
@@ -61,7 +61,7 @@ const HERO_CHOICES = Object.freeze({
     kicker: "Guitarra, baixo e voz",
     description:
       "23 plugins para construir timbres, gravar instrumentos e processar voz em Windows ou macOS.",
-    image: "./assets/neural-dsp/archetype-john-mayer-x.png",
+    image: "./assets/neural-dsp/archetype-john-mayer-x.webp",
     imageAlt: "Interface do plugin Archetype: John Mayer X",
     productUrl: "./produto-neural-x.html",
     demoUrl: "./produto-neural-x.html#demonstracao",
@@ -72,7 +72,7 @@ const HERO_CHOICES = Object.freeze({
     kicker: "Beats, composição e arranjo",
     description:
       "Um fluxo visual para transformar padrões, melodias e automações em músicas completas.",
-    image: "./assets/product-fl-studio.jpg",
+    image: "./assets/product-fl-studio.webp",
     imageAlt: "Interface do FL Studio com piano roll e instrumento aberto",
     productUrl: "./produto-fl-studio.html",
     demoUrl: "./produto-fl-studio.html",
@@ -83,7 +83,7 @@ const HERO_CHOICES = Object.freeze({
     kicker: "Gravação, edição e mixagem",
     description:
       "Uma estação leve e flexível para capturar, editar e mixar projetos multipista.",
-    image: "./assets/product-reaper.jpg",
+    image: "./assets/product-reaper.webp",
     imageAlt: "Interface do REAPER com arranjo multipista e mixer",
     productUrl: "./produto-reaper.html",
     demoUrl: "./produto-reaper.html",
@@ -1558,7 +1558,14 @@ function initCompatibilityChecklist() {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    trackEvent("checklist_download", { content_id: "music-software-checklist", format: "txt" });
+    const downloadData = {
+      content_id: "music-software-checklist",
+      file_name: "neural-x-checklist-software-musical.txt",
+      file_extension: "txt",
+      link_url: "https://neuralxplugins.com.br/checklist-software-musical.html",
+    };
+    trackEvent("checklist_download", downloadData);
+    trackEvent("file_download", downloadData);
   });
 }
 

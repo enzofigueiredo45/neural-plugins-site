@@ -7,6 +7,19 @@
   },
   "cleanUrls": false,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/gratis",
+      "destination": "/gratis.html",
+      "permanent": true
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/email-outbox",
+      "schedule": "0 6 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/assets/:path*",

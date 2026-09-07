@@ -58,6 +58,16 @@ test("production server stays diagnosable when configuration is missing", async 
   const indexResponse = await waitForServer(`http://127.0.0.1:${port}/`);
   assert.equal(indexResponse.status, 200);
 
+  const leadMagnetRedirect = await fetch(
+    `http://127.0.0.1:${port}/gratis?utm_source=instagram&utm_medium=social`,
+    { redirect: "manual" },
+  );
+  assert.equal(leadMagnetRedirect.status, 308);
+  assert.equal(
+    leadMagnetRedirect.headers.get("location"),
+    "/gratis.html?utm_source=instagram&utm_medium=social",
+  );
+
   const catalogResponse = await fetch(`http://127.0.0.1:${port}/api/catalog`);
   assert.equal(catalogResponse.status, 200);
   const catalog = await catalogResponse.json();
@@ -90,6 +100,19 @@ test("checkout uses Stripe dynamic payment methods", () => {
   const server = fs.readFileSync("server.js", "utf8");
   assert.doesNotMatch(server, /payment_method_types\s*:/);
   assert.match(server, /integration_identifier:\s*"neural_x_qmvkzpta"/);
+});
+
+test("Vercel preserves the extensionless lead-magnet route and schedules outbox recovery", () => {
+  const config = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
+  assert.deepEqual(config.redirects, [{
+    source: "/gratis",
+    destination: "/gratis.html",
+    permanent: true,
+  }]);
+  assert.deepEqual(config.crons, [{
+    path: "/api/cron/email-outbox",
+    schedule: "0 6 * * *",
+  }]);
 });
 
 test("Mercado Pago checkout is server-authoritative and webhook-signed", () => {

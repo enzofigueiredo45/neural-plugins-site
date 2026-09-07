@@ -68,9 +68,9 @@ test("Google discovery files cover every public page and product image", () => {
   ])
     assert.match(sitemap, new RegExp(`<loc>https://neuralxplugins\\.com\\.br${page.replace("/", "\\/")}`));
   for (const image of [
-    "archetype-john-mayer-x.png",
-    "product-fl-studio.jpg",
-    "product-reaper.jpg",
+    "archetype-john-mayer-x.webp",
+    "product-fl-studio.webp",
+    "product-reaper.webp",
   ])
     assert.match(sitemap, new RegExp(`<image:loc>[^<]+${image}</image:loc>`));
   assert.match(robots, /Sitemap: https:\/\/neuralxplugins\.com\.br\/sitemap\.xml/);
@@ -288,6 +288,14 @@ test("free checklist landing captures only the required email and keeps marketin
   assert.match(page, /Prefiro abrir sem informar e-mail/);
   assert.match(main, /Abrir o checklist gratuito agora/);
   assert.match(server, /\["guide", \{/);
+  assert.match(page, /"@type": "FAQPage"/);
+  for (const question of [
+    "O checklist é realmente gratuito?",
+    "Quais DAWs posso avaliar com o checklist?",
+    "Preciso criar conta ou aceitar marketing?",
+  ]) {
+    assert.equal(page.split(question).length - 1, 2, `${question} must exist in schema and visible FAQ`);
+  }
 });
 
 test("checkout exposes the refund policy before opening the payment provider", () => {
@@ -313,6 +321,18 @@ test("performance and Clarity measurement remain consent gated", () => {
   assert.match(main, /ad_Storage: "denied"/);
   assert.match(server, /CLARITY_PROJECT_ID/);
   assert.match(policy, /Clarity é carregado somente após essa mesma permissão/);
+});
+
+test("critical pages use compact WebP media and no render-blocking third-party font CSS", () => {
+  for (const file of htmlFiles) {
+    const html = fs.readFileSync(path.join(root, file), "utf8");
+    assert.doesNotMatch(html, /fonts\.googleapis\.com/, file);
+  }
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const product = fs.readFileSync(path.join(root, "produto-neural-x.html"), "utf8");
+  assert.match(index, /heroProductImage[^>]+\.webp[^>]+fetchpriority="high"/);
+  assert.match(product, /neural-dsp-comparacao-clean-neural-x-poster\.webp/);
+  assert.match(product, /loading="lazy"/);
 });
 
 test("homepage has an interactive production selector and a non-numbered studio strip", () => {
@@ -354,6 +374,19 @@ test("digital delivery timing is consistent and activation claims stay qualified
   assert.match(email, /Links de download/);
   assert.match(email, /em até 4 horas/);
   assert.match(index, /"@type": "FAQPage"[\s\S]*link de download e as instruções de ativação[\s\S]*em até 4 horas/);
+});
+
+test("homepage publishes the acquisition and privacy FAQs in visible HTML and FAQ schema", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  for (const question of [
+    "Preciso criar conta para baixar o checklist gratuito?",
+    "Preciso aceitar marketing para receber uma recomendação?",
+    "Como altero minhas preferências de medição?",
+  ]) {
+    assert.equal(index.split(question).length - 1, 2, `${question} must exist in schema and visible FAQ`);
+  }
+  assert.match(index, /consentimento de marketing é opcional e separado/);
+  assert.match(index, /medição de audiência só é ativada após consentimento/);
 });
 
 test("product pages identify the stable store product", () => {
@@ -407,6 +440,7 @@ test("free compatibility checklist works without lead capture and avoids certifi
   assert.match(page, /sem cadastro obrigatório/);
   assert.match(script, /checklist_complete/);
   assert.match(script, /checklist_download/);
+  assert.match(script, /trackEvent\("file_download"/);
 });
 
 test("product pages qualify unverified activation details before checkout", () => {
@@ -453,7 +487,7 @@ test("Neural DSP page includes an accessible measured video demo", () => {
   assert.match(page, /<video[^>]+controls[^>]+playsinline/);
   assert.match(page, /data-product-video="neural-x"/);
   assert.match(page, /neural-dsp-comparacao-clean-neural-x\.mp4/);
-  assert.match(page, /neural-dsp-comparacao-clean-neural-x-poster\.jpg/);
+  assert.match(page, /neural-dsp-comparacao-clean-neural-x-poster\.webp/);
   assert.match(page, /O vídeo demonstra 3 dos 23 plugins/);
   for (const eventName of ["video_start", "video_half", "video_complete"])
     assert.match(main, new RegExp(`"${eventName}"`));

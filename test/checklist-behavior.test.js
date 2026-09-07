@@ -44,5 +44,5 @@ test("checklist counts checks, emits each milestone once and downloads only the 
   const text = await blob.text();
   assert.equal((text.match(/\[x\]/g) || []).length, 6);
   assert.match(text, /não testa o computador nem certifica compatibilidade/);
-  assert.equal(events.at(-1), "checklist_download");
+  assert.deepEqual(events.slice(-2), ["checklist_download", "file_download"]);
 });

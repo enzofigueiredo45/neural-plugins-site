@@ -44,8 +44,7 @@ function registrationFixture(options = {}) {
     canonicalUrl: "https://neuralx.example",
     encodeURIComponent,
     logError: () => { events.push("log-error"); },
-    sendEmailSafely: async (_type, operation) => operation(),
-    sendEmailVerificationEmail: async () => { events.push("email"); return { sent: true }; },
+    queueEmailSafely: async () => { events.push("email"); return { sent: true }; },
   });
   const route = server.slice(server.indexOf('app.post(\n  "/api/register"'), server.indexOf('app.post(\n  "/api/account/email-verification"'));
   vm.runInContext([fn(server, "isStrongPassword"), fn(server, "saveSession"), fn(server, "establishUserSession"), route].join("\n"), context);

@@ -10,14 +10,14 @@
     <link rel="canonical" href="https://neuralxplugins.com.br/">
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
     <link rel="manifest" href="./site.webmanifest">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+
+
     <meta property="og:title" content="Neural X | Plugins e ferramentas para seu som">
     <meta property="og:description" content="Uma loja direta ao ponto para músicos: produtos digitais, checkout protegido e área do cliente.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://neuralxplugins.com.br/">
-    <meta property="og:image" content="https://neuralxplugins.com.br/assets/neural-dsp/archetype-john-mayer-x.png">
+    <meta property="og:image" content="https://neuralxplugins.com.br/assets/neural-dsp/archetype-john-mayer-x.webp">
     <meta property="og:image:alt" content="Interface real do plugin Archetype: John Mayer X disponível na Neural X">
     <meta property="og:locale" content="pt_BR">
     <meta property="og:site_name" content="Neural X">
@@ -63,8 +63,11 @@
             "mainEntity": [
               { "@type": "Question", "name": "Como recebo meu produto?", "acceptedAnswer": { "@type": "Answer", "text": "Após a confirmação do pagamento pela Stripe, o link de download e as instruções de ativação são enviados ao e-mail usado no checkout em até 4 horas." } },
               { "@type": "Question", "name": "O pagamento é seguro?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O pagamento é processado pela Stripe e os dados completos do cartão não são armazenados pela Neural X." } },
-              { "@type": "Question", "name": "Como acesso minhas compras?", "acceptedAnswer": { "@type": "Answer", "text": "Crie uma conta usando o mesmo e-mail informado no pagamento e entre na área do cliente." } }
-              ,{ "@type": "Question", "name": "Como funcionam cancelamento e reembolso?", "acceptedAnswer": { "@type": "Answer", "text": "Solicitações recebem resposta em até 24 horas. Quando o reembolso for devido, a Neural X inicia o estorno em até 24 horas, sem limitar o direito legal de arrependimento de 7 dias para compras online." } }
+              { "@type": "Question", "name": "Como acesso minhas compras?", "acceptedAnswer": { "@type": "Answer", "text": "Crie uma conta usando o mesmo e-mail informado no pagamento e entre na área do cliente." } },
+              { "@type": "Question", "name": "Como funcionam cancelamento e reembolso?", "acceptedAnswer": { "@type": "Answer", "text": "Solicitações recebem resposta em até 24 horas. Quando o reembolso for devido, a Neural X inicia o estorno em até 24 horas, sem limitar o direito legal de arrependimento de 7 dias para compras online." } },
+              { "@type": "Question", "name": "Preciso criar conta para baixar o checklist gratuito?", "acceptedAnswer": { "@type": "Answer", "text": "Não. O checklist pode ser acessado diretamente; o e-mail é necessário apenas para receber uma cópia." } },
+              { "@type": "Question", "name": "Preciso aceitar marketing para receber uma recomendação?", "acceptedAnswer": { "@type": "Answer", "text": "Não. O consentimento de marketing é opcional e separado do envio da recomendação solicitada." } },
+              { "@type": "Question", "name": "Como altero minhas preferências de medição?", "acceptedAnswer": { "@type": "Answer", "text": "Use o controle de privacidade do site para rever a preferência; a medição de audiência só é ativada após consentimento." } }
             ]
           }
         ]
@@ -117,7 +120,7 @@
         <article class="hero-visual hero-offer" id="heroOffer" aria-live="polite">
           <div class="hero-offer-meter" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
           <figure class="hero-offer-media">
-            <img id="heroProductImage" src="./assets/neural-dsp/archetype-john-mayer-x.png" width="900" height="508" alt="Interface do plugin Archetype: John Mayer X" fetchpriority="high">
+            <img id="heroProductImage" src="./assets/neural-dsp/archetype-john-mayer-x.webp" width="900" height="508" alt="Interface do plugin Archetype: John Mayer X" fetchpriority="high">
           </figure>
           <div class="hero-offer-body">
             <p class="hero-offer-kicker" id="heroProductKicker">Guitarra, baixo e voz</p>
@@ -150,10 +153,10 @@
             <article class="product-card">
               <a class="product-media bundle-product-media" href="./produto-neural-x.html" aria-label="Ver a Coleção Neural DSP com 23 plugins" data-offer-select="neural-x" data-placement="catalog_image">
                 <span class="bundle-thumb-grid" aria-hidden="true">
-                  <img src="./assets/neural-dsp/archetype-john-mayer-x.png" width="900" height="508" alt="" loading="lazy">
-                  <img src="./assets/neural-dsp/morgan-amps-suite.png" width="900" height="508" alt="" loading="lazy">
-                  <img src="./assets/neural-dsp/parallax-x.png" width="900" height="508" alt="" loading="lazy">
-                  <img src="./assets/neural-dsp/mantra.png" width="900" height="508" alt="" loading="lazy">
+                  <img src="./assets/neural-dsp/archetype-john-mayer-x.webp" width="900" height="508" alt="" loading="lazy">
+                  <img src="./assets/neural-dsp/morgan-amps-suite.webp" width="900" height="508" alt="" loading="lazy">
+                  <img src="./assets/neural-dsp/parallax-x.webp" width="900" height="508" alt="" loading="lazy">
+                  <img src="./assets/neural-dsp/mantra.webp" width="900" height="508" alt="" loading="lazy">
                 </span>
                 <span class="product-badge">Mais completo</span>
               </a>
@@ -171,7 +174,7 @@
 
             <article class="product-card">
               <a class="product-media" href="./produto-fl-studio.html" aria-label="Ver FL Studio 2026" data-offer-select="fl-studio" data-placement="catalog_image">
-                <img src="./assets/product-fl-studio.jpg" width="1512" height="982" alt="Interface real do FL Studio com browser, piano roll e instrumento aberto" loading="lazy">
+                <img src="./assets/product-fl-studio.webp" width="1512" height="982" alt="Interface real do FL Studio com browser, piano roll e instrumento aberto" loading="lazy">
               </a>
               <div class="product-body">
                 <p class="product-type">Para beats, composição e mixagem</p>
@@ -187,7 +190,7 @@
 
             <article class="product-card">
               <a class="product-media" href="./produto-reaper.html" aria-label="Ver REAPER 2026" data-offer-select="reaper" data-placement="catalog_image">
-                <img src="./assets/product-reaper.jpg" width="1002" height="450" alt="Interface real do REAPER com arranjo multipista e mixer" loading="lazy">
+                <img src="./assets/product-reaper.webp" width="1002" height="450" alt="Interface real do REAPER com arranjo multipista e mixer" loading="lazy">
               </a>
               <div class="product-body">
                 <p class="product-type">Para gravação, edição e mixagem</p>
@@ -324,6 +327,9 @@
             <details><summary>Como entro na área do cliente?</summary><p>Use “Criar conta” e cadastre o mesmo e-mail utilizado no pagamento. Depois, seus pedidos aparecem na biblioteca assim que forem confirmados.</p></details>
             <details><summary>Preciso de ajuda com um pedido. O que faço?</summary><p>Abra um chamado na página de suporte com o e-mail da compra e, se tiver, a referência do pedido.</p></details>
             <details><summary>Como funcionam cancelamento e reembolso?</summary><p>Solicitações recebem resposta em até 24 horas. Quando o reembolso for devido, a Neural X inicia o estorno em até 24 horas; o prazo para aparecer na fatura ou conta depende da Stripe e do meio de pagamento. O direito legal de arrependimento de 7 dias para compras online permanece garantido.</p></details>
+            <details><summary>Preciso criar conta para baixar o checklist gratuito?</summary><p>Não. O checklist pode ser acessado diretamente; o e-mail é necessário apenas para receber uma cópia.</p></details>
+            <details><summary>Preciso aceitar marketing para receber uma recomendação?</summary><p>Não. O consentimento de marketing é opcional e separado do envio da recomendação solicitada.</p></details>
+            <details><summary>Como altero minhas preferências de medição?</summary><p>Use o controle de privacidade do site para rever a preferência; a medição de audiência só é ativada após consentimento.</p></details>
           </div>
         </div>
       </section>

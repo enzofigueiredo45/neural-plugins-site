@@ -12,17 +12,19 @@ Coleta executada em 07/09/2026, por volta de 16:34–16:35 BRT, no PageSpeed Ins
 
 A homepage teve o pior LCP. O relatório estimou 1.320 ms de economia em recursos que bloqueiam renderização e 762 KiB na entrega de imagens. Na página do produto, o maior alerta de bytes foi política de cache, com economia estimada de 4.525 KiB, além de 650 KiB em imagens.
 
-## Issue pronta para revisão
+## Implementação preparada
 
-**Título:** `perf: reduzir LCP mobile da homepage e página principal de produto`
+- 23 imagens do catálogo Neural DSP foram convertidas para WebP: de 4.264.238 bytes para 285.138 bytes, redução de 93,3% nesse conjunto;
+- imagens principais do FL Studio, REAPER e pôster do vídeo também receberam variantes WebP;
+- referências visíveis, dados estruturados, catálogo e sitemap passaram a usar as variantes modernas;
+- a imagem LCP mantém dimensões explícitas e `fetchpriority="high"`; imagens fora da dobra continuam com carregamento tardio;
+- o carregamento externo bloqueante do Google Fonts foi removido e o site usa a pilha de fontes de sistema já definida no CSS;
+- não foi aplicado `immutable` indiscriminadamente: os arquivos não possuem hash de conteúdo no nome e uma política anual imutável poderia manter uma versão antiga após atualização.
 
-**Corpo proposto:**
+## Issue publicada
 
-- baseline PSI Mobile 07/09/2026: home LCP 4,0 s; produto LCP 3,7 s; landing gratuita LCP 2,6 s;
-- priorizar a imagem LCP e os recursos render-blocking da homepage;
-- gerar variante moderna dimensionada da imagem acima da dobra, manter `width`/`height` e `fetchpriority=high`, testar preload somente se a waterfall confirmar benefício;
-- revisar cache dos 23 assets e do vídeo de 5 MiB da página do produto;
-- aceite: nova coleta comparável em três execuções; sem regressão de CLS, acessibilidade ou qualidade visual.
+A issue [#65 — reduzir LCP mobile](https://github.com/enzofigueiredo45/neural-plugins-site/issues/65) registra baseline, tarefas e critérios de aceite.
 
-A issue não foi criada externamente porque isso publica conteúdo no GitHub e exige confirmação no momento da ação.
+## Critério ainda aberto
 
+As metas de LCP só podem ser aceitas depois de publicar a implementação e repetir três medições comparáveis no PageSpeed Insights. Os números desta página continuam sendo o baseline anterior à mudança, não uma estimativa do resultado novo.
