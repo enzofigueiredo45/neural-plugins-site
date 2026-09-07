@@ -1,5 +1,20 @@
 # Runbook e handoff — Neural X
 
+## Atualização operacional — 07/09/2026
+
+O estado “aguardando merge/deploy” abaixo foi superado. As PRs #60, #61 e #62 estão em produção. O SHA produtivo observado é `e27cd806b4a0d571ac1e090e1fbd23a58e64c6e0` e o deploy final está `READY`.
+
+Próximos gates, na ordem:
+
+1. documentar direitos, edição, licença, ativação e reinstalação por SKU;
+2. confirmar Vercel→projeto/branch Neon e restore point sem registrar segredo;
+3. executar `venda-zero-checklist.md` em sandbox e depois uma operação controlada autorizada;
+4. comprovar remetente, SPF/DKIM, inbox e descadastro;
+5. reconciliar Search Console, GA4, Ads e YouTube nas propriedades nativas;
+6. configurar `CLARITY_PROJECT_ID` e verificar as primeiras sessões.
+
+Não repetir o deploy P0. Não restaurar o fallback Pix defeituoso. Usar as seções históricas abaixo apenas como referência de rollback e critérios.
+
 ## Estado entregável
 
 Branch local: `audit/execution-20260906`. A implementação inclui confirmação de e-mail antes de pedidos/chamados, correção da idempotência Stripe, copy de ativação condicionada a prova, testes e documentação. Não está em produção até merge/deploy autorizado e comprovado.

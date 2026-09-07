@@ -1,5 +1,20 @@
 # Evidências sanitizadas — Neural X
 
+## Atualização pós-deploy — 07/09/2026
+
+Esta atualização prevalece sobre as referências históricas abaixo quando houver conflito:
+
+- PR #60 (`739a49f`) está em produção com confirmação de e-mail, tokens de 24 horas, proteção de recursos privados e idempotência de checkout.
+- PR #61 (`42a4695`) está em produção com `/gratis.html`, consentimento de marketing separado, política de reembolso antes do checkout e instrumentação consentida de desempenho/Clarity.
+- PR #62 (`e27cd80`) está em produção com a correção do fallback Pix no carrinho vazio.
+- CI e CodeQL das PRs #61 e #62 concluíram com sucesso.
+- Deploy final observado: `dpl_FzXBB6MtGCjWKKkJfzcXJtUMmJgY`, estado `READY`, aliases canônicos sem erro.
+- Validação pública confirmou: landing gratuita, campo de e-mail, consentimento opcional, acesso direto ao checklist, política de reembolso e carrinho vazio sem nova exceção.
+- Speed Insights passou a carregar após consentimento. Clarity continua inativo enquanto `CLARITY_PROJECT_ID` não for configurado.
+- O deploy final não apresentou logs de servidor `error` ou `fatal` no recorte consultado. Isso não substitui monitoramento contínuo nem teste de carga.
+
+O restante deste documento preserva a fotografia histórica da coleta inicial de 06/09.
+
 Coleta encerrada em 06/09/2026 08:29 BRT. Este arquivo não contém e-mails, tokens, cookies, chaves, URLs privadas de acesso nem strings de conexão.
 
 ## Baseline e leitura

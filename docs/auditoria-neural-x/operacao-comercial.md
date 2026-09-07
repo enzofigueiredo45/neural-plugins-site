@@ -1,5 +1,16 @@
 # Operação comercial — Neural X
 
+## Atualização do funil — 07/09/2026
+
+- `/gratis.html` está em produção com um único campo obrigatório (e-mail), consentimento de marketing separado e acesso ao checklist sem captura forçada.
+- `generate_lead` continua sendo o evento lógico de aceite do backend; visualização ou clique no formulário não contam como lead.
+- A política de cancelamento/reembolso está visível antes do botão de checkout.
+- Speed Insights está ativo após consentimento; Clarity aguarda ID de projeto.
+- Não existe ainda baseline de visitante→lead, lead→compra, AOV, CAC, margem ou ROAS. Esses campos permanecem `NA`, nunca zero por conveniência.
+- O Story de 09/09 às 18h permanece sem sticker clicável no agendamento observado. A correção precisa ocorrer na interface nativa antes da publicação.
+
+O lead magnet v1 é educacional. Nenhum IR, preset ou binário de terceiro foi redistribuído como isca.
+
 ## Oferta e prova por SKU
 
 | SKU | Oferta observada | Preço exibido | Fato preservado | Prova ainda necessária | Estado |
