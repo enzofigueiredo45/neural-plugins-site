@@ -1,5 +1,17 @@
 # Contratos e testes — Neural X
 
+## Atualização de produção — 07/09/2026
+
+- Landing `gratis.html`: e-mail obrigatório; nome ausente aceito; marketing opcional e não pré-marcado.
+- O acesso direto ao checklist permanece disponível sem e-mail.
+- Submissão com interesse `guide` preserva nome real já existente quando o novo pedido não traz nome.
+- Política de reembolso aparece antes do botão da Stripe.
+- Speed Insights e Clarity são condicionados ao consentimento de medição; Clarity também recebe `ad_Storage: denied`.
+- `safeUrl` rejeita valor vazio antes de construir uma URL, evitando o erro do fallback Pix em carrinho vazio.
+- As duas alterações passaram por CI e CodeQL antes do merge.
+
+Testes externos ainda necessários: inbox real controlada, sandbox dos provedores, primeira compra autorizada, propriedade analítica e primeiras métricas de campo.
+
 ## 1. Recomendação e marketing
 
 | Estado/ação | Recomendação solicitada | Marketing | Regra |

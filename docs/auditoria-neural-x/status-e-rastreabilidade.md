@@ -1,5 +1,19 @@
 # Status e rastreabilidade — Neural X
 
+## Estado consolidado — 07/09/2026
+
+- Baseline produtiva atual: `e27cd806b4a0d571ac1e090e1fbd23a58e64c6e0`.
+- PRs #60, #61 e #62: mescladas e publicadas.
+- Segurança de conta/idempotência: `VALIDADO_PRODUCAO` no limite da verificação pública e dos checks automatizados; o teste de inbox e a jornada nativa de pagamento continuam separados.
+- Landing gratuita e consentimento: `VALIDADO_PRODUCAO` por inspeção pública e testes.
+- Política de reembolso no checkout: `VALIDADO_PRODUCAO` por inspeção pública e teste de posição no DOM.
+- Carrinho vazio: `VALIDADO_PRODUCAO`; o erro `pixProduct.id` foi reproduzido, corrigido e não reapareceu após o deploy final.
+- Speed Insights: `VALIDADO_PRODUCAO` quanto ao carregamento após consentimento; métricas de campo ainda `A_EXECUTAR`.
+- Clarity: `PREPARADO`, bloqueado por `CLARITY_PROJECT_ID` e primeiras sessões.
+- Direitos/licença/ativação, Vercel→Neon, compra nativa, inbox real e propriedades analíticas permanecem `BLOQUEADO` ou `A_EXECUTAR` conforme o gate.
+
+As matrizes históricas abaixo devem ser lidas como trilha de decisão, não como o estado mais recente quando contradisserem este bloco.
+
 Data da execução: 06/09/2026. Branch: `audit/execution-20260906`. Baseline: commit `d21c509fbec3d18952566aecce80c42e378b2d9b`, árvore `f085cad64073b2e929f6b2177b754f724ede6f89`.
 
 As classes e estados seguem S00. `VALIDADO_LOCAL` nunca significa produção. Custos “desconhecidos” não significam zero.
