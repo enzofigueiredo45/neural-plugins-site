@@ -14,7 +14,7 @@ Fora do escopo por determinação do proprietário: licenças, planilha/financei
 | A4 — concorrência PostgreSQL | FECHADO | três cenários executados em branch Neon isolada com os resultados exatos esperados |
 | A5 — publicações/UTM/sticker | ABERTO | três agendamentos foram corrigidos e relidos; links de bio não foram validados e o sticker da Story exige ação nativa |
 | A6 — Microsoft Clarity | ABERTO | código respeita consentimento, mas produção retorna Project ID vazio e não existe sessão validada sem PII |
-| A7 — PR/merge/deploy do baseline anterior | FECHADO | PR #64 foi incorporado e o commit `aa562b6` está `READY` em produção; as novas correções deste relatório ainda precisam de PR/merge próprios |
+| A7 — PR/merge/deploy do baseline anterior | FECHADO | PR #64 foi incorporado e o commit `aa562b6` está `READY` em produção; a nova PR #66 está em rascunho, com preview e checks aprovados, sem merge |
 
 ## Bloco A — gates técnicos P0
 
@@ -70,7 +70,7 @@ O site já carrega Clarity somente após consentimento. A configuração públic
 
 ### A7 — FECHADO
 
-O trabalho anterior foi publicado pela PR #64 e o baseline `aa562b6` está `READY` na Vercel. Esta execução parte desse commit e prepara um novo conjunto de mudanças; ele não será incorporado à produção sem confirmação imediatamente antes do merge.
+O trabalho anterior foi publicado pela PR #64 e o baseline `aa562b6` está `READY` na Vercel. Esta execução abriu a PR [#66](https://github.com/enzofigueiredo45/neural-plugins-site/pull/66) em modo rascunho. CI e CodeQL concluíram com sucesso e o preview Vercel ficou `READY`; o conteúdo não será incorporado à produção sem confirmação imediatamente antes do merge.
 
 ## Bloco B — performance e validação
 
@@ -81,7 +81,7 @@ O trabalho anterior foi publicado pela PR #64 e o baseline `aa562b6` está `READ
 | B1.1 imagens | 23 imagens Neural DSP passaram de 4.264.238 para 285.138 bytes (−93,3%); outras três imagens principais receberam WebP; referências e metadados foram atualizados | aguarda publicação e três medições PSI |
 | B1.2 bloqueadores | Google Fonts externo removido; pilha de fonte de sistema preservada; scripts já usam módulo/defer implícito | aguarda waterfall pós-deploy |
 | B1.3 cache | `immutable` anual não foi aplicado a arquivos sem hash, evitando cache antigo permanente | revisar novamente após versionamento de assets |
-| B1.4 GitHub | issue #65 criada com baseline e critérios | PR da implementação ainda não incorporado |
+| B1.4 GitHub | issue #65 criada com baseline e critérios; implementação publicada na PR #66 | PR ainda não incorporada |
 
 Baseline que não deve ser confundido com resultado novo: home LCP 4,0 s; `/gratis.html` 2,6 s; produto 3,7 s. Critério só fecha com home/produto ≤2,5 s e landing ≤2,0 s medidos após o deploy.
 
@@ -217,6 +217,8 @@ Metas de 30 e 90 dias do prompt são objetivos, não previsões nem benchmarks v
 
 - suíte local: 115/115 testes aprovados;
 - auditoria de dependências: 0 vulnerabilidades encontradas;
+- GitHub CI e CodeQL: aprovados na PR #66;
+- Vercel Preview: build em estado `READY`, sem promoção para produção;
 - outbox testada sem PII real;
 - imagens originais foram preservadas para rollback; somente as variantes WebP passaram a ser referenciadas;
 - produção não foi alterada por esta branch durante a elaboração do relatório.
