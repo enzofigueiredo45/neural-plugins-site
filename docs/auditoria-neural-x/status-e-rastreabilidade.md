@@ -2,15 +2,16 @@
 
 ## Estado consolidado — 07/09/2026
 
-- Baseline produtiva atual: `e27cd806b4a0d571ac1e090e1fbd23a58e64c6e0`.
-- PRs #60, #61 e #62: mescladas e publicadas.
-- Segurança de conta/idempotência: `VALIDADO_PRODUCAO` no limite da verificação pública e dos checks automatizados; o teste de inbox e a jornada nativa de pagamento continuam separados.
+- Baseline produtiva atual: `8de974ecd35974f1961993ed516e4c247c9d82f1`.
+- PRs #60, #61, #62 e #63: mescladas e publicadas.
+- Segurança de conta/idempotência: `VALIDADO_PRODUCAO` no limite da verificação pública e dos checks automatizados; o teste de inbox continua separado.
 - Landing gratuita e consentimento: `VALIDADO_PRODUCAO` por inspeção pública e testes.
-- Política de reembolso no checkout: `VALIDADO_PRODUCAO` por inspeção pública e teste de posição no DOM.
-- Carrinho vazio: `VALIDADO_PRODUCAO`; o erro `pixProduct.id` foi reproduzido, corrigido e não reapareceu após o deploy final.
 - Speed Insights: `VALIDADO_PRODUCAO` quanto ao carregamento após consentimento; métricas de campo ainda `A_EXECUTAR`.
 - Clarity: `PREPARADO`, bloqueado por `CLARITY_PROJECT_ID` e primeiras sessões.
-- Direitos/licença/ativação, Vercel→Neon, compra nativa, inbox real e propriedades analíticas permanecem `BLOQUEADO` ou `A_EXECUTAR` conforme o gate.
+- GA4: `VALIDADO_PRODUCAO` para recepção em tempo real após consentimento e `VALIDADO` para associação com Google Ads; associação com Search Console ainda ausente.
+- Search Console: existe apenas a propriedade da URL Vercel; o domínio canônico ainda não foi cadastrado e o sitemap da propriedade antiga registra 11 URLs não permitidas.
+- Vercel→Neon: `INFERIDO_COM_ALTA_CONFIANCA`, ainda não confirmado porque `DATABASE_URL` é segredo write-only no painel.
+- Pagamento foi confirmado como correto pelo proprietário e não integra o registro de pendências desta execução. Licenças também ficaram fora do escopo por instrução do proprietário.
 
 As matrizes históricas abaixo devem ser lidas como trilha de decisão, não como o estado mais recente quando contradisserem este bloco.
 

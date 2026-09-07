@@ -49,6 +49,7 @@ function harness({ consent = "", url = "https://neuralxplugins.com.br/", stored 
     gtag: (...args) => calls.push(args),
     va: (...args) => vercelCalls.push(args),
     addEventListener() {},
+    setTimeout,
     crypto: { randomUUID: () => "test-funnel-id-00000001" },
   };
   const context = vm.createContext({
@@ -141,6 +142,17 @@ test("first-page storefront view remains measurable after consent", () => {
   h.run('trackStorefrontViewOnce("store")');
   h.run('setMeasurementConsent("granted"); trackStorefrontViewOnce("store")');
   assert.equal(h.events("storefront_view").length, 1);
+});
+
+test("50 percent scroll depth is consented and emitted only once", () => {
+  const h = harness({ consent: "granted" });
+  h.document.documentElement.scrollHeight = 2000;
+  h.document.documentElement.clientHeight = 800;
+  h.window.innerHeight = 800;
+  h.window.scrollY = 250;
+  h.run("measureScrollDepth50(); measureScrollDepth50()");
+  assert.equal(h.events("scroll_depth_50").length, 1);
+  assert.equal(h.events("scroll_depth_50")[0][2].percent_scrolled, 50);
 });
 
 test("essential-only discards the pending purchase without a later replay", () => {

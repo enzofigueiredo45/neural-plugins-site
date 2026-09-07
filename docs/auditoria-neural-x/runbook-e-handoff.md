@@ -2,22 +2,23 @@
 
 ## Atualização operacional — 07/09/2026
 
-O estado “aguardando merge/deploy” abaixo foi superado. As PRs #60, #61 e #62 estão em produção. O SHA produtivo observado é `e27cd806b4a0d571ac1e090e1fbd23a58e64c6e0` e o deploy final está `READY`.
+O estado “aguardando merge/deploy” abaixo foi superado. As PRs #60, #61, #62 e #63 estão em produção. O SHA produtivo observado é `8de974ecd35974f1961993ed516e4c247c9d82f1` e o deploy final está `READY`.
 
 Próximos gates, na ordem:
 
-1. documentar direitos, edição, licença, ativação e reinstalação por SKU;
-2. confirmar Vercel→projeto/branch Neon e restore point sem registrar segredo;
-3. executar `venda-zero-checklist.md` em sandbox e depois uma operação controlada autorizada;
-4. comprovar remetente, SPF/DKIM, inbox e descadastro;
-5. reconciliar Search Console, GA4, Ads e YouTube nas propriedades nativas;
-6. configurar `CLARITY_PROJECT_ID` e verificar as primeiras sessões.
+1. confirmar Vercel→projeto/branch Neon sem registrar segredo;
+2. comprovar remetente, SPF/DKIM/DMARC e inbox com destinatário controlado autorizado;
+3. cadastrar o domínio canônico no Search Console, corrigir/submeter o sitemap e associar a propriedade ao GA4;
+4. configurar `CLARITY_PROJECT_ID` e verificar as primeiras sessões após consentimento;
+5. revisar as publicações agendadas com UTM e confirmar manualmente o sticker nativo da Story.
 
-Não repetir o deploy P0. Não restaurar o fallback Pix defeituoso. Usar as seções históricas abaixo apenas como referência de rollback e critérios.
+Pagamento foi confirmado como correto pelo proprietário e não é pendência deste runbook. Licenças estão fora do escopo desta execução.
+
+Não repetir o deploy P0. Usar as seções históricas abaixo apenas como referência de rollback e critérios.
 
 ## Estado entregável
 
-Branch local: `audit/execution-20260906`. A implementação inclui confirmação de e-mail antes de pedidos/chamados, correção da idempotência Stripe, copy de ativação condicionada a prova, testes e documentação. Não está em produção até merge/deploy autorizado e comprovado.
+Branch local desta execução: `codex/correcao-neural-x-20260907`, criada a partir de `origin/main` em `8de974e`. Mudanças desta branch não estão em produção até PR, revisão, merge e deploy autorizados.
 
 ## Gate de preview
 

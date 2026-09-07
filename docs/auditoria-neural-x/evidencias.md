@@ -7,11 +7,17 @@ Esta atualização prevalece sobre as referências históricas abaixo quando hou
 - PR #60 (`739a49f`) está em produção com confirmação de e-mail, tokens de 24 horas, proteção de recursos privados e idempotência de checkout.
 - PR #61 (`42a4695`) está em produção com `/gratis.html`, consentimento de marketing separado, política de reembolso antes do checkout e instrumentação consentida de desempenho/Clarity.
 - PR #62 (`e27cd80`) está em produção com a correção do fallback Pix no carrinho vazio.
+- PR #63 (`8de974e`) está em produção e fecha lacunas documentais da auditoria.
 - CI e CodeQL das PRs #61 e #62 concluíram com sucesso.
-- Deploy final observado: `dpl_FzXBB6MtGCjWKKkJfzcXJtUMmJgY`, estado `READY`, aliases canônicos sem erro.
+- Deploy final observado em 07/09/2026: estado `READY`, commit `8de974e`, aliases canônicos sem erro. O identificador do deployment foi mantido apenas na evidência operacional, sem reutilização automática.
 - Validação pública confirmou: landing gratuita, campo de e-mail, consentimento opcional, acesso direto ao checklist, política de reembolso e carrinho vazio sem nova exceção.
 - Speed Insights passou a carregar após consentimento. Clarity continua inativo enquanto `CLARITY_PROJECT_ID` não for configurado.
 - O deploy final não apresentou logs de servidor `error` ou `fatal` no recorte consultado. Isso não substitui monitoramento contínuo nem teste de carga.
+- GA4 recebeu em tempo real a navegação de teste consentida com `page_view`, `session_start`, `first_visit` e `storefront_view`. A propriedade está associada ao Google Ads e não possui associação com Search Console.
+- Search Console possui a propriedade da URL `neural-plugins-site.vercel.app`, com 2 páginas indexadas e sitemap legível, porém com 11 ocorrências de “URL não permitido”; o domínio canônico `neuralxplugins.com.br` não apareceu entre as propriedades disponíveis.
+- YouTube Studio confirmou 4 inscritos, 2,6 mil visualizações e 3,3 horas de exibição nos últimos 28 dias. O Short mais recente tinha 165 visualizações e 38,1% de visualização média no momento da coleta.
+- Pagamento foi confirmado como correto pelo proprietário e removido do registro de pendências. Licenças não foram avaliadas nesta execução.
+- Na branch `codex/correcao-neural-x-20260907`, `npm run check` concluiu 106/106 testes, `npm run security` encontrou 0 vulnerabilidades e `git diff --check` não encontrou erros. O teste adicional cobre `scroll_depth_50` consentido e emitido uma única vez por carregamento.
 
 O restante deste documento preserva a fotografia histórica da coleta inicial de 06/09.
 

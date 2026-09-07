@@ -19,6 +19,7 @@ let pendingGoogleAdsPurchase = null;
 let pendingAnalyticsPurchase = null;
 let currentAttribution = {};
 let currentPageMeasured = false;
+let scrollDepth50Measured = false;
 const measuredPurchases = new Set();
 const ATTRIBUTION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const ATTRIBUTION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
@@ -311,6 +312,7 @@ function showMeasurementConsent() {
     initSpeedInsights();
     void initClarity();
     trackCurrentPageView();
+    measureScrollDepth50();
     if (pendingAnalyticsPurchase) {
       const { sessionId, data } = pendingAnalyticsPurchase;
       trackPurchaseOnce(sessionId, data);
@@ -491,6 +493,34 @@ function trackEvent(name, data = {}) {
     }
     return true;
   } catch { return false; }
+}
+
+function measureScrollDepth50() {
+  if (scrollDepth50Measured) return true;
+  const documentHeight = Math.max(
+    Number(document.documentElement?.scrollHeight) || 0,
+    Number(document.body?.scrollHeight) || 0,
+  );
+  const viewportHeight = Number(window.innerHeight)
+    || Number(document.documentElement?.clientHeight)
+    || 0;
+  const scrollTop = Number(window.scrollY)
+    || Number(document.documentElement?.scrollTop)
+    || Number(document.body?.scrollTop)
+    || 0;
+  if (!documentHeight || !viewportHeight) return false;
+  if ((scrollTop + viewportHeight) / documentHeight < 0.5) return false;
+  scrollDepth50Measured = trackEvent("scroll_depth_50", {
+    percent_scrolled: 50,
+  });
+  return scrollDepth50Measured;
+}
+
+function initScrollDepthTracking() {
+  const check = () => measureScrollDepth50();
+  window.addEventListener?.("scroll", check, { passive: true });
+  window.addEventListener?.("resize", check);
+  window.setTimeout?.(check, 0);
 }
 
 function getFunnelId() {
@@ -2206,6 +2236,7 @@ function applyQueryPrefill() {
 initAnalytics();
 initMeasurementConsent();
 captureAttribution();
+initScrollDepthTracking();
 // Account forms have no catalog prices to render. Avoid a needless request on
 // the critical signup/login path; the cart and product pages still synchronize.
 if (!document.querySelector("#registerForm, #loginForm")) void syncPublicCatalog();
