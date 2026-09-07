@@ -4,17 +4,16 @@ Atualizado em 07/09/2026. Este documento não contém URL de conexão, credencia
 
 | Camada | Identificador seguro | Evidência | Estado |
 |---|---|---|---|
-| Vercel | projeto `neural-plugins-site` | projeto autenticado; deployment de `8de974e` em estado `READY` | CONFIRMADO |
+| Vercel | projeto `neural-plugins-site` | deployment produtivo do merge `aa562b6` em estado `READY` | CONFIRMADO |
 | Vercel | `DATABASE_URL` em Production e Preview | variável do tipo Secret presente no painel desde 06/08/2026 | CONFIRMADO |
-| Neon | projeto provável `delicate-salad-35514405` | único projeto inspecionado com as tabelas da aplicação | CONFIRMADO COMO CANDIDATO |
-| Neon | branch `production` | única branch listada, pronta e marcada como principal/padrão | CONFIRMADO NO CANDIDATO |
-| Vercel→Neon | projeto/branch exatos contidos em `DATABASE_URL` | valor é write-only e não pode ser revelado no painel após o salvamento | INFERIDO_COM_ALTA_CONFIANCA |
+| Neon | projeto `delicate-salad-35514405` | único projeto acessível com as tabelas reais da aplicação; os outros projetos inspecionados não contêm o schema comercial | CONFIRMADO |
+| Neon | branch `production` | única branch original do projeto, pronta e marcada como principal/padrão | CONFIRMADO |
+| Vercel→Neon | projeto/branch usados em produção | proprietário confirmou a chave configurada; `/api/health` confirmou banco operacional; schema e branch foram reconciliados sem revelar a URL | CONFIRMADO |
 
 ## Conclusão
 
-Há forte convergência para o projeto `delicate-salad-35514405`, branch `production`, mas o critério de aceite do P0-A ainda não foi atingido: o host/identificador embutido no segredo da Vercel não pôde ser comparado diretamente.
+O vínculo produtivo foi confirmado sem copiar ou registrar a connection string. O projeto é `delicate-salad-35514405` e a branch original é `production`.
 
 ## Próximo passo seguro
 
-Um administrador deve comparar, no próprio painel ou ao rotacionar a variável, apenas o identificador do projeto e o nome da branch. Não copiar a string completa para chat, issue, log ou documento. Se a variável for rotacionada, Preview deve apontar para branch isolada, não para produção.
-
+Manter a connection string fora de chat, issue, log e documentação. Em futuras rotações, Preview deve apontar para branch isolada, não para produção.

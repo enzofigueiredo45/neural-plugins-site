@@ -48,6 +48,7 @@ const {
   sendSupportConfirmationEmail,
   sendSupportNotificationEmail,
 } = require("./lib/email");
+const { enqueueEmail, processEmailOutbox } = require("./lib/email-outbox");
 const {
   createUnsubscribeToken,
   readUnsubscribeToken,
@@ -85,36 +86,36 @@ const indexablePages = [
     priority: "0.9",
     changefreq: "weekly",
     images: [
-      "/assets/neural-dsp/archetype-john-mayer-x.png",
-      "/assets/neural-dsp/morgan-amps-suite.png",
-      "/assets/neural-dsp/parallax-x.png",
-      "/assets/neural-dsp/mantra.png",
+      "/assets/neural-dsp/archetype-john-mayer-x.webp",
+      "/assets/neural-dsp/morgan-amps-suite.webp",
+      "/assets/neural-dsp/parallax-x.webp",
+      "/assets/neural-dsp/mantra.webp",
     ],
   },
   {
     path: "/produto-fl-studio.html",
     priority: "0.8",
     changefreq: "weekly",
-    images: ["/assets/product-fl-studio.jpg"],
+    images: ["/assets/product-fl-studio.webp"],
   },
   {
     path: "/produto-reaper.html",
     priority: "0.8",
     changefreq: "weekly",
-    images: ["/assets/product-reaper.jpg"],
+    images: ["/assets/product-reaper.webp"],
   },
   { path: "/guias.html", priority: "0.8", changefreq: "weekly" },
   {
     path: "/guia-plugins-guitarra.html",
     priority: "0.8",
     changefreq: "monthly",
-    images: ["/assets/neural-dsp/archetype-john-mayer-x.png"],
+    images: ["/assets/neural-dsp/archetype-john-mayer-x.webp"],
   },
   {
     path: "/guia-escolher-daw.html",
     priority: "0.8",
     changefreq: "monthly",
-    images: ["/assets/product-fl-studio.jpg", "/assets/product-reaper.jpg"],
+    images: ["/assets/product-fl-studio.webp", "/assets/product-reaper.webp"],
   },
   {
     path: "/checklist-software-musical.html",
@@ -156,19 +157,52 @@ function logEvent(event, details = {}) {
   console.log("application_event", { event, ...details });
 }
 
-async function sendEmailSafely(type, operation, details = {}) {
+const emailOutboxSenders = Object.freeze({
+  email_verification: sendEmailVerificationEmail,
+  order_confirmation: sendOrderConfirmationEmail,
+  recommendation: sendRecommendationEmail,
+  support_confirmation: sendSupportConfirmationEmail,
+  support_notification: sendSupportNotificationEmail,
+});
+
+function emailOutboxSecret() {
+  return process.env.EMAIL_OUTBOX_SECRET || process.env.SESSION_SECRET || "";
+}
+
+async function queueEmailSafely(type, payload, dedupeKey, details = {}) {
   try {
-    const result = await operation();
+    const row = await enqueueEmail(db, {
+      dedupeKey,
+      emailType: type,
+      payload,
+      secret: emailOutboxSecret(),
+    });
+    const result = row?.status === "sent"
+      ? { claimed: 0, sent: 1, retry: 0, deadLetter: 0 }
+      : await processEmailOutbox({
+          db,
+          secret: emailOutboxSecret(),
+          senders: emailOutboxSenders,
+          limit: 1,
+          ids: row?.id ? [row.id] : [],
+        });
     logEvent("transactional_email", {
       type,
-      sent: Boolean(result?.sent),
-      skipped: result?.skipped || undefined,
+      queued: Boolean(row?.id),
+      sent: result.sent > 0,
+      retry: result.retry > 0,
+      deadLetter: result.deadLetter > 0,
       ...details,
     });
-    return result;
+    return {
+      queued: Boolean(row?.id),
+      sent: result.sent > 0,
+      retry: result.retry > 0,
+      deadLetter: result.deadLetter > 0,
+    };
   } catch (error) {
-    logError(`transactional_email_${type}_error`, error, details.requestId);
-    return { sent: false, error: true };
+    logError(`transactional_email_${type}_outbox_error`, error, details.requestId);
+    return { queued: false, sent: false, error: true };
   }
 }
 
@@ -495,6 +529,11 @@ app.use("/assets", express.static(path.join(root, "assets"), {
 app.get(["/main.js", "/styles.css", "/llms.txt", "/site.webmanifest"], (req, res) =>
   res.sendFile(path.join(root, req.path.slice(1))),
 );
+app.get("/gratis", (req, res) => {
+  const queryIndex = req.originalUrl.indexOf("?");
+  const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
+  return res.redirect(308, `/gratis.html${query}`);
+});
 const publicPages = new Set([
   "404.html", "index.html", "cart.html", "client-dashboard.html",
   "client-login.html", "client-register.html", "verify-email.html", "contact.html", "privacy.html",
@@ -1203,16 +1242,16 @@ async function processMercadoPagoPayment(paymentId, expectedReference = "") {
     throw mercadoPagoProcessingError("payment_integrity_error", 409);
   const result = await persistMercadoPagoPayment(payment);
   if (result.recorded) {
-    await sendEmailSafely(
+    await queueEmailSafely(
       "order_confirmation",
-      () =>
-        sendOrderConfirmationEmail({
-          checkoutId: `mercado-pago:${paymentId}`,
-          email: result.buyerEmail,
-          products: result.products,
-          amountTotal: result.amountTotal,
-          currency: result.currency,
-        }),
+      {
+        checkoutId: `mercado-pago:${paymentId}`,
+        email: result.buyerEmail,
+        products: result.products,
+        amountTotal: result.amountTotal,
+        currency: result.currency,
+      },
+      `order-confirmation:mercado-pago:${paymentId}`,
       { mercadoPagoPaymentId: paymentId },
     );
   }
@@ -1384,15 +1423,16 @@ async function fulfillCheckoutSession(sessionId) {
   });
   const fulfillment = await persistPaidCheckout(checkout);
   if (fulfillment.recorded) {
-    await sendEmailSafely(
+    await queueEmailSafely(
       "order_confirmation",
-      () => sendOrderConfirmationEmail({
+      {
         checkoutId: checkout.id,
         email: fulfillment.buyerEmail,
         products: fulfillment.products,
         amountTotal: fulfillment.amountTotal,
         currency: fulfillment.currency,
-      }),
+      },
+      `order-confirmation:stripe:${checkout.id}`,
       { checkoutSessionId: checkout.id },
     );
   }
@@ -1458,6 +1498,31 @@ app.get("/api/catalog", (req, res) => {
 });
 
 app.get(
+  "/api/cron/email-outbox",
+  asyncHandler(async (req, res) => {
+    const cronSecret = String(process.env.CRON_SECRET || "");
+    const authorization = String(req.get("authorization") || "");
+    const expected = `Bearer ${cronSecret}`;
+    const authorized =
+      cronSecret.length >= 32 &&
+      authorization.length === expected.length &&
+      timingSafeEqual(Buffer.from(authorization), Buffer.from(expected));
+    if (!authorized)
+      return res.status(401).json({ ok: false, error: "unauthorized" });
+    if (!db || !(await ensureDatabaseReady()))
+      return res.status(503).json({ ok: false, error: "database_not_ready" });
+    const result = await processEmailOutbox({
+      db,
+      secret: emailOutboxSecret(),
+      senders: emailOutboxSenders,
+      limit: 10,
+    });
+    logEvent("email_outbox_worker", result);
+    return res.json({ ok: true, ...result });
+  }),
+);
+
+app.get(
   "/api/csrf-token",
   asyncHandler(async (req, res) => {
     if (!req.session.csrfToken) req.session.csrfToken = randomUUID();
@@ -1509,15 +1574,15 @@ app.post(
     try {
       const token = await issueEmailVerification(user.id);
       const verificationUrl = `${canonicalUrl}/verify-email.html#token=${encodeURIComponent(token)}`;
-      const delivery = await sendEmailSafely(
+      const delivery = await queueEmailSafely(
         "email_verification",
-        () =>
-          sendEmailVerificationEmail({
-            email,
-            name,
-            verificationUrl,
-            requestId: req.requestId,
-          }),
+        {
+          email,
+          name,
+          verificationUrl,
+          requestId: req.requestId,
+        },
+        `email-verification:${req.requestId}`,
         { requestId: req.requestId },
       );
       verificationSent = Boolean(delivery?.sent);
@@ -1563,15 +1628,15 @@ app.post(
     if (user.email_verified_at) return res.status(202).json({ ok: true });
     const token = await issueEmailVerification(user.id);
     const verificationUrl = `${canonicalUrl}/verify-email.html#token=${encodeURIComponent(token)}`;
-    const delivery = await sendEmailSafely(
+    const delivery = await queueEmailSafely(
       "email_verification",
-      () =>
-        sendEmailVerificationEmail({
-          email: user.email,
-          name: user.name,
-          verificationUrl,
-          requestId: req.requestId,
-        }),
+      {
+        email: user.email,
+        name: user.name,
+        verificationUrl,
+        requestId: req.requestId,
+      },
+      `email-verification:${req.requestId}`,
       { requestId: req.requestId },
     );
     return res.status(202).json({
@@ -1864,9 +1929,9 @@ app.post(
       unsubscribeUrl = `${canonicalUrl}/unsubscribe.html?token=${encodeURIComponent(token)}`;
       oneClickUnsubscribeUrl = `${canonicalUrl}/api/marketing/unsubscribe?token=${encodeURIComponent(token)}`;
     }
-    const emailDelivery = await sendEmailSafely(
+    const emailDelivery = await queueEmailSafely(
       "recommendation",
-      () => sendRecommendationEmail({
+      {
         email,
         name,
         recommendation,
@@ -1874,7 +1939,8 @@ app.post(
         unsubscribeUrl,
         oneClickUnsubscribeUrl,
         requestId: req.requestId,
-      }),
+      },
+      `recommendation:${req.requestId}`,
       { requestId: req.requestId },
     );
     return res.status(201).json({
@@ -1957,26 +2023,28 @@ app.post(
       category,
     });
     await Promise.all([
-      sendEmailSafely(
+      queueEmailSafely(
         "support_confirmation",
-        () => sendSupportConfirmationEmail({
+        {
           email,
           name,
           ticketId,
           subject: supportCategories.get(category),
-        }),
+        },
+        `support-confirmation:${ticketId}`,
         { requestId: req.requestId, ticketId },
       ),
-      sendEmailSafely(
+      queueEmailSafely(
         "support_notification",
-        () => sendSupportNotificationEmail({
+        {
           email,
           name,
           ticketId,
           subject: supportCategories.get(category),
           orderReference,
           message,
-        }),
+        },
+        `support-notification:${ticketId}`,
         { requestId: req.requestId, ticketId },
       ),
     ]);
