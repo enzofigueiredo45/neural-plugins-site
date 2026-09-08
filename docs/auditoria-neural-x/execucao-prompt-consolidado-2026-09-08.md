@@ -10,7 +10,7 @@ Auditoria integral do prompt de 878 linhas contra o repositório, produção Ver
 - A performance já atende ao alvo: PageSpeed mobile 100/100/99 e LCP 1,1s/1,2s/1,6s para home, landing gratuita e produto principal.
 - A FAQ da homepage foi alinhada localmente para dez perguntas na tela e no JSON-LD, com teste de regressão.
 - O bloqueio comercial central permanece: não existem documentos de direitos/licenciamento por SKU e não houve decisão do proprietário sobre manter ou bloquear preventivamente o checkout.
-- Não houve compra real, disparo de e-mail real, publicação de código, PR, merge ou deploy nesta execução.
+- Não houve compra real nem disparo de e-mail real. Após autorização complementar do proprietário, a branch de teste Neon foi excluída e a correção da FAQ foi enviada à PR #67; o merge/deploy depende dos checks da PR.
 
 ## Frente A — pendências técnicas
 
@@ -24,7 +24,7 @@ Auditoria integral do prompt de 878 linhas contra o repositório, produção Ver
 | A6 — Clarity | **ABERTO** | `/api/public-config` retorna `clarityProjectId` vazio | criar/fornecer Project ID, configurar variável e validar sessão consentida com mascaramento de PII |
 | A7 — performance | **FECHADO** | PageSpeed mobile: home 100, LCP 1,1s; `/gratis.html` 100, LCP 1,2s; produto Neural X 99, LCP 1,6s; TBT 0 e CLS 0 nas três | monitorar; otimizar o payload de cerca de 5 MB da página de produto como melhoria, não bloqueio |
 | A8 — compra real | **BLOQUEADO** | Neon produtivo: 0 usuários, 0 leads, 0 pedidos, 0 pagos, 0 checkouts e 0 outbox | executar somente depois de A1 e A3, com pagamento controlado e verificação de pedido, entrega, acesso e `purchase` |
-| A9 — FAQ | **CORRIGIDO LOCALMENTE** | dez perguntas visíveis e dez no JSON-LD; teste de paridade adicionado | publicar apenas após revisão/merge autorizados; validar Rich Results/Search Console depois do deploy |
+| A9 — FAQ | **PR #67 ABERTA** | dez perguntas visíveis e dez no JSON-LD; teste de paridade adicionado; branch enviada ao GitHub | aguardar checks, incorporar em `main`, verificar o deploy e validar Rich Results/Search Console |
 
 ### Correções de segurança aplicadas ao prompt
 
@@ -107,7 +107,7 @@ Foram formalizados quatro SOPs em `docs/auditoria-neural-x/sops-operacao-2026-09
 
 - Produção Vercel: projeto `neural-plugins-site`, deployment `READY`, commit `7a9d4b4`.
 - Neon: projeto `delicate-salad-35514405`, branch produtiva `br-twilight-mouse-ackuqsu5`.
-- A branch de teste `test-concorrencia-20260907-v3` ainda existe e não foi apagada sem autorização destrutiva.
+- A branch de teste `test-concorrencia-20260907-v3` (`br-rough-waterfall-acbn4ctv`) foi excluída após autorização explícita do proprietário.
 - Configuração pública: reCAPTCHA vazio, Clarity vazio e Mercado Pago habilitado.
 - Logs históricos mostraram erros antigos de idempotência Stripe e timeout de banco; não constituem erro novo comprovado no deployment atual.
 - Acessibilidade PageSpeed ficou em 96/97; há melhoria futura para links sem nome acessível e trilha de legendas no vídeo.
@@ -140,8 +140,7 @@ Foram formalizados quatro SOPs em `docs/auditoria-neural-x/sops-operacao-2026-09
 | P1 | proprietário + dev | fornecer/configurar Clarity Project ID |
 | P1 | proprietário | publicar cada Story manual com sticker/enquete e testar o link |
 | P1 | proprietário | autorizar conexão Meta/ChatbotX se optar pela automação |
-| P2 | engenharia | revisar, aprovar e publicar a correção local da FAQ; nenhum PR foi aberto |
-| P2 | proprietário | autorizar exclusão da branch Neon de teste, se desejado |
+| P2 | engenharia | aguardar os checks da PR #67, incorporar e verificar o deploy da FAQ |
 
 ## Decisões mínimas para destravar a próxima etapa
 
