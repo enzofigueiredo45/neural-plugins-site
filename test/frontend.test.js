@@ -45,6 +45,27 @@ test("structured data and web manifest contain valid JSON", () => {
   );
 });
 
+test("homepage FAQ schema mirrors every visible FAQ question", () => {
+  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const questions = [
+    "Como recebo meu produto?",
+    "Como funciona a ativação?",
+    "O pagamento é seguro?",
+    "Funciona no meu computador?",
+    "Como entro na área do cliente?",
+    "Preciso de ajuda com um pedido. O que faço?",
+    "Como funcionam cancelamento e reembolso?",
+    "Preciso criar conta para baixar o checklist gratuito?",
+    "Preciso aceitar marketing para receber uma recomendação?",
+    "Como altero minhas preferências de medição?",
+  ];
+
+  for (const question of questions) {
+    const occurrences = index.split(question).length - 1;
+    assert.equal(occurrences, 2, `${question} deve aparecer no schema e na FAQ visível`);
+  }
+});
+
 test("Google discovery files cover every public page and product image", () => {
   const sitemap = fs.readFileSync(path.join(root, "sitemap.xml"), "utf8");
   const robots = fs.readFileSync(path.join(root, "robots.txt"), "utf8");
