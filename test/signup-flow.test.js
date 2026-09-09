@@ -206,8 +206,27 @@ test("temporary account failures stay on the dashboard; only auth failures go to
 test("media-only caching never broadens caching of authenticated APIs or unversioned application code", () => {
   const config = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
   const cached = config.headers.filter((rule) => rule.headers.some((header) => header.key === "Cache-Control"));
-  assert.deepEqual(cached.map((rule) => rule.source), ["/assets/:path*"]);
+  assert.deepEqual(cached.map((rule) => rule.source), [
+    "/assets/:path*",
+    "/client-login.html",
+    "/client-register.html",
+    "/client-dashboard.html",
+  ]);
   assert.equal(cached[0].headers[0].value, "public, max-age=3600, s-maxage=86400");
+  for (const rule of cached.slice(1)) assert.equal(rule.headers[0].value, "no-store");
   assert.match(server, /res\.setHeader\("Cache-Control", "no-store"\)/);
+  assert.match(server, /privateHtmlPages\.has\(page\)/);
   assert.match(main, /if \(!document\.querySelector\("#registerForm, #loginForm"\)\) void syncPublicCatalog\(\)/);
+});
+
+test("CSP uses an explicit image allowlist", () => {
+  const config = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
+  const globalHeaders = config.headers.find((rule) => rule.source === "/(.*)").headers;
+  const csp = globalHeaders.find((header) => header.key === "Content-Security-Policy").value;
+  const imageDirective = csp.split(";").map((part) => part.trim()).find((part) => part.startsWith("img-src "));
+  assert.ok(imageDirective);
+  assert.doesNotMatch(imageDirective, /(?:^|\s)https:(?:\s|$)/);
+  assert.match(imageDirective, /https:\/\/\*\.clarity\.ms/);
+  assert.match(imageDirective, /https:\/\/www\.facebook\.com/);
+  assert.match(server, /imgSrc:\s*\[[\s\S]*?https:\/\/\*\.clarity\.ms[\s\S]*?https:\/\/www\.facebook\.com[\s\S]*?\]/);
 });
