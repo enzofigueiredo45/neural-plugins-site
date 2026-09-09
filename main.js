@@ -6,7 +6,7 @@ const PURCHASE_TRACKING_KEY = "neuralx_ga4_purchases_v2";
 const GOOGLE_ADS_PURCHASE_TRACKING_KEY = "neuralx_google_ads_purchases";
 const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
 const MEASUREMENT_CONSENT_VERSION_KEY = "neuralx_measurement_consent_version";
-const MEASUREMENT_CONSENT_VERSION = "3";
+const MEASUREMENT_CONSENT_VERSION = "4";
 const GOOGLE_ADS_ID = "AW-10867942652";
 const GOOGLE_ANALYTICS_ID = "G-JY83B1EM8L";
 const META_PIXEL_ID = "2096581227895518";
@@ -250,13 +250,38 @@ function initMetaPixel() {
   }
   window.fbq("consent", "grant");
   if (!window.__neuralxMetaPageViewMeasured) {
-    window.fbq("track", "PageView");
+    const eventId = createMetaEventId("PageView");
+    window.fbq("track", "PageView", {}, { eventID: eventId });
     window.__neuralxMetaPageViewMeasured = true;
+    if (window.location.pathname === "/gratis" || window.location.pathname === "/gratis.html")
+      void sendMetaServerPageView(eventId);
   }
   return true;
 }
 
-function trackMetaLead({ interest = "guide" } = {}) {
+function createMetaEventId(eventName) {
+  const suffix = window.crypto?.randomUUID?.()
+    || `${Date.now()}_${Math.random().toString(36).slice(2, 18)}`;
+  return `nx_${eventName}_${suffix}`.slice(0, 100);
+}
+
+async function sendMetaServerPageView(eventId) {
+  try {
+    const config = await getPublicConfig();
+    if (!config.metaServerEventsEnabled) return false;
+    const { response, data } = await postJson("/api/measurement/meta", {
+      eventId,
+      eventName: "PageView",
+      measurementConsent: true,
+      pagePath: window.location.pathname,
+    });
+    return response.ok && data.metaEventSent === true;
+  } catch {
+    return false;
+  }
+}
+
+function trackMetaLead({ interest = "guide", eventId = "" } = {}) {
   if (!initMetaPixel()) return false;
   try {
     window.fbq("track", "Lead", {
@@ -264,7 +289,7 @@ function trackMetaLead({ interest = "guide" } = {}) {
         ? "checklist_software_musical"
         : "recomendacao_de_software",
       content_category: String(interest).slice(0, 40),
-    });
+    }, eventId ? { eventID: eventId } : undefined);
     return true;
   } catch {
     return false;
@@ -1707,6 +1732,8 @@ function initLeadForm() {
     if (!form.reportValidity()) return;
     const fields = form.elements;
     const interest = fields.namedItem("interest").value;
+    const measurementConsent = getMeasurementConsent() === "granted";
+    const metaEventId = measurementConsent ? createMetaEventId("Lead") : "";
     try {
       submit.disabled = true;
       form.setAttribute("aria-busy", "true");
@@ -1722,6 +1749,8 @@ function initLeadForm() {
         companyWebsite: fields.namedItem("companyWebsite")?.value || "",
         attribution: readAttribution(),
         captcha,
+        measurementConsent,
+        metaEventId,
       });
       if (!response.ok) throw new Error(data.error || "lead_error");
       message.textContent = interest === "guide"
@@ -1749,7 +1778,7 @@ function initLeadForm() {
         email_delivery: data.emailSent ? "accepted" : "not_sent",
         marketing_requested: Boolean(data.marketingOptIn),
       });
-      if (data.emailSent) trackMetaLead({ interest });
+      if (data.emailSent) trackMetaLead({ interest, eventId: metaEventId });
       form.reset();
       fields.namedItem("interest").value = interest;
     } catch (error) {

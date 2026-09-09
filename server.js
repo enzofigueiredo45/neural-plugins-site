@@ -54,6 +54,12 @@ const {
   readUnsubscribeToken,
 } = require("./lib/marketing-consent");
 const {
+  getMetaConversionsConfig,
+  isMetaEventId,
+  sanitizeMetaPagePath,
+  sendMetaConversionEvent,
+} = require("./lib/meta-conversions");
+const {
   createPreference: createMercadoPagoPreference,
   getPayment: getMercadoPagoPayment,
   isMercadoPagoPaymentId,
@@ -468,6 +474,12 @@ const supportLimiter = rateLimit({
 const leadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const measurementLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -1486,6 +1498,54 @@ app.get("/api/public-config", (req, res) =>
     recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || "",
     clarityProjectId: process.env.CLARITY_PROJECT_ID || "",
     mercadoPagoCheckoutEnabled: isMercadoPagoConfigured(),
+    metaServerEventsEnabled: getMetaConversionsConfig().enabled,
+  }),
+);
+
+function metaEventContext(req, pagePath) {
+  return {
+    clientIp: String(req.ip || "").slice(0, 64),
+    clientUserAgent: String(req.get("user-agent") || "").slice(0, 500),
+    eventSourceUrl: `${canonicalUrl}${sanitizeMetaPagePath(pagePath)}`,
+  };
+}
+
+async function sendMetaEventSafely(details, requestId) {
+  try {
+    const result = await sendMetaConversionEvent(details);
+    if (result.sent)
+      logEvent("meta_conversion_sent", {
+        requestId,
+        eventName: details.eventName,
+        eventId: details.eventId,
+      });
+    return result;
+  } catch (error) {
+    logError("meta_conversion_error", error, requestId);
+    return { sent: false, reason: "provider_error" };
+  }
+}
+
+app.post(
+  "/api/measurement/meta",
+  measurementLimiter,
+  asyncHandler(async (req, res) => {
+    const eventId = String(req.body?.eventId || "");
+    if (
+      req.body?.eventName !== "PageView" ||
+      req.body?.measurementConsent !== true ||
+      !isMetaEventId(eventId)
+    )
+      return res.status(400).json({ ok: false, error: "invalid_measurement_event" });
+    const result = await sendMetaEventSafely({
+      eventName: "PageView",
+      eventId,
+      ...metaEventContext(req, req.body?.pagePath),
+    }, req.requestId);
+    return res.status(result.sent ? 200 : 202).json({
+      ok: true,
+      metaEventSent: result.sent,
+    });
   }),
 );
 
@@ -1909,6 +1969,8 @@ app.post(
     const email = String(req.body?.email || "").trim().toLowerCase();
     const interest = String(req.body?.interest || "");
     const marketingConsent = req.body?.marketingConsent === true;
+    const measurementConsent = req.body?.measurementConsent === true;
+    const metaEventId = String(req.body?.metaEventId || "");
     if (
       (name.length > 0 && name.length < 2) ||
       name.length > 80 ||
@@ -1943,11 +2005,25 @@ app.post(
       `recommendation:${req.requestId}`,
       { requestId: req.requestId },
     );
+    const metaDelivery = emailDelivery?.sent && measurementConsent && isMetaEventId(metaEventId)
+      ? await sendMetaEventSafely({
+          eventName: "Lead",
+          eventId: metaEventId,
+          ...metaEventContext(req, "/gratis.html"),
+          customData: {
+            content_category: interest.slice(0, 40),
+            content_name: interest === "guide"
+              ? "checklist_software_musical"
+              : "recomendacao_de_software",
+          },
+        }, req.requestId)
+      : { sent: false, reason: "not_eligible" };
     return res.status(201).json({
       ok: true,
       recommendation,
       marketingOptIn: marketingConsent,
       emailSent: Boolean(emailDelivery?.sent),
+      metaEventSent: Boolean(metaDelivery.sent),
     });
   }),
 );
