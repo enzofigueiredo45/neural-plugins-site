@@ -23,7 +23,7 @@ function harness({ consent = "", url = "https://neuralxplugins.com.br/", stored 
   const controls = new Map();
   const localStorage = memoryStorage({
     neuralx_measurement_consent: consent,
-    neuralx_measurement_consent_version: "3",
+    neuralx_measurement_consent_version: "4",
     ...stored,
   });
   const sessionStorage = memoryStorage();
@@ -105,6 +105,7 @@ test("Meta Pixel sends PageView once and a consented Lead without contact data",
   assert.equal(h.run('window.fbq.queue.filter((entry) => entry[0] === "track" && entry[1] === "PageView").length'), 1);
   assert.equal(h.run('window.fbq.queue.filter((entry) => entry[0] === "track" && entry[1] === "Lead").length'), 2);
   assert.doesNotMatch(h.run('JSON.stringify(window.fbq.queue)'), /@|email|phone/i);
+  assert.match(h.run('window.fbq.queue.find((entry) => entry[1] === "PageView")[3].eventID'), /^nx_PageView_/);
 });
 
 test("a new source cannot inherit campaign fields from a different visit", () => {
