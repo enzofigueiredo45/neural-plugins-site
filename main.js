@@ -6,9 +6,10 @@ const PURCHASE_TRACKING_KEY = "neuralx_ga4_purchases_v2";
 const GOOGLE_ADS_PURCHASE_TRACKING_KEY = "neuralx_google_ads_purchases";
 const MEASUREMENT_CONSENT_KEY = "neuralx_measurement_consent";
 const MEASUREMENT_CONSENT_VERSION_KEY = "neuralx_measurement_consent_version";
-const MEASUREMENT_CONSENT_VERSION = "2";
+const MEASUREMENT_CONSENT_VERSION = "3";
 const GOOGLE_ADS_ID = "AW-10867942652";
 const GOOGLE_ANALYTICS_ID = "G-JY83B1EM8L";
+const META_PIXEL_ID = "2096581227895518";
 const GOOGLE_ADS_PURCHASE_DESTINATION =
   "AW-10867942652/-P1jCMGH0-YcEPzJnr4o";
 const PAGE_VARIANT =
@@ -222,6 +223,54 @@ async function initClarity() {
   document.head.append(script);
 }
 
+function initMetaPixel() {
+  if (getMeasurementConsent() !== "granted") return false;
+  if (!window.fbq) {
+    const fbq = function metaPixelQueue() {
+      if (fbq.callMethod) fbq.callMethod.apply(fbq, arguments);
+      else fbq.queue.push(arguments);
+    };
+    fbq.push = fbq;
+    fbq.loaded = true;
+    fbq.version = "2.0";
+    fbq.queue = [];
+    window.fbq = fbq;
+    window._fbq = fbq;
+  }
+  if (!document.querySelector('script[data-meta-pixel="true"]')) {
+    const script = document.createElement("script");
+    script.async = true;
+    script.dataset.metaPixel = "true";
+    script.src = "https://connect.facebook.net/en_US/fbevents.js";
+    document.head.append(script);
+  }
+  if (!window.__neuralxMetaPixelInitialized) {
+    window.fbq("init", META_PIXEL_ID);
+    window.__neuralxMetaPixelInitialized = true;
+  }
+  window.fbq("consent", "grant");
+  if (!window.__neuralxMetaPageViewMeasured) {
+    window.fbq("track", "PageView");
+    window.__neuralxMetaPageViewMeasured = true;
+  }
+  return true;
+}
+
+function trackMetaLead({ interest = "guide" } = {}) {
+  if (!initMetaPixel()) return false;
+  try {
+    window.fbq("track", "Lead", {
+      content_name: interest === "guide"
+        ? "checklist_software_musical"
+        : "recomendacao_de_software",
+      content_category: String(interest).slice(0, 40),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function initGoogleConsentState() {
   if (window.__neuralxGoogleConsentInitialized) return;
   window.dataLayer = window.dataLayer || [];
@@ -303,12 +352,13 @@ function showMeasurementConsent() {
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Preferências de medição");
   panel.innerHTML = `
-    <div><strong>Medição e anúncios</strong><p>Com sua permissão, usamos o Google Analytics para entender o funil e a tag do Google Ads para atribuir compras. Depois de uma compra, o e-mail do checkout pode virar um identificador protegido (hash) para melhorar a medição; o e-mail em texto não é enviado ao Google.</p><a href="./privacy.html">Ver política de privacidade</a></div>
+    <div><strong>Medição e anúncios</strong><p>Com sua permissão, usamos Google Analytics, Google Ads e Meta Pixel para medir páginas e resultados. O evento Lead da Meta só é enviado após o cadastro ser salvo e o envio do e-mail ser aceito, sem compartilhar o endereço de e-mail com a Meta.</p><a href="./privacy.html">Ver política de privacidade</a></div>
     <div class="measurement-consent-actions"><button class="button primary compact" type="button" data-measurement-accept>Aceitar medição</button><button class="button ghost compact" type="button" data-measurement-essential>Somente essenciais</button></div>`;
   panel.querySelector("[data-measurement-accept]")?.addEventListener("click", () => {
     setMeasurementConsent("granted");
     captureAttribution();
     loadGoogleMeasurementTag();
+    initMetaPixel();
     initSpeedInsights();
     void initClarity();
     trackCurrentPageView();
@@ -334,6 +384,7 @@ function showMeasurementConsent() {
       ad_personalization: "denied",
       analytics_storage: "denied",
     });
+    window.fbq?.("consent", "revoke");
     panel.remove();
   });
   document.body.append(panel);
@@ -418,6 +469,7 @@ function initMeasurementConsent() {
   const consent = getMeasurementConsent();
   if (consent === "granted") {
     loadGoogleMeasurementTag();
+    initMetaPixel();
     initSpeedInsights();
     void initClarity();
   }
@@ -439,6 +491,7 @@ function initMeasurementConsent() {
         ad_Storage: "denied",
         analytics_Storage: "denied",
       });
+      window.fbq?.("consent", "revoke");
       clearMeasurementStorage();
       pendingAnalyticsPurchase = null;
       pendingGoogleAdsPurchase = null;
@@ -1696,6 +1749,7 @@ function initLeadForm() {
         email_delivery: data.emailSent ? "accepted" : "not_sent",
         marketing_requested: Boolean(data.marketingOptIn),
       });
+      if (data.emailSent) trackMetaLead({ interest });
       form.reset();
       fields.namedItem("interest").value = interest;
     } catch (error) {
