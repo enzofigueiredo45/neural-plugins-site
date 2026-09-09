@@ -84,6 +84,30 @@ test("production server stays diagnosable when configuration is missing", async 
   assert.equal(JSON.stringify(publicConfig).includes("ACCESS_TOKEN"), false);
   assert.equal(JSON.stringify(publicConfig).includes("WEBHOOK_SECRET"), false);
 
+  for (const page of ["client-login.html", "client-register.html", "client-dashboard.html"]) {
+    const response = await fetch(`http://127.0.0.1:${port}/${page}`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+  }
+
+  const crossOriginRead = await fetch(`http://127.0.0.1:${port}/api/catalog`, {
+    headers: { Origin: "https://attacker.example" },
+  });
+  assert.equal(crossOriginRead.headers.get("access-control-allow-origin"), null);
+
+  const crossOriginWrite = await fetch(`http://127.0.0.1:${port}/api/checkout-session`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: "https://attacker.example",
+      "Sec-Fetch-Site": "cross-site",
+    },
+    body: JSON.stringify({ email: "blocked@example.invalid" }),
+  });
+  assert.equal(crossOriginWrite.status, 403);
+  assert.equal((await crossOriginWrite.json()).error, "origin_not_allowed");
+  assert.equal(crossOriginWrite.headers.get("access-control-allow-origin"), null);
+
   const healthResponse = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(healthResponse.status, 503);
   const health = await healthResponse.json();
