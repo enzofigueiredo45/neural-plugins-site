@@ -285,7 +285,23 @@ app.use(
         ],
         styleSrc: ["'self'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "https://www.google.com",
+          "https://*.google.com",
+          "https://www.gstatic.com",
+          "https://*.gstatic.com",
+          "https://www.google-analytics.com",
+          "https://*.google-analytics.com",
+          "https://www.googleadservices.com",
+          "https://*.googleadservices.com",
+          "https://googleads.g.doubleclick.net",
+          "https://*.doubleclick.net",
+          "https://*.clarity.ms",
+          "https://www.facebook.com",
+          "https://*.facebook.com",
+        ],
         connectSrc: [
           "'self'",
           "https://*.stripe.com",
@@ -555,9 +571,15 @@ const publicPages = new Set([
   "produto-fl-studio.html",
   "produto-neural-x.html", "produto-reaper.html", "success.html", "terms.html",
 ]);
+const privateHtmlPages = new Set([
+  "client-login.html",
+  "client-register.html",
+  "client-dashboard.html",
+]);
 app.get(["/", /^\/[^/]+\.html$/], (req, res, next) => {
   const page = req.path === "/" ? "index.html" : req.path.slice(1);
   if (!publicPages.has(page)) return next();
+  if (privateHtmlPages.has(page)) res.setHeader("Cache-Control", "no-store");
   return res.sendFile(path.join(root, page));
 });
 
