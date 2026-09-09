@@ -138,10 +138,22 @@ test("Google Ads purchase tracking requires consent and preserves transaction va
   assert.match(main, /value: Number\(data\.value \|\| 0\)/);
   assert.match(privacy, /Não ativamos conversões otimizadas sem consentimento/);
   assert.match(privacy, /quando houver consentimento e uma compra paga/);
-  assert.match(main, /MEASUREMENT_CONSENT_VERSION = "2"/);
+  assert.match(main, /MEASUREMENT_CONSENT_VERSION = "3"/);
   assert.match(main, /include_user_data/);
   assert.match(main, /sha256_email_address/);
   assert.match(vercel, /https:\/\/www\.googletagmanager\.com/);
+});
+
+test("Meta Pixel tracks only consented, email-accepted leads", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const privacy = fs.readFileSync(path.join(root, "privacy.html"), "utf8");
+  const vercel = fs.readFileSync(path.join(root, "vercel.json"), "utf8");
+  assert.match(main, /META_PIXEL_ID = "2096581227895518"/);
+  assert.match(main, /getMeasurementConsent\(\) !== "granted"/);
+  assert.match(main, /window\.fbq\("track", "Lead"/);
+  assert.match(main, /if \(data\.emailSent\) trackMetaLead\(\{ interest \}\)/);
+  assert.match(privacy, /o endereço de e-mail não é enviado à Meta/);
+  assert.match(vercel, /https:\/\/connect\.facebook\.net/);
 });
 
 test("Google Analytics measures the consented funnel and deduplicated purchases", () => {

@@ -23,7 +23,7 @@ function harness({ consent = "", url = "https://neuralxplugins.com.br/", stored 
   const controls = new Map();
   const localStorage = memoryStorage({
     neuralx_measurement_consent: consent,
-    neuralx_measurement_consent_version: "2",
+    neuralx_measurement_consent_version: "3",
     ...stored,
   });
   const sessionStorage = memoryStorage();
@@ -90,6 +90,21 @@ test("essential-only does not send custom analytics or persist attribution", () 
   assert.equal(h.vercelCalls.filter((entry) => entry[0] === "event").length, 0);
   assert.equal(h.localStorage.getItem("neuralx_attribution"), null);
   assert.equal(h.sessionStorage.getItem("neuralx_funnel_id"), null);
+});
+
+test("Meta Pixel and Lead remain disabled without measurement consent", () => {
+  const h = harness();
+  assert.equal(h.run('trackMetaLead({ interest: "guide" })'), false);
+  assert.equal(h.run('typeof window.fbq'), "undefined");
+});
+
+test("Meta Pixel sends PageView once and a consented Lead without contact data", () => {
+  const h = harness({ consent: "granted" });
+  h.run('trackMetaLead({ interest: "guide" }); trackMetaLead({ interest: "guide" })');
+  assert.equal(h.run('window.fbq.queue.filter((entry) => entry[0] === "init" && entry[1] === "2096581227895518").length'), 1);
+  assert.equal(h.run('window.fbq.queue.filter((entry) => entry[0] === "track" && entry[1] === "PageView").length'), 1);
+  assert.equal(h.run('window.fbq.queue.filter((entry) => entry[0] === "track" && entry[1] === "Lead").length'), 2);
+  assert.doesNotMatch(h.run('JSON.stringify(window.fbq.queue)'), /@|email|phone/i);
 });
 
 test("a new source cannot inherit campaign fields from a different visit", () => {
