@@ -2280,6 +2280,21 @@ app.post(
       mode: "payment",
       locale: "pt-BR",
       integration_identifier: "neural_x_qmvkzpta",
+      branding_settings: {
+        background_color: "#11110F",
+        button_color: "#E4663D",
+        border_style: "rounded",
+        display_name: "Neural X",
+        font_family: "inter",
+        icon: {
+          type: "url",
+          url: `${canonicalUrl}/assets/checkout-icon.png`,
+        },
+        logo: {
+          type: "url",
+          url: `${canonicalUrl}/assets/checkout-logo.png`,
+        },
+      },
       line_items: lineItems,
       customer_email: req.session.user?.email || undefined,
       client_reference_id: req.session.user?.id

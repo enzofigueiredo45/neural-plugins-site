@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 280">
+  <rect x="16" y="16" width="248" height="248" rx="54" fill="#11110f" stroke="#e4663d" stroke-width="14"/>
+  <path d="M63 204V76h34l64 78V76h40v128h-35l-63-78v78z" fill="#e4663d"/>
+  <path d="M211 76h23v128h-23z" fill="#f5efe4"/>
+  <text x="310" y="168" fill="#f5efe4" font-family="Arial, Helvetica, sans-serif" font-size="96" font-weight="800" letter-spacing="-4">NEURAL X</text>
+  <rect x="314" y="192" width="300" height="10" rx="5" fill="#e4663d"/>
+</svg>

@@ -377,7 +377,7 @@ function showMeasurementConsent() {
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Preferências de medição");
   panel.innerHTML = `
-    <div><strong>Medição e anúncios</strong><p>Com sua permissão, usamos Google Analytics, Google Ads e Meta Pixel para medir páginas e resultados. O evento Lead da Meta só é enviado após o cadastro ser salvo e o envio do e-mail ser aceito, sem compartilhar o endereço de e-mail com a Meta.</p><a href="./privacy.html">Ver política de privacidade</a></div>
+    <div class="measurement-consent-copy"><strong>Medição opcional</strong><p>Ajude a Neural X a entender visitas, leads e compras. Sem aceitar, somente recursos essenciais permanecem ativos.</p><a href="./privacy.html">Como protegemos seus dados</a></div>
     <div class="measurement-consent-actions"><button class="button primary compact" type="button" data-measurement-accept>Aceitar medição</button><button class="button ghost compact" type="button" data-measurement-essential>Somente essenciais</button></div>`;
   panel.querySelector("[data-measurement-accept]")?.addEventListener("click", () => {
     setMeasurementConsent("granted");
@@ -1197,8 +1197,8 @@ const checkoutErrorMessages = {
   stripe_price_not_found: "Um produto está com o preço desatualizado. Fale com o suporte.",
   stripe_authentication_error: "A conexão de pagamento precisa ser revisada.",
   mercado_pago_not_configured: "O Pix automático ainda está sendo configurado. Use a opção disponível ou tente novamente mais tarde.",
-  mercado_pago_authentication_error: "A conexão com o Mercado Pago precisa ser revisada.",
-  mercado_pago_error: "Não foi possível abrir o Mercado Pago agora. Tente novamente.",
+  mercado_pago_authentication_error: "A conexão do Pix precisa ser revisada.",
+  mercado_pago_error: "Não foi possível abrir o pagamento por Pix agora. Tente novamente.",
   database_not_ready: "O registro de pedidos está iniciando. Tente novamente em instantes.",
   invalid_cart: "O carrinho contém um produto indisponível. Atualize-o e tente novamente.",
   invalid_cart_or_missing_price_ids: "O carrinho contém um produto indisponível. Atualize-o e tente novamente.",
@@ -1247,13 +1247,13 @@ function initCart() {
         pixButton.removeAttribute("target");
         pixButton.dataset.checkoutMode = "api";
         delete pixButton.dataset.productId;
-        pixButton.setAttribute("aria-label", "Pagar o carrinho com Pix no Mercado Pago");
+        pixButton.setAttribute("aria-label", "Pagar o carrinho com Pix");
       } else if (manualPixUrl) {
         pixButton.href = manualPixUrl;
         pixButton.target = "_blank";
         pixButton.dataset.checkoutMode = "manual";
         pixButton.dataset.productId = pixProduct.id;
-        pixButton.setAttribute("aria-label", `Pagar ${pixProduct.name} com Pix no Mercado Pago`);
+        pixButton.setAttribute("aria-label", `Pagar ${pixProduct.name} com Pix`);
       } else {
         pixButton.removeAttribute("href");
         delete pixButton.dataset.checkoutMode;
@@ -1263,10 +1263,10 @@ function initCart() {
     if (pixNote) {
       pixNote.hidden = cart.length === 0;
       pixNote.textContent = automaticPixAvailable
-        ? "O Pix abre no Mercado Pago. A aprovação é confirmada automaticamente e o pedido aparece na mesma área de cliente usada pelas compras na Stripe."
+        ? "A aprovação do Pix é confirmada automaticamente e o pedido aparece na sua área de cliente."
         : manualPixUrl
-          ? "O Pix abre no Mercado Pago. Após pagar, guarde o comprovante; a confirmação e a liberação são conferidas manualmente em até 4 horas."
-          : "Para pagar por Pix, deixe apenas uma unidade de um produto no carrinho. A Stripe continua disponível para o carrinho completo.";
+          ? "Após pagar por Pix, guarde o comprovante; a confirmação e a liberação são conferidas manualmente em até 4 horas."
+          : "Para pagar por Pix, deixe apenas uma unidade de um produto no carrinho. O checkout seguro continua disponível para o carrinho completo.";
     }
     if (fulfillmentNote) {
       fulfillmentNote.textContent =
@@ -1328,10 +1328,10 @@ function initCart() {
         });
         pixButton.setAttribute("aria-disabled", "true");
         pixButton.classList.add("is-loading");
-        pixButton.textContent = "Abrindo Mercado Pago…";
+        pixButton.textContent = "Abrindo Pix…";
         if (checkoutButton) checkoutButton.disabled = true;
         if (clearButton) clearButton.disabled = true;
-        if (status) status.textContent = "Conectando com o Mercado Pago.";
+        if (status) status.textContent = "Preparando o pagamento por Pix.";
         const { response, data } = await postJson(
           "/api/create-mercado-pago-checkout",
           { cart, attribution: readAttribution() },
@@ -1353,7 +1353,7 @@ function initCart() {
         });
         const message =
           checkoutErrorMessages[error.message] ||
-          "Não foi possível abrir o Mercado Pago agora. Tente novamente.";
+          "Não foi possível abrir o pagamento por Pix agora. Tente novamente.";
         showToast(message, "error");
         if (status) status.textContent = message;
         pixButton.removeAttribute("aria-disabled");
@@ -1373,7 +1373,7 @@ function initCart() {
       payment_method: "pix",
       product_id: product.id,
     });
-    if (status) status.textContent = "Abrindo o Pix no Mercado Pago em uma nova aba.";
+    if (status) status.textContent = "Abrindo o pagamento por Pix em uma nova aba.";
   });
 
   checkoutButton?.addEventListener("click", async () => {
@@ -1390,7 +1390,7 @@ function initCart() {
       checkoutButton.classList.add("is-loading");
       if (label) label.textContent = "Abrindo checkout…";
       if (clearButton) clearButton.disabled = true;
-      if (status) status.textContent = "Conectando com a Stripe.";
+      if (status) status.textContent = "Abrindo o checkout seguro.";
       const { response, data } = await postJson("/api/create-checkout-session", {
         cart,
         attribution: readAttribution(),
@@ -1414,7 +1414,7 @@ function initCart() {
       if (status) status.textContent = message;
       checkoutButton.disabled = false;
       checkoutButton.classList.remove("is-loading");
-      if (label) label.textContent = "Finalizar na Stripe";
+      if (label) label.textContent = "Pagar no checkout seguro";
       if (clearButton) clearButton.disabled = false;
     }
   });
@@ -2214,7 +2214,7 @@ function initCheckoutSuccess() {
   const sessionId = params.get("session_id");
   const paymentId = params.get("payment_id") || params.get("collection_id");
   const externalReference = params.get("external_reference");
-  const providerName = isMercadoPago ? "Mercado Pago" : "Stripe";
+  const providerName = isMercadoPago ? "Pix" : "checkout seguro";
   const transactionId = isMercadoPago
     ? `mercado_pago:${paymentId || "missing"}`
     : sessionId;
