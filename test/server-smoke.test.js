@@ -124,6 +124,11 @@ test("checkout uses Stripe dynamic payment methods", () => {
   const server = fs.readFileSync("server.js", "utf8");
   assert.doesNotMatch(server, /payment_method_types\s*:/);
   assert.match(server, /integration_identifier:\s*"neural_x_qmvkzpta"/);
+  assert.match(server, /branding_settings:\s*\{/);
+  assert.match(server, /background_color:\s*"#11110F"/);
+  assert.match(server, /button_color:\s*"#E4663D"/);
+  assert.match(server, /display_name:\s*"Neural X"/);
+  assert.match(server, /checkout-logo\.png/);
 });
 
 test("Vercel preserves the extensionless lead-magnet route and schedules outbox recovery", () => {

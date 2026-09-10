@@ -347,6 +347,25 @@ test("checkout exposes the refund policy before opening the payment provider", (
   assert.match(main, /if \(!rawValue\) return fallback/);
 });
 
+test("payment copy presents checkout and Pix clearly while legal terms name both processors", () => {
+  const cart = fs.readFileSync(path.join(root, "cart.html"), "utf8");
+  const terms = fs.readFileSync(path.join(root, "terms.html"), "utf8");
+  assert.match(cart, />Pagar com Pix</);
+  assert.doesNotMatch(cart, />Pagar com Pix no Mercado Pago</);
+  assert.match(cart, />Pagar no checkout seguro</);
+  assert.match(terms, /cartão e outras opções disponíveis processadas pela Stripe/);
+  assert.match(terms, /Pix processado pelo Mercado Pago/);
+});
+
+test("mobile measurement consent is compact and does not span the full desktop viewport", () => {
+  const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
+  const styles = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+  assert.match(main, /Medição opcional/);
+  assert.match(main, /Somente recursos essenciais permanecem ativos/i);
+  assert.match(styles, /\.measurement-consent[\s\S]*?width: min\(46rem, calc\(100vw - 2rem\)\)/);
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?\.measurement-consent-actions[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+});
+
 test("performance and Clarity measurement remain consent gated", () => {
   const main = fs.readFileSync(path.join(root, "main.js"), "utf8");
   const server = fs.readFileSync(path.join(root, "server.js"), "utf8");

@@ -1,6 +1,6 @@
 # Neural X — playbook de crescimento orgânico
 
-**Versão:** 1.0 · **Data:** 01/09/2026 · **Mercado inicial:** Brasil · **Produtos:** Coleção Neural DSP, FL Studio e REAPER
+**Versão:** 2.0 · **Data:** 10/09/2026 · **Mercado inicial:** Brasil · **Produtos:** Coleção Neural DSP, FL Studio e REAPER
 
 Este documento transforma a auditoria do site, do Metricool e da pesquisa de mercado em um sistema de execução. Ele maximiza as chances de alcance, leads e vendas por meio de conteúdo útil, prova real e medição. Nenhuma plataforma permite garantir viralização, seguidores ou faturamento.
 
@@ -8,13 +8,13 @@ Este documento transforma a auditoria do site, do Metricool e da pesquisa de mer
 
 | Ativo | Estado verificado | Próxima ação |
 |---|---|---|
-| Instagram | Conectado ao Metricool como `neural_x_plugins` | Confirmar bio, link, categoria e botão de contato no app |
-| TikTok | Conectado ao Metricool; perfil público `@neural_x_audio` confirmado | Revisar no aplicativo a conta de criador, bio e link |
-| YouTube | Conectado pelo canal `UCqRb4Nc9aO4DDCCe9ZxGlqg` | Revisar descrição, banner, links e playlists |
+| Instagram | Conectado ao Metricool; crescimento inicial de seguidores e alcance confirmado | Substituir curadoria por demonstrações próprias e manter um único link mensurável |
+| TikTok | Conectado ao Metricool; visualizações iniciais, mas nenhum compartilhamento no recorte auditado | Criar testes úteis, reproduzíveis e com identidade Neural X |
+| YouTube | Melhor canal de descoberta bruta no recorte auditado | Publicar Shorts próprios e adicionar UTM individual na descrição |
 | Facebook | Não conectado e não necessário para o primeiro ciclo | Criar apenas quando houver conteúdo e rotina para mantê-lo |
-| Google Ads | Conta `2991549925` conectada ao Metricool; sem gasto/conversão no período consultado | Corrigir a configuração no Ads quando o navegador estiver estável; não ativar mídia paga antes do rastreamento validado |
-| Metricool | Marca `neural_x_plugins`, fuso `America/Sao_Paulo` | Usar como painel social; validar GA4/Stripe para receita |
-| Agendamentos | Nenhum agendamento apareceu no Metricool para 01–30/09/2026 | Não considerar posts agendados até aparecerem no calendário da ferramenta ou da rede |
+| Meta Ads | Existe promoção configurada para visita ao perfil, diferente do objetivo de lead | Pausar a promoção e criar somente um teste para `/gratis`, evento Lead e teto total aprovado |
+| Metricool | Marca conectada no fuso `America/Sao_Paulo` | Usar para distribuição; usar GA4, backend e pagamento confirmado para conversão |
+| Agendamentos | Há conteúdo programado e uma lacuna relevante entre 08/10 e 30/11 | Não renovar cortes de terceiros; preencher a lacuna com produção original da Neural X |
 
 O conector confirma integração, não confirma que todos os perfis estão completos, em modo profissional ou com bio perfeita. Essa revisão final precisa ser feita dentro de cada aplicativo. Perfil público confirmado: <https://www.tiktok.com/@neural_x_audio>.
 
@@ -41,15 +41,21 @@ Mensagens que reduzem risco:
 
 Estimativas de tamanho de mercado publicadas por terceiros devem servir apenas como direção, não como previsão de vendas. A decisão de escala deve vir do funil próprio: retenção, cliques, leads, checkout e compras.
 
-## 3. Sistema de conteúdo
+## 3. Sistema de conteúdo original
 
 | Pilar | Proporção | Exemplos de pauta | CTA |
 |---|---:|---|---|
-| Demonstração de áudio | 30% | A/B de timbre, clean vs. high gain, voz seca/processada | “Ouça a comparação completa no site” |
-| Fluxo de DAW | 25% | beat em 30 s, gravação multipista, automação, edição | “Veja qual ferramenta combina com seu fluxo” |
-| Educação e compatibilidade | 20% | VST3, latência, Windows/macOS/Linux, como escolher DAW | “Abra o guia/checklist antes de comprar” |
-| Comparação honesta | 15% | Neural DSP vs. necessidade, FL vs. REAPER por tarefa | “Responda seu objetivo e receba uma recomendação” |
-| Bastidores e comunidade | 10% | teste real, erro corrigido, resposta a comentário, setup | “Comente seu sistema e o que você produz” |
+| Prova do produto | 45% | tela real, instalação, interface, áudio A/B nivelado e resultado dentro da mix | “Veja a demonstração e a compatibilidade no site” |
+| Educação | 35% | timbre, mix, gravação, fluxo de DAW, latência, formatos e requisitos | “Abra o guia/checklist antes de escolher” |
+| Confiança | 20% | licença, ativação, entrega, suporte, bastidores e resposta a dúvidas reais | “Confira o que está incluído antes de pagar” |
+
+### Regra de identidade
+
+- Todo vídeo novo precisa ser gravado ou dirigido pela Neural X.
+- A primeira cena deve mostrar tela real, mãos, instrumento ou resultado audível; não usar abertura genérica de IA.
+- Usar sempre fundo preto, laranja `#E4663D`, texto creme, a mesma família tipográfica e o mesmo enquadramento-base.
+- Cortes de terceiros já autorizados podem concluir o ciclo atual, mas não formam a linha editorial seguinte e não entram em anúncio sem autorização específica para mídia paga.
+- Não simular áudio, interface, instalação, depoimento ou resultado. Se o material real não existe, a peça não é publicada.
 
 Formato-base de vídeo vertical de 20–40 segundos:
 
@@ -61,9 +67,9 @@ Formato-base de vídeo vertical de 20–40 segundos:
 
 O áudio deve continuar inteligível em celular. Legendas em português precisam ser revisadas manualmente, ter contraste e ficar na área segura. A primeira tela deve funcionar sem som; o áudio original deve ser preservado quando ele for a própria prova do produto.
 
-### Cadência inicial de 30 dias
+### Cadência sustentável de 30 dias
 
-Começar com qualidade sustentável: **5 vídeos verticais por semana**, adaptados para Instagram Reels, TikTok e YouTube Shorts. Nos dias de vídeo, usar **3–6 Stories**: teaser, enquete, trecho do teste, resposta, CTA e link. Isso gera 60–120 Stories no mês, dentro da capacidade real de produção, sem publicar variações vazias.
+Começar com **3 vídeos originais por semana**, adaptando a ideia e a edição para Instagram Reels, TikTok e YouTube Shorts. Nos dias de vídeo, usar **2–4 Stories**: bastidor, enquete, trecho do teste e CTA. Aumentar a frequência somente quando houver material real suficiente sem sacrificar a prova.
 
 Horários iniciais sugeridos pelo “best time” do Metricool no fuso de São Paulo:
 
@@ -73,12 +79,14 @@ Horários iniciais sugeridos pelo “best time” do Metricool no fuso de São P
 
 Esses horários são pontos de partida, não “melhor horário universal”. Depois de 10–14 posts por rede, substituir a recomendação pela hora que gerar melhor retenção e cliques qualificados.
 
-| Semana | Segunda | Terça | Quarta | Quinta | Sexta | Sábado | Domingo |
-|---|---|---|---|---|---|---|---|
-| 1 | Roteiro e gravação | **Neural:** 3 timbres em A/B | **FL:** beat do zero | **REAPER:** gravação multipista | Comparação: qual fluxo? | Responder comentários + Story | Recorte de bastidor |
-| 2 | **Neural:** clean/high gain | Compatibilidade: sistema e formato | **FL:** piano roll/arranjo | **REAPER:** edição rápida | Erro comum de iniciante | Enquete de próxima pauta | FAQ em Stories |
-| 3 | **Neural:** timbre na mix | **FL:** automação | **REAPER:** roteamento | Comparação por objetivo | Resposta em vídeo a comentário | Bastidor do setup | Guia/checklist no Story |
-| 4 | A/B com volume nivelado | Escolha de DAW em 3 perguntas | **Neural:** cadeia de sinal | Demonstração completa curta | Oferta somente se legítima e clara | Recapitulação dos melhores testes | Revisão de métricas |
+| Semana | Prova do produto | Educação | Confiança |
+|---|---|---|---|
+| 1 | Neural: clean/high gain dentro da mix | Checklist de compatibilidade em 3 passos | Como funciona entrega e suporte |
+| 2 | FL: projeto vazio ao primeiro groove | Latência: buffer e impacto real | Bastidor da gravação e arquivos usados |
+| 3 | REAPER: gravação e edição multipista | VST3, sistema e arquitetura | Resposta em vídeo à dúvida mais repetida |
+| 4 | A/B vencedor regravado com outro gancho | Como escolher a ferramenta pelo fluxo | Demonstração completa e limites do produto |
+
+Cada gravação deve gerar: um vídeo vertical principal, um corte de até 15 segundos, uma capa no padrão Neural X e dois Stories. A pauta só é aprovada quando o link e a UTM correspondem ao conteúdo mostrado.
 
 ## 4. Roteiros reutilizáveis
 
@@ -168,7 +176,7 @@ Usar Metricool para distribuição e desempenho social; GA4/Vercel para sessões
 
 ## 8. Regras de otimização
 
-Toda semana:
+Depois de sete dias completos por publicação:
 
 - manter os dois melhores temas por retenção e cliques;
 - regravar os dois piores ganchos com outra abertura;
@@ -176,7 +184,8 @@ Toda semana:
 - comparar apenas uma variável por teste: gancho, duração, CTA ou capa;
 - revisar links quebrados, UTM e página de destino;
 - não aumentar orçamento ou frequência com base em curtidas isoladas;
-- não declarar “vencedor” antes de volume mínimo comparável.
+- não declarar “vencedor” antes de volume mínimo comparável;
+- não fazer alterações diárias no anúncio ou na peça em avaliação.
 
 Critério provisório para selecionar criativos para mídia paga após o primeiro ciclo: retenção acima da mediana da própria rede, pelo menos um sinal de intenção (salvar, compartilhar, comentário qualificado ou clique) e página de destino com sessão rastreada. A compra real e a margem do produto decidem a escala.
 
@@ -192,7 +201,8 @@ Critério provisório para selecionar criativos para mídia paga após o primeir
 - [ ] Compatibilidade e condição da oferta estão verdadeiras.
 - [ ] Não há promessa de resultado garantido, depoimento falso ou urgência fabricada.
 - [ ] Post foi programado/confirmado na rede correta e o horário foi registrado.
-- [ ] Após 24 h e 72 h, métricas foram anotadas no painel.
+- [ ] A integridade técnica foi conferida após a publicação, sem otimizar a peça diariamente.
+- [ ] Depois de 7 dias, retenção, compartilhamentos, cliques, leads e vendas atribuídas foram registrados.
 
 ## Fontes consultadas
 
@@ -201,4 +211,3 @@ Critério provisório para selecionar criativos para mídia paga após o primeir
 - [ScienceDirect: autenticidade e intenção de compra em influência social](https://www.sciencedirect.com/science/article/pii/S0148296323006228) — confiança e inspiração como mediadores; não é promessa de performance.
 - [Business Research Insights: estimativa do mercado de plugins de áudio](https://www.businessresearchinsights.com/market-reports/audio-plugins-market-103442) — estimativa de terceiro usada apenas como contexto de categoria.
 - [Neural DSP — catálogo oficial](https://neuraldsp.com/plugins) — referência de categoria e nomenclatura; não usar como prova de licença da oferta Neural X.
-
